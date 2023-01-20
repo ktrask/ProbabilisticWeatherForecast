@@ -1,12 +1,16 @@
 # Importing flask module in the project is mandatory
 # An object of Flask class is our WSGI application.
 from flask import Flask, request, jsonify
-
+from controller import downloadData, openData, makeMeteogram
 # Flask constructor takes the name of
 # current module (__name__) as argument.
 app = Flask(__name__)
 
 app.debug = True
+
+downloadData()
+openData()
+
 
 # The route() function of the Flask class is a decorator,
 # which tells the application which URL should call
@@ -18,9 +22,10 @@ def hello_world():
 
 @app.route('/getMeteogram/<latitude>/<longitude>/', methods=['GET'])
 def getMeteogram(latitude, longitude):
-    latitude = round(float(latitude)/0.4)*0.4
-    longitude = round(float(longitude)/0.4)*0.4
-    return jsonify({'lat': latitude,'lon':longitude})
+    # latitude = round(float(latitude)/0.4)*0.4
+    # longitude = round(float(longitude)/0.4)*0.4
+    # return jsonify({'lat': latitude,'lon':longitude})
+    return jsonify(makeMeteogram(float(latitude), float(longitude)))
 
 # main driver function
 if __name__ == '__main__':

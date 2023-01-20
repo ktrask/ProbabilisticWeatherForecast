@@ -150,7 +150,7 @@ def createECMWFAPIjson(myDict, param):
     }}
 
     i = 0
-    for step in prec:
+    for step in myDict:
         #print(prec[step])
         res[param]['min'].append(myDict[step][0])
         res[param]['ten'].append(myDict[step][1])
@@ -163,6 +163,19 @@ def createECMWFAPIjson(myDict, param):
         i += 6
     return res
 
+def makeMeteogram(lat, lon):
+    lat_index, lon_index = getIndex(lat,lon)
+    t2m = createTemperatureData(lat_index,lon_index,gribData['temperature']['data']['t2m'])
+    tcc = createTccData(lat_index,lon_index,gribData['watervapor']['data']['tcwv'])
+    ws = createWindSpeedData(lat_index, lon_index, gribData['windspeed']['data']['v10'],gribData['windspeed']['data']['u10'])
+    prec = createPrecipitationData(lat_index,lon_index,gribData['precipitation']['data']['tp'])
+    result = {
+        'prec': createECMWFAPIjson(prec,'prec'),
+        't2m': createECMWFAPIjson(t2m,'t2m'),
+        'tcc': createECMWFAPIjson(tcc,'tcc'),
+        'ws': createECMWFAPIjson(ws,'ws')
+    }
+    return result
 
 
 if __name__ == "__main__":
@@ -170,14 +183,6 @@ if __name__ == "__main__":
     openData()
     lat = 52.27
     lon = 10.52
-    lat_index, lon_index = getIndex(lat,lon)
-    t2m = createTemperatureData(lat_index,lon_index,gribData['temperature']['data']['t2m'])
-    tcc = createTccData(lat_index,lon_index,gribData['watervapor']['data']['tcwv'])
-    wv = createWindSpeedData(lat_index, lon_index, gribData['windspeed']['data']['v10'],gribData['windspeed']['data']['u10'])
-    prec = createPrecipitationData(lat_index,lon_index,gribData['precipitation']['data']['tp'])
-    print(createECMWFAPIjson(prec,'prec'))
-    print(createECMWFAPIjson(t2m,'t2m'))
-    print(createECMWFAPIjson(tcc,'tcc'))
-    print(createECMWFAPIjson(wv,'wv'))
+    print(makeMeteogram(lat, lon))
     sleep(10)
 
