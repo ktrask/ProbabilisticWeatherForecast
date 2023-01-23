@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: .
+    stop_signal: SIGINT
+    environment:
+      - HOURS=36
+    volumes:
+      - ./data:/app/data
+    ports:
+      - 127.0.0.1:5056:5000
+

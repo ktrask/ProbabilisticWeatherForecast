@@ -8,27 +8,29 @@ from datetime import datetime
 from ecmwf.opendata import Client
 from time import sleep
 
-downloadSteps = list(range(0,36,6))
+downloadHours = int(os.environ.get("HOURS", default='36'))
+print(downloadHours)
+downloadSteps = list(range(0,downloadHours+1,6))
 #downloadSteps = list(range(0,361,6))
 
 gribData = {
   'windspeed': {
-    'filename': 'windspeed-probability.grib',
+    'filename': 'data/windspeed-probability.grib',
     'parameters': ['10v', '10u'],
     'grib_parameters': ['v10', 'u10'],
   },
   'temperature': {
-    'filename': 'temperature-probability.grib',
+    'filename': 'data/temperature-probability.grib',
     'parameters': ['2t'],
     'grib_parameters': ['t2m'],
   },
   'precipitation': {
-    'filename': 'precipitation-probability.grib',
+    'filename': 'data/precipitation-probability.grib',
     'parameters': ['tp'],
     'grib_parameters': ['tp'],
   },
   'watervapor': {
-    'filename': 'watervapor-probability.grib',
+    'filename': 'data/watervapor-probability.grib',
     'parameters': ['tcwv'],
     'grib_parameters': ['tcwv'],
   },
