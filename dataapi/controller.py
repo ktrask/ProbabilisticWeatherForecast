@@ -172,8 +172,8 @@ def makeMeteogram(lat, lon):
     ws = createWindSpeedData(lat_index, lon_index, gribData['windspeed']['data']['v10'],gribData['windspeed']['data']['u10'])
     prec = createPrecipitationData(lat_index,lon_index,gribData['precipitation']['data']['tp'])
     result = {
-        'prec': createECMWFAPIjson(prec,'prec'),
-        't2m': createECMWFAPIjson(t2m,'t2m'),
+        'tp': createECMWFAPIjson(prec,'tp'),
+        '2t': createECMWFAPIjson(t2m,'2t'),
         'tcc': createECMWFAPIjson(tcc,'tcc'),
         'ws': createECMWFAPIjson(ws,'ws')
     }
