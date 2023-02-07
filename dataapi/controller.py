@@ -4,6 +4,7 @@ import re
 import numpy as np
 import xarray as xr
 import pandas as pd
+import json
 from datetime import datetime
 from ecmwf.opendata import Client
 from time import sleep
@@ -49,6 +50,7 @@ def downloadGribFiles(parameters, filename):
         param=parameters,
         target=filename
     )
+    return result
 
 def downloadData():
     downloadedFiles = []
@@ -63,10 +65,22 @@ def downloadData():
                shallDownload = True
        if shallDownload:
            filename = re.sub('\.grib$', '_new.grib',  v['filename'])
-           downloadGribFiles(v['parameters'], filename)
+           result = downloadGribFiles(v['parameters'], filename)
+           with open(f"{filename}.json", "w") as fp:
+               json.dump(
+                   {
+                       'index_meta': result.for_index,
+                       'meta': result.for_urls,
+                   },
+                   fp
+               )
            downloadedFiles.append({
              'newFile':filename,
              'filename':v['filename'],
+           })
+           downloadedFiles.append({
+             'newFile':f"{filename}.json",
+             'filename':f"{v['filename']}.json",
            })
     if downloadedFiles:
         for file in downloadedFiles:
@@ -101,6 +115,8 @@ def openData():
             v['dataset'].close()
         v['dataset'] = xr.open_dataset(v['filename'], engine='cfgrib', filter_by_keys={'dataType': 'pf'})
         v['data'] = { param:v['dataset'][param].data for param in v['grib_parameters']}
+        with open(f"{v['filename']}.json") as fp:
+            v['metadata'] = json.load(fp)
 
 def createTemperatureData(lat_index, lon_index, data):
     local_data = data[:,:,lat_index, lon_index]
@@ -139,7 +155,7 @@ def createPrecipitationData(lat_index, lon_index, data):
         result[step] = np.quantile(myTemps, [0,0.1,0.25,0.5,0.75,0.9,1]).tolist()
     return result
 
-def createECMWFAPIjson(myDict, param):    
+def createECMWFAPIjson(myDict, param, metadata):    
     res = {param: {
         "min": [],
         "max": [],
@@ -161,8 +177,10 @@ def createECMWFAPIjson(myDict, param):
         res[param]['seventy_five'].append(myDict[step][4])
         res[param]['ninety'].append(myDict[step][5])
         res[param]['max'].append(myDict[step][6])
-        res[param]['steps'].append(str(i))
-        i += 6
+        res[param]['steps'].append(metadata['meta']['step'][i])
+        i += 1
+        res['date'] = re.sub("-", "",  metadata['meta']['date'][0][0:10] )
+        res['time'] = re.sub(":", "", metadata['meta']['date'][0][11:16])
     return res
 
 def makeMeteogram(lat, lon):
@@ -172,10 +190,10 @@ def makeMeteogram(lat, lon):
     ws = createWindSpeedData(lat_index, lon_index, gribData['windspeed']['data']['v10'],gribData['windspeed']['data']['u10'])
     prec = createPrecipitationData(lat_index,lon_index,gribData['precipitation']['data']['tp'])
     result = {
-        'tp': createECMWFAPIjson(prec,'tp'),
-        '2t': createECMWFAPIjson(t2m,'2t'),
-        'tcc': createECMWFAPIjson(tcc,'tcc'),
-        'ws': createECMWFAPIjson(ws,'ws')
+        'tp': createECMWFAPIjson(prec,'tp', gribData['precipitation']['metadata']),
+        '2t': createECMWFAPIjson(t2m,'2t', gribData['temperature']['metadata']),
+        'tcc': createECMWFAPIjson(tcc,'tcc', gribData['watervapor']['metadata']),
+        'ws': createECMWFAPIjson(ws,'ws', gribData['windspeed']['metadata'])
     }
     return result
 
