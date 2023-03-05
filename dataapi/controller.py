@@ -69,7 +69,7 @@ def downloadData():
            shallDownload = True
        else:
            fileCreated = datetime.fromtimestamp(os.path.getmtime(v['filename']))
-           if (fileCreated-datetime.utcnow()).total_seconds() > 43200:
+           if (datetime.utcnow()-fileCreated).total_seconds() > 43200:
                shallDownload = True
        if shallDownload:
            filename = re.sub('\.grib$', '_new.grib',  v['filename'])
