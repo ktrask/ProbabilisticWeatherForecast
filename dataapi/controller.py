@@ -131,6 +131,7 @@ def openData():
         v['data'] = { param:v['dataset'][param].data for param in v['grib_parameters']}
         with open(f"{v['filename']}.json") as fp:
             v['metadata'] = json.load(fp)
+    global gribData
     oldGribData = gribData
     gribData = myGribData
     logging.info("New data loaded")
