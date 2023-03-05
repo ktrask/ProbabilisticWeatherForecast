@@ -5,6 +5,8 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import json
+import copy
+import logging
 from datetime import datetime
 from ecmwf.opendata import Client
 from time import sleep
@@ -14,7 +16,7 @@ print(downloadHours)
 downloadSteps = list(range(0,downloadHours+1,6))
 #downloadSteps = list(range(0,361,6))
 
-gribData = {
+gribDataTemplate = {
   'windspeed': {
     'filename': 'data/windspeed-probability.grib',
     'parameters': ['10v', '10u'],
@@ -37,6 +39,8 @@ gribData = {
   },
 }
 
+global gribData 
+gribData = copy.deepcopy(gribDataTemplate)
 
 def downloadGribFiles(parameters, filename):
     client = Client("ecmwf", beta=True)
@@ -52,10 +56,14 @@ def downloadGribFiles(parameters, filename):
     )
     return result
 
+def downloadAndLoad():
+    if downloadData():
+        openData()
+
 def downloadData():
     downloadedFiles = []
-    for type in gribData:
-       v = gribData[type]
+    for type in gribDataTemplate:
+       v = gribDataTemplate[type]
        shallDownload = False
        if not os.path.exists(v['filename']):
            shallDownload = True
@@ -65,6 +73,7 @@ def downloadData():
                shallDownload = True
        if shallDownload:
            filename = re.sub('\.grib$', '_new.grib',  v['filename'])
+           logging.info(f"Downloading of file {filename} started")
            result = downloadGribFiles(v['parameters'], filename)
            with open(f"{filename}.json", "w") as fp:
                json.dump(
@@ -85,6 +94,8 @@ def downloadData():
     if downloadedFiles:
         for file in downloadedFiles:
             os.rename(file['newFile'], file['filename'])
+        return True
+    return False
 
 
 def getIndex(lat, lon):
@@ -109,14 +120,23 @@ def getIndex(lat, lon):
 
     
 def openData():
-    for dataset in gribData:
-        v = gribData[dataset]
+    logging.info("Start reading new data")
+    myGribData = copy.deepcopy(gribDataTemplate)
+    for dataset in myGribData:
+        v = myGribData[dataset]
         if 'dataset' in v:
             v['dataset'].close()
+        logging.info(f"Open data from {v['filename']}")
         v['dataset'] = xr.open_dataset(v['filename'], engine='cfgrib', filter_by_keys={'dataType': 'pf'})
         v['data'] = { param:v['dataset'][param].data for param in v['grib_parameters']}
         with open(f"{v['filename']}.json") as fp:
             v['metadata'] = json.load(fp)
+    oldGribData = gribData
+    gribData = myGribData
+    logging.info("New data loaded")
+    for dataset in oldGribData:
+        if 'dataset' in v:
+            v['dataset'].close()
 
 def createTemperatureData(lat_index, lon_index, data):
     local_data = data[:,:,lat_index, lon_index]
@@ -199,8 +219,7 @@ def makeMeteogram(lat, lon):
 
 
 if __name__ == "__main__":
-    downloadData()
-    openData()
+    downloadAndLoad()
     lat = 52.27
     lon = 10.52
     print(makeMeteogram(lat, lon))

@@ -1,15 +1,15 @@
+import threading
 # Importing flask module in the project is mandatory
 # An object of Flask class is our WSGI application.
 from flask import Flask, request, jsonify
-from controller import downloadData, openData, makeMeteogram
+from controller import downloadData, openData, makeMeteogram, downloadAndLoad
 # Flask constructor takes the name of
 # current module (__name__) as argument.
 app = Flask(__name__)
 
-app.debug = True
+#app.debug = True
 
-downloadData()
-openData()
+downloadAndLoad()
 
 
 # The route() function of the Flask class is a decorator,
@@ -26,6 +26,12 @@ def getMeteogram(latitude, longitude):
     # longitude = round(float(longitude)/0.4)*0.4
     # return jsonify({'lat': latitude,'lon':longitude})
     return jsonify(makeMeteogram(float(latitude), float(longitude)))
+
+@app.route('/updateData', methods=['GET'])
+def updateData():
+    x = threading.Thread(target=downloadAndLoad, args=())
+    x.start()
+    return jsonify({"result": True})
 
 # main driver function
 if __name__ == '__main__':
