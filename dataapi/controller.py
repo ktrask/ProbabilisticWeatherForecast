@@ -91,6 +91,8 @@ def downloadData():
              'newFile':f"{filename}.json",
              'filename':f"{v['filename']}.json",
            })
+       else:
+           return True
     if downloadedFiles:
         for file in downloadedFiles:
             os.rename(file['newFile'], file['filename'])
