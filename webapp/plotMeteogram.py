@@ -435,6 +435,7 @@ def getTimeFrame(allMeteogramData,fromDate, toDate):
                 else:
                     break
         toIndex = len(allMeteogramData['2t']['2t']['steps'])
+        print(toIndex)
         if toDate:
             for date in dates[::-1]:
                 if date < toDate:
@@ -473,6 +474,8 @@ def plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType):
     ax4 = fig.add_subplot(gs[3])
     if 'tp' in allMeteogramData:#10days 6hourly meteogram
         print("plot my meteogram")
+        print(fromIndex, toIndex)
+        fromIndex = 1
         plotCloudVSUP(ax1, allMeteogramData['tcc']['tcc'], fromIndex, toIndex, plotType)
         plotPrecipitationVSUP(ax2, allMeteogramData['tp']['tp'], fromIndex, toIndex, plotType)
         plotTemperature(ax3, allMeteogramData['2t'], fromIndex, toIndex, tzName, plotType)
@@ -510,7 +513,7 @@ def plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType):
 if __name__ == '__main__':
     #today = datetime.date.today()
     today = datetime.utcnow()
-    days = 3
+    days = 15
     plotType = "ensemble"
     if len(sys.argv) > 1:
         print(sys.argv)
@@ -546,7 +549,7 @@ if __name__ == '__main__':
     else:
         print(type(today))
         print(today)
-        today = datetime(2018,9,13,9)
+        #today = datetime(2023,1,23,9)
         print(type(today))
         print(today)
         latitude = 52.2646577
@@ -554,16 +557,19 @@ if __name__ == '__main__':
         altitude = 79
         location = "Braunschweig, Germany"
         allMeteogramData = {}
-        with open("data/2t-10days.json", "r") as fp:
-            allMeteogramData['2t'] = json.load(fp)
-        with open("data/tp-10days.json", "r") as fp:
-            allMeteogramData['tp'] = json.load(fp)
-        with open("data/ws-10days.json", "r") as fp:
-            allMeteogramData['ws'] = json.load(fp)
-        with open("data/tcc-10days.json", "r") as fp:
-            allMeteogramData['tcc'] = json.load(fp)
-    tz = tzwhere.tzwhere()
-    tzName = tz.tzNameAt(latitude, longitude)
+        with open("allmeteogramdata.json", "r") as fp:
+            allMeteogramData = json.load(fp)
+        #with open("data/2t-10days.json", "r") as fp:
+        #    allMeteogramData['2t'] = json.load(fp)
+        #with open("data/tp-10days.json", "r") as fp:
+        #    allMeteogramData['tp'] = json.load(fp)
+        #with open("data/ws-10days.json", "r") as fp:
+        #    allMeteogramData['ws'] = json.load(fp)
+        #with open("data/tcc-10days.json", "r") as fp:
+        #    allMeteogramData['tcc'] = json.load(fp)
+    #tz = tzwhere.tzwhere() # library is broken 2023-01-23
+    #tzName = tz.tzNameAt(latitude, longitude)
+    tzName = "Europe/Berlin"
     fromIndex, toIndex = getTimeFrame(allMeteogramData, today, today + timedelta(days))
     fig = plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType)
     if location is None:

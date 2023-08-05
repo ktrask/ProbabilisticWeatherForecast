@@ -9,7 +9,7 @@ RUN apt-get -y update -qq && \
     apt-get -y install locales && \
     locale-gen en_US.UTF-8 && \
     update-locale LANG=en_US.UTF-8 && \
-    apt-get install -y python3-pip python3-pandas
+    apt-get install -y python3-pip python3-pandas curl
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/* /var/tmp/*
