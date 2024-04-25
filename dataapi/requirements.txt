@@ -9,7 +9,7 @@ contourpy
 cycler
 eccodes
 ecmwf-data
-ecmwf-opendata
+ecmwf-opendata>=0.3.3
 ecmwflibs
 findlibs
 Flask
