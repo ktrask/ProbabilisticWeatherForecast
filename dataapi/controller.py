@@ -103,11 +103,11 @@ def downloadData():
 def getIndex(lat, lon):
     "lan goes from 90 to -90"
     "lon goes from -180 to 180"
-    lat_center = 225 #451 values in total
-    lon_center = 450 # 900 in total
-    grid_size = 0.4
-    lat_max = 451
-    lon_max = 900
+    lat_center = 360 #451 values in total
+    lon_center = 720 # 900 in total
+    grid_size = 0.25
+    lat_max = 721
+    lon_max = 1440
     lon_index = lon_center + round(lon/grid_size)
     lat_index = (lat_center-round(lat/0.4))
     if lat_index < 0:
