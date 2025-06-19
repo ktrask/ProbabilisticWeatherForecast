@@ -1,0 +1,14 @@
+Flask==3.1.1
+flask_bootstrap==3.3.7.1
+flask_wtf==1.2.2
+geopy==2.4.1
+matplotlib==3.10.3
+numpy==2.3.0
+openmeteo_requests==1.5.0
+openmeteo_sdk==1.20.1
+pandas==2.3.0
+Requests==2.32.4
+requests_cache==1.2.1
+retry_requests==2.0.0
+timezonefinder==6.5.9
+WTForms==3.2.1

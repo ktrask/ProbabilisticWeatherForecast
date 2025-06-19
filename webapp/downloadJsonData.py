@@ -2,7 +2,6 @@ from datetime import date, timedelta, datetime
 import time, json, sys
 from pathlib import Path
 from geopy.geocoders import Nominatim
-import asyncio, async_timeout, aiohttp
 import requests
 import getopt
 import numpy as np
