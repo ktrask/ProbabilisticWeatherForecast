@@ -1,5 +1,0 @@
-* Flask API server needs an enpoint for accessing data
-* Add timestamp of data creation to ecmwf api data
-* Fix name of precipitation
-* Cache Result somewhere?
-* API needs endpoint to tell it to reload the data
