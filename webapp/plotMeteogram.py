@@ -10,7 +10,7 @@ from matplotlib.ticker import FormatStrFormatter
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Rectangle
 from matplotlib import offsetbox
-from tzwhere import tzwhere
+from timezonefinder import TimezoneFinder
 import pytz
 import getopt
 from pathlib import Path
@@ -92,15 +92,15 @@ def plotTemperature(ax, qdata, fromIdx, toIdx, tzName, plotType):
     dates = [startDate + timedelta(hours=int(i)) for i in qdata['2t']['steps']]
     #convert temperatures to numpy arrays:
     temps = {}
-    temps['min'] = np.array(qdata['2t']['min']) - 273.15
-    temps['max'] = np.array(qdata['2t']['max']) - 273.15
-    temps['median'] = np.array(qdata['2t']['median']) - 273.15
-    temps['twenty_five'] = np.array(qdata['2t']['twenty_five']) - 273.15
-    temps['seventy_five'] = np.array(qdata['2t']['seventy_five']) - 273.15
-    temps['ten'] = np.array(qdata['2t']['ten']) - 273.15
-    temps['ninety'] = np.array(qdata['2t']['ninety']) - 273.15
+    temps['min'] = np.array(qdata['2t']['min'])# - 273.15
+    temps['max'] = np.array(qdata['2t']['max'])# - 273.15
+    temps['median'] = np.array(qdata['2t']['median'])# - 273.15
+    temps['twenty_five'] = np.array(qdata['2t']['twenty_five'])# - 273.15
+    temps['seventy_five'] = np.array(qdata['2t']['seventy_five'])# - 273.15
+    temps['ten'] = np.array(qdata['2t']['ten'])# - 273.15
+    temps['ninety'] = np.array(qdata['2t']['ninety'])# - 273.15
     if plotType == "enhanced-hres":
-        temps['hres'] = np.array(qdata['2t']['hres']) - 273.15
+        temps['hres'] = np.array(qdata['2t']['hres'])# - 273.15
     #eighty_spread = temps['ninety'] - temps['ten']
     #alphaChannel = 2 / eighty_spread
     #alphaChannel[alphaChannel > 1] = 1
@@ -552,10 +552,10 @@ if __name__ == '__main__':
         #today = datetime(2023,1,23,9)
         print(type(today))
         print(today)
-        latitude = 52.2646577
-        longitude = 10.5236066
+        latitude = 52.3707
+        longitude = 9.5905
         altitude = 79
-        location = "Braunschweig, Germany"
+        location = "Döteberg, Germany"
         allMeteogramData = {}
         with open("allmeteogramdata.json", "r") as fp:
             allMeteogramData = json.load(fp)
@@ -567,9 +567,10 @@ if __name__ == '__main__':
         #    allMeteogramData['ws'] = json.load(fp)
         #with open("data/tcc-10days.json", "r") as fp:
         #    allMeteogramData['tcc'] = json.load(fp)
-    #tz = tzwhere.tzwhere() # library is broken 2023-01-23
+    tf = TimezoneFinder()
+    tzName = tf.timezone_at(lat=latitude, lng=longitude)
     #tzName = tz.tzNameAt(latitude, longitude)
-    tzName = "Europe/Berlin"
+    #tzName = "Europe/Berlin"
     fromIndex, toIndex = getTimeFrame(allMeteogramData, today, today + timedelta(days))
     fig = plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType)
     if location is None:
@@ -591,4 +592,3 @@ if __name__ == '__main__':
     if 'tp24' in allMeteogramData:
         fig.text(0.1,0.03,allMeteogramData['tp24']['date']+"-"+allMeteogramData['tp24']['time'],fontproperties=prop)
     fig.savefig("./output/forecast.png", dpi = 300)
-
