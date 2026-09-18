@@ -22,12 +22,17 @@ def offline_controller(monkeypatch):
     """Serve the Braunschweig fixture instead of calling the API."""
     from app import controller
 
+    def fakeGetData(longitude, latitude, altitude, metadata=None, **kwargs):
+        #Mirror what the real call reports back about the grid cell it used.
+        if metadata is not None:
+            metadata.update(
+                {"elevation": 79.0, "latitude": latitude, "longitude": longitude}
+            )
+        return load_fixture("braunschweig")
+
+    monkeypatch.setattr(controller, "getData", fakeGetData)
     monkeypatch.setattr(
-        controller, "getData", lambda *a, **kw: load_fixture("braunschweig")
-    )
-    monkeypatch.setattr(controller, "getElevation", lambda lat, lon: 79)
-    monkeypatch.setattr(
-        controller, "getCoordinates", lambda opts: (52.2646577, 10.5236066, 79, "Braunschweig")
+        controller, "geocodeLocation", lambda name: (52.2646577, 10.5236066)
     )
     return controller
 
@@ -203,3 +208,23 @@ class TestUnavailableData:
         assert response.status_code == 503
         body = response.get_data(as_text=True)
         assert "ensemble percentiles only" in body, "the reason should be shown"
+
+
+class TestUnresolvableLocation:
+    def test_an_unknown_place_name_is_a_400_naming_it(self, client, monkeypatch):
+        """geocode() returning None used to surface as AttributeError -> 500."""
+        from app import controller
+        #Must be app.downloadJsonData, not downloadJsonData: the app/ symlinks
+        #make that the same file imported twice, so the two LocationNotFound
+        #classes are not the same object and views.py only catches this one.
+        from app.downloadJsonData import LocationNotFound
+
+        def cannotResolve(name):
+            raise LocationNotFound(f"No place called {name!r} was found.")
+
+        monkeypatch.setattr(controller, "geocodeLocation", cannotResolve)
+        response = client.get("/search", query_string=query(search="qwertyuiop"))
+        assert response.status_code == 400
+        body = response.get_data(as_text=True)
+        assert "qwertyuiop" in body, "the message should name what was typed"
+        assert "data:image/png;base64," not in body

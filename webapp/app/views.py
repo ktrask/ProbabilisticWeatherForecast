@@ -3,6 +3,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, validators, SubmitField, DecimalField, IntegerField, RadioField
 from app import app
 from .controller import plotMeteogramFile
+from .downloadJsonData import LocationNotFound
 from .plotMeteogram import PLOT_TYPES, HresDataUnavailable
 from base64 import b64encode
 import os
@@ -73,6 +74,9 @@ def search():
                                      location=searchLocation,
                                      days=days,
                                      plotType=form.plotType.data)
+    except LocationNotFound as exc:
+        #The user typed a place we cannot resolve - their input, so a 400.
+        return badRequest(form, error=str(exc))
     except HresDataUnavailable as exc:
         #Valid request, but this data source cannot serve it - 503, not 400.
         return badRequest(form, error=str(exc), status=503)
