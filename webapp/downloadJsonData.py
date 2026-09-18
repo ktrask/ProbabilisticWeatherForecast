@@ -29,6 +29,32 @@ def calculate_percentiles(df, column_string="temperature_2m"):
     return(result)
 
 
+STEP_INTERVAL_HOURS = 6
+
+
+def accumulate_over_steps(df, column_string="precipitation", step_interval=STEP_INTERVAL_HOURS):
+    """Sum each member's hourly totals into step_interval-hour buckets.
+
+    Open-Meteo reports precipitation as the millimetres that fell during each
+    hour. Sampling every nth row - which is what create_dictionary does, and is
+    correct for instantaneous variables like temperature - would silently throw
+    away the rain that fell in the hours between the samples.
+
+    Bucket k covers [k*step_interval, (k+1)*step_interval) hours from the start,
+    so it lines up with the instantaneous sample taken at its first hour. A short
+    trailing bucket is kept, which keeps the bucket count equal to the number of
+    samples the other variables produce.
+
+    The summing has to happen per member, before percentiles are taken: the 90th
+    percentile of the 6-hour totals is not the sum of the hourly 90th percentiles.
+    """
+    member_cols = [f'{column_string}_member{i}' for i in range(51)]
+    buckets = df.index // step_interval
+    summed = df.groupby(buckets)[member_cols].sum()
+    summed.insert(0, "date", df.groupby(buckets)["date"].first())
+    return summed.reset_index(drop=True)
+
+
 def create_dictionary(df, name="2t", step_interval=1):
     n_steps = len(df)
     step_size_hours = int((df['date'].iloc[1] - df['date'].iloc[0]).total_seconds() / 3600)
@@ -166,12 +192,15 @@ def getData(longitude, latitude, altitude, writeToFile = True, meteogram = "10da
         "2t",
         step_interval=6
     ),
+    # Precipitation is an hourly accumulation, so it is summed into 6-hourly
+    # buckets first and then passed through with step_interval=1, rather than
+    # being subsampled like the instantaneous variables below.
     "tp": create_dictionary(
         calculate_percentiles(
-            hourly_dataframe,
+            accumulate_over_steps(hourly_dataframe, "precipitation"),
             column_string="precipitation"),
         "tp",
-        step_interval=6
+        step_interval=1
     ),
     "tcc": create_dictionary(
         calculate_percentiles(

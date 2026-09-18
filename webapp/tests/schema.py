@@ -8,12 +8,14 @@ whether the data came from disk or the network.
 # Top-level ECMWF-style variable names produced by downloadJsonData.getData, mapped
 # to the plausible range of the values Open-Meteo currently returns for them.
 #
-# NOTE: these ranges describe the units Open-Meteo actually delivers, which are NOT
-# the units the pictogram threshold functions in plotMeteogram.py were written for.
-# See test_pictograms.py::TestUnitMismatch.
+# All four are instantaneous samples at the step, except tp, which is the rainfall
+# accumulated across the whole 6-hour step (see accumulate_over_steps).
+#
+# NOTE: ws is the one variable whose unit still does not match the thresholds in
+# plotMeteogram.py. See test_pictograms.py::TestUnitMismatch.
 EXPECTED_VARIABLES = {
     "2t": {"unit": "degC", "low": -90.0, "high": 60.0},
-    "tp": {"unit": "mm", "low": 0.0, "high": 500.0},
+    "tp": {"unit": "mm accumulated over the step", "low": 0.0, "high": 500.0},
     "tcc": {"unit": "percent", "low": 0.0, "high": 100.0},
     "ws": {"unit": "km/h", "low": 0.0, "high": 400.0},
 }
