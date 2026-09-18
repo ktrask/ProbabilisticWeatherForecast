@@ -61,6 +61,16 @@ Three layers, deliberately decoupled by a plain-dict data format:
    plot, save to `/tmp`, read back as base64, delete) → template renders the PNG inline. No DB;
    `models.py` is empty and the `flask_sqlalchemy` wiring in `app/__init__.py` is commented out.
 
+`searchForm` is submitted with `method="get"`, so `validate_on_submit()` is **always False** here.
+`/search` binds the form to the query string explicitly (`searchForm(request.args)`) and calls
+`form.validate()`; that is the only reason the field validators run at all. Validate new parameters
+by declaring them on the form, not with hand-rolled `request.args[...]` reads — the latter is what
+let an unchecked `plotType` reach the renderer and 500.
+
+Rejections re-render `index.html` with a 400 and the form intact. `quick_form` shows per-field
+errors itself, but **not** for a `RadioField`, so anything the user would otherwise not see is
+passed to the template as `error` and drawn as an alert.
+
 `app/downloadJsonData.py` and `app/plotMeteogram.py` are **symlinks** to the `webapp/` copies so the
 `app` package can import them relatively. The Dockerfile instead copies the real files into
 `/app/app/`. Edit the originals in `webapp/`, never the symlinks. (`app/pictogram` is a stale broken
@@ -114,10 +124,12 @@ function rather than adding ad-hoc assertions.
 
 ## Known gaps
 
-- **`enhanced-hres` plot type is broken against Open-Meteo data.** It reads a `hres` key
-  (deterministic high-res run) that `downloadJsonData.create_dictionary` never produces, so it raises
-  `KeyError`. It worked with the older ECMWF grib pipeline that commit `cc18d28` removed. Use
-  `ensemble` unless you are restoring an HRES source.
+- **`enhanced-hres` cannot be served from Open-Meteo data.** It needs a `hres` key (deterministic
+  high-res run) that `downloadJsonData.create_dictionary` never produces. `plotMeteogram()` checks
+  for it up front and raises `HresDataUnavailable`, which `/search` turns into a 503 with an
+  explanation — the request is valid, the data source just cannot fulfil it. It worked with the older
+  ECMWF grib pipeline that commit `cc18d28` removed. The radio button is still offered; restore an
+  HRES source or remove the choice.
 - **The 15-day daily branch is dead.** `getData(..., meteogram="15days")` ignores the argument and
   always returns 6-hourly `tp`/`2t` keys, so the `tp24`/`mn2t24`/`mx2t24` paths in
   `plotMeteogram()` and `getTimeFrame()` are unreachable. `controller.py` still branches on
@@ -137,6 +149,10 @@ function rather than adding ad-hoc assertions.
   to `1`, so meteograms always start at the forecast's second step rather than "now".
 
 ## Conventions
+
+- `plotMeteogram()` and `plotTemperature()` reject an unknown `plotType` with `ValueError` rather
+  than falling through their `if/elif` chains. Keep the explicit `else: raise` — without it the
+  failure surfaces as `UnboundLocalError: localMinima` from deep inside the temperature panel.
 
 - `matplotlib.use('Agg')` is set at import in `plotMeteogram.py` — required, Tk is not thread-safe
   under Flask. Don't switch backends.

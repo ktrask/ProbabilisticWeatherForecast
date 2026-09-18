@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import matplotlib
 import pytest
 
-from plotMeteogram import getTimeFrame, plotMeteogram
+from plotMeteogram import HresDataUnavailable, getTimeFrame, plotMeteogram
 from tests.conftest import LOCATION_KEYS, load_fixture
 
 
@@ -96,10 +96,31 @@ class TestRendering:
         fig = plotMeteogram(braunschweig, fromIndex, toIndex, "Not/AZone", "ensemble")
         matplotlib.pyplot.close(fig)
 
+    def test_unknown_plot_type_is_rejected(self, braunschweig):
+        """Used to fall through both branches and die on an unbound localMinima."""
+        start = reference_time(braunschweig)
+        fromIndex, toIndex = getTimeFrame(
+            braunschweig, start, start + timedelta(days=2)
+        )
+        with pytest.raises(ValueError, match="unknown plotType"):
+            plotMeteogram(braunschweig, fromIndex, toIndex, "Europe/Berlin", "evil")
+
+    def test_enhanced_hres_explains_itself(self, braunschweig):
+        """A valid plot type the current data source cannot serve should say so,
+        not raise KeyError('hres') from somewhere deep in plotTemperature."""
+        start = reference_time(braunschweig)
+        fromIndex, toIndex = getTimeFrame(
+            braunschweig, start, start + timedelta(days=3)
+        )
+        with pytest.raises(HresDataUnavailable, match="ensemble percentiles only"):
+            plotMeteogram(
+                braunschweig, fromIndex, toIndex, "Europe/Berlin", "enhanced-hres"
+            )
+
     @pytest.mark.xfail(
-        reason="enhanced-hres reads a 'hres' key that the Open-Meteo downloader "
-        "never produces (see CLAUDE.md, Known gaps)",
-        raises=KeyError,
+        reason="the Open-Meteo downloader produces no 'hres' key, so the "
+        "HRES-enhanced plot cannot be rendered (see CLAUDE.md, Known gaps)",
+        raises=HresDataUnavailable,
         strict=True,
     )
     def test_enhanced_hres_plot_type(self, braunschweig):
