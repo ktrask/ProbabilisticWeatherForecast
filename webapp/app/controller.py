@@ -3,7 +3,7 @@ from app import app
 from datetime import datetime, timedelta
 import json
 from meteogram.downloadJsonData import getData, geocodeLocation, UNKNOWN_ELEVATION
-from meteogram.plotMeteogram import plotMeteogram, getTimeFrame, prop
+from meteogram.plotMeteogram import plotMeteogram, getTimeFrame, prop, utcNow
 from timezonefinder import TimezoneFinder
 from matplotlib.pyplot import close as pltclose
 import numpy as np
@@ -37,7 +37,7 @@ def plotMeteogramFile(latitude = None, longitude = None, altitude = None, locati
     if altitude is None:
         altitude = UNKNOWN_ELEVATION
     tzName = tf.timezone_at(lat=latitude, lng=longitude)
-    today = datetime.utcnow()
+    today = utcNow()
     fromIndex, toIndex = getTimeFrame(allMeteogramData, today, today + timedelta(days))
     fromIndex = 0
     fig = plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType)

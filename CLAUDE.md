@@ -206,6 +206,12 @@ function rather than adding ad-hoc assertions.
   The shared `prop` FontProperties object is mutated in place (`prop.set_size`) and restored — keep
   that pattern if you touch title sizing.
 - Figures must be closed (`pltclose`) after saving in request handlers; the webapp leaks otherwise.
+- Pictograms go through `readPictogram()`, an `lru_cache` over `plt.imread`. Each panel calls
+  `imscatter()` once per timestep, so a 14-day meteogram would otherwise decode the same ~15 PNGs
+  165 times. The cached arrays are marked read-only because every caller shares them.
+- Use `utcNow()` rather than `datetime.utcnow()` (deprecated) or `datetime.now(timezone.utc)`. It is
+  deliberately **naive**: `getTimeFrame` compares against datetimes parsed from the forecast's own
+  date/time strings, which carry no tzinfo, and Python refuses to compare aware with naive.
 - Open-Meteo responses are cached in `webapp/.cache.sqlite` for 1 hour via `requests_cache`. Delete it
   to force a refetch while debugging.
 - Geocoding uses Nominatim with user agent `ESOWC-Meteogram-2018`; elevation comes from

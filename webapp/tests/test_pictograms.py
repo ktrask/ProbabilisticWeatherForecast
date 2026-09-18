@@ -281,3 +281,76 @@ class TestUnitMismatch:
                 f"{key} peaks at {peak_ms:.1f} m/s but the storm glyph fires "
                 f"{indices.count(6)} times"
             )
+
+
+class TestPictogramCache:
+    """Each panel calls imscatter() once per timestep, so the same few PNGs were
+    being decoded from disk over a hundred times per meteogram."""
+
+    def test_repeated_reads_hit_the_cache(self):
+        from meteogram.plotMeteogram import readPictogram
+
+        path = os.path.join(PICTOGRAM_DIR, "cloud", "step1.png")
+        readPictogram.cache_clear()
+        first = readPictogram(path)
+        before = readPictogram.cache_info().hits
+        for _ in range(20):
+            readPictogram(path)
+        info = readPictogram.cache_info()
+        assert info.hits - before == 20
+        assert info.misses == 1
+        assert readPictogram(path) is first, "the same array should be handed back"
+
+    def test_cached_images_are_read_only(self):
+        """Callers share one array, so a stray write would corrupt every later
+        meteogram in the process."""
+        from meteogram.plotMeteogram import readPictogram
+
+        image = readPictogram(os.path.join(PICTOGRAM_DIR, "cloud", "step1.png"))
+        assert not image.flags.writeable
+        with pytest.raises(ValueError):
+            image[0][0] = 0
+
+    def test_a_whole_render_decodes_each_file_once(self, braunschweig=None):
+        """The regression this exists for, measured end to end."""
+        import io
+        import contextlib
+        from datetime import datetime, timedelta
+
+        import matplotlib.pyplot as plt
+
+        from meteogram import plotMeteogram as pm
+
+        data = load_fixture("braunschweig")
+        entry = data["2t"]
+        start = datetime(
+            int(entry["date"][:4]), int(entry["date"][4:6]),
+            int(entry["date"][6:8]), int(entry["time"][:2]),
+        )
+        decodes = {"n": 0}
+        real = plt.imread
+
+        def counting(path, *args, **kwargs):
+            decodes["n"] += 1
+            return real(path, *args, **kwargs)
+
+        pm.readPictogram.cache_clear()
+        plt.imread = counting
+        try:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                fromIndex, toIndex = pm.getTimeFrame(
+                    data, start, start + timedelta(days=14)
+                )
+                fig = pm.plotMeteogram(data, fromIndex, toIndex, "Europe/Berlin", "ensemble")
+                plt.close(fig)
+        finally:
+            plt.imread = real
+
+        steps = toIndex - 1
+        assert steps > 20, "fixture should cover a long enough forecast to matter"
+        assert decodes["n"] < steps, (
+            f"{decodes['n']} decodes for {steps} timesteps x 3 panels - the cache "
+            f"is not being used"
+        )
+        assert decodes["n"] == pm.readPictogram.cache_info().currsize

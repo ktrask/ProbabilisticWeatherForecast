@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import sys, os, json
 import matplotlib
 matplotlib.use('Agg')#use Agg because default is tkinter and its not threadsafe
@@ -10,6 +10,7 @@ from matplotlib.ticker import FormatStrFormatter
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Rectangle
 from matplotlib import offsetbox
+from functools import lru_cache
 from timezonefinder import TimezoneFinder
 import pytz
 import getopt
@@ -21,6 +22,30 @@ home = str(Path.home())
 #Pictograms ship with this package. Resolving them against __file__ rather than
 #the working directory is what lets the renderer be imported from anywhere.
 PICTOGRAM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pictogram")
+
+
+def utcNow():
+    """Now, in UTC, without a tzinfo.
+
+    getTimeFrame compares against datetimes built from the forecast's own
+    date/time strings, which carry no tzinfo, and Python refuses to compare aware
+    and naive datetimes. So this is naive on purpose - it is not a leftover from
+    datetime.utcnow().
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+@lru_cache(maxsize=None)
+def readPictogram(path):
+    """Decoded pictogram, read once per process.
+
+    Every panel calls imscatter() once per timestep, so a 14-day meteogram used
+    to decode the same handful of PNGs well over a hundred times per request.
+    The array is marked read-only because callers share it.
+    """
+    image = plt.imread(path)
+    image.setflags(write=False)
+    return image
 
 if os.path.exists(home + "/.fonts/BebasNeue Regular.otf"):
     prop = fm.FontProperties(fname=home+'/.fonts/BebasNeue Regular.otf')
@@ -139,9 +164,9 @@ def plotTemperature(ax, qdata, fromIdx, toIdx, tzName, plotType):
     ax.fill_between(x= dates[fromIdx:toIdx], y1= temps['ten'][fromIdx:toIdx], y2=temps['ninety'][fromIdx:toIdx], color="#348292ff", alpha = 0.5)
     ax.fill_between(x= dates[fromIdx:toIdx], y1= temps['twenty_five'][fromIdx:toIdx], y2=temps['seventy_five'][fromIdx:toIdx], color="#004e5eff", alpha = 0.5)
     if plotType == "ensemble":
-        ax.plot_date(x = dates[fromIdx:toIdx], y = temps['median'][fromIdx:toIdx], color="black", linestyle="solid", marker=None)
+        ax.plot(dates[fromIdx:toIdx], temps['median'][fromIdx:toIdx], color="black", linestyle="solid", marker=None)
     elif plotType == "enhanced-hres":
-        ax.plot_date(x = dates[fromIdx:toIdx], y = temps['hres'][fromIdx:toIdx], color="black", linestyle="solid", marker=None)
+        ax.plot(dates[fromIdx:toIdx], temps['hres'][fromIdx:toIdx], color="black", linestyle="solid", marker=None)
     dottedHours = getDottedHours(dates[fromIdx], dates[toIdx-1])
     ymin, ymax = ax.get_ylim()
     yscale = ymax-ymin
@@ -256,7 +281,7 @@ def imscatter(x, y, image, ax=None, zoom=1):
     if ax is None:
         ax = plt.gca()
     try:
-        image = plt.imread(image)
+        image = readPictogram(image)
     except TypeError:
         # Likely already an array...
         pass
@@ -556,7 +581,7 @@ if __name__ == '__main__':
     if not os.path.exists("output/"):
         os.mkdir("output")
     #today = datetime.date.today()
-    today = datetime.utcnow()
+    today = utcNow()
     days = 15
     plotType = "ensemble"
     if len(sys.argv) > 1:

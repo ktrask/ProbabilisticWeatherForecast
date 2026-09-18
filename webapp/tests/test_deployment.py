@@ -108,8 +108,9 @@ class TestCsrfIsOffForAReason:
 
 
 class TestContainerEntryPoint:
+    @staticmethod
     @pytest.fixture(scope="class")
-    def startup(self):
+    def startup():
         """The executable lines only - the comments describe what was replaced,
         so matching against them would defeat the point."""
         return "\n".join(
