@@ -43,12 +43,12 @@ def badRequest(form, error=None, status=400):
     return render_template("index.html", title=TITLE, form=form, error=error), status
 
 
-@app.route('/', methods=("GET", "POST"))
+@app.route('/', methods=("GET",))
 def index():
     return render_template("index.html", title=TITLE, form=searchForm(request.args))
 
 
-@app.route('/search', methods=("GET", "POST"))
+@app.route('/search', methods=("GET",))
 def search():
     #Bind the form to the query string so the field validators above actually
     #run. validate_on_submit() is always False here - the form is submitted with
