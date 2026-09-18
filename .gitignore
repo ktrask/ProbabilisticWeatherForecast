@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# pytest
+.pytest_cache/
+
+# Generated at runtime by downloadJsonData.py / plotMeteogram.py.
+# Regenerate with:  python downloadJsonData.py --location '<place>'
+webapp/allmeteogramdata.json
+webapp/output/
+
+# requests_cache store for Open-Meteo responses (1h TTL); delete to force a refetch.
+webapp/.cache.sqlite
