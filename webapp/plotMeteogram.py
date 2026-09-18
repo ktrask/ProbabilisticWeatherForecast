@@ -25,6 +25,33 @@ else:
     prop = fm.FontProperties(family='DejaVu Sans')
 
 
+#The plot styles plotMeteogram() understands. An unrecognised value is a bad
+#request, not something to fall back from: every panel branches on it, so a
+#silent default would render a style nobody asked for.
+PLOT_TYPES = ("ensemble", "enhanced-hres")
+
+
+class HresDataUnavailable(RuntimeError):
+    """enhanced-hres was asked for, but the data carries no deterministic run.
+
+    Distinct from a bad plotType: the request is fine, the data source just does
+    not supply what it needs. Callers turn this into a 503, not a 400.
+    """
+
+
+def assertHresAvailable(allMeteogramData):
+    for name, entry in allMeteogramData.items():
+        if not isinstance(entry, dict):
+            continue
+        series = entry.get(name)
+        if isinstance(series, dict) and 'hres' not in series:
+            raise HresDataUnavailable(
+                "The HRES-enhanced plot needs a deterministic high-resolution run, "
+                "but %r carries ensemble percentiles only. The Open-Meteo "
+                "downloader does not provide HRES data; use the pure ensemble plot."
+                % name)
+
+
 if not os.path.exists("output/"):
     os.mkdir("output")
 
@@ -81,6 +108,8 @@ def getWeekdayString(day):
         return "Sunday"
 
 def plotTemperature(ax, qdata, fromIdx, toIdx, tzName, plotType):
+    if plotType not in PLOT_TYPES:
+        raise ValueError("unknown plotType %r, expected one of %r" % (plotType, PLOT_TYPES))
     startDate = datetime(int(qdata['date'][0:4]),int(qdata['date'][4:6]),int(qdata['date'][6:8]),int(qdata['time'][0:2]))
     startDate = pytz.timezone('UTC').localize(startDate)
     print("what date?", startDate)
@@ -155,6 +184,8 @@ def plotTemperature(ax, qdata, fromIdx, toIdx, tzName, plotType):
         localMinima = np.r_[True, temps['hres'][1:] < temps['hres'][:-1]] & np.r_[temps['hres'][:-1] < temps['hres'][1:], True]
         localMaxima = np.r_[True, temps['hres'][1:] > temps['hres'][:-1]] & np.r_[temps['hres'][:-1] > temps['hres'][1:], True]
         yscale /= 1.6
+    else:
+        raise ValueError("unknown plotType %r, expected one of %r" % (plotType, PLOT_TYPES))
     #print(localMaxima)
     for i in range(fromIdx,toIdx):
         if localMinima[i]:
@@ -471,6 +502,10 @@ def getTimeFrame(allMeteogramData,fromDate, toDate):
     return (fromIndex, toIndex)
 
 def plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType):
+    if plotType not in PLOT_TYPES:
+        raise ValueError("unknown plotType %r, expected one of %r" % (plotType, PLOT_TYPES))
+    if plotType == "enhanced-hres":
+        assertHresAvailable(allMeteogramData)
     print(plotType)
     fig = plt.figure(figsize=(14,6))
     gs = gridspec.GridSpec(4, 1, height_ratios=[1, 1, 4, 1])
