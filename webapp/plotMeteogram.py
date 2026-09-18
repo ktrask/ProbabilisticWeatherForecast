@@ -238,56 +238,58 @@ def imscatter(x, y, image, ax=None, zoom=1):
     ax.autoscale()
     return artists
 
+#Cloud cover is a percentage (0-100) as delivered by the Open-Meteo API.
 def getHresCloudCoordinate(qdata):
-    if qdata['hres'] < 0.1:#no cloud 0-3
-        if(qdata['ninety'] < 0.1):
+    if qdata['hres'] < 10:#no cloud 0-3
+        if(qdata['ninety'] < 10):
             return 3
-        elif(qdata['median'] < 0.1):
+        elif(qdata['median'] < 10):
             return 2
-        elif qdata['twenty_five'] < 0.1:
+        elif qdata['twenty_five'] < 10:
             return 1
         else:
             return 0
-    if qdata['hres'] < 0.5:#light clouds 4-7
-        if(qdata['ninety'] < 0.5):
+    if qdata['hres'] < 50:#light clouds 4-7
+        if(qdata['ninety'] < 50):
             return 7
-        elif(qdata['median'] < 0.5):
+        elif(qdata['median'] < 50):
             return 6
-        elif(qdata['twenty_five'] < 0.5):
+        elif(qdata['twenty_five'] < 50):
             return 5
         else:
             return 4
-    if qdata['hres'] > 0.9:#strong clouds 12-15
-        if(qdata['ten'] > 0.9):
+    if qdata['hres'] > 90:#strong clouds 12-15
+        if(qdata['ten'] > 90):
             return 15
-        elif(qdata['median'] > 0.9):
+        elif(qdata['median'] > 90):
             return 14
-        elif(qdata['twenty_five'] > 0.9):
+        elif(qdata['twenty_five'] > 90):
             return 13
         else:
             return 12
     else: #medium clouds 8-11
-        if(qdata['ten'] > 0.5):
+        if(qdata['ten'] > 50):
             return 11
-        elif(qdata['median'] > 0.5):
+        elif(qdata['median'] > 50):
             return 10
-        elif(qdata['twenty_five'] > 0.5):
+        elif(qdata['twenty_five'] > 50):
             return 9
         else:
             return 8
 
+#Cloud cover is a percentage (0-100) as delivered by the Open-Meteo API.
 def getVSUPCloudCoordinate(qdata):
-    if qdata['ninety'] < 0.1:
+    if qdata['ninety'] < 10:
         return(3)#no cloud
-    if qdata['ten'] > 0.9:
+    if qdata['ten'] > 90:
         return(6)#all cloudy
-    if qdata['ten'] > 0.5:
+    if qdata['ten'] > 50:
         return(5)#lot of clouds
-    if qdata['ninety'] < 0.5:
+    if qdata['ninety'] < 50:
         return(4)#light clouds
-    if qdata['seventy_five'] < 0.7:
+    if qdata['seventy_five'] < 70:
         return(1)#possibly light clouds
-    if qdata['twenty_five'] > 0.3:
+    if qdata['twenty_five'] > 30:
         return(2)#possibly strong clouds
     return(0)
 
