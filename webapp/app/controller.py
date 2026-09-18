@@ -2,8 +2,8 @@ from flask import render_template,flash, redirect, request
 from app import app
 from datetime import datetime, timedelta
 import json
-from .downloadJsonData import getData, geocodeLocation, UNKNOWN_ELEVATION
-from .plotMeteogram import plotMeteogram, getTimeFrame, prop
+from meteogram.downloadJsonData import getData, geocodeLocation, UNKNOWN_ELEVATION
+from meteogram.plotMeteogram import plotMeteogram, getTimeFrame, prop
 from timezonefinder import TimezoneFinder
 from matplotlib.pyplot import close as pltclose
 import numpy as np

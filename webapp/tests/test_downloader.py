@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from downloadJsonData import (
+from meteogram.downloadJsonData import (
     STEP_INTERVAL_HOURS,
     accumulate_over_steps,
     calculate_percentiles,

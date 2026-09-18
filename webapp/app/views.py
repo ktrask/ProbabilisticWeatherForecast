@@ -3,8 +3,8 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, validators, SubmitField, DecimalField, IntegerField, RadioField
 from app import app
 from .controller import plotMeteogramFile
-from .downloadJsonData import LocationNotFound
-from .plotMeteogram import PLOT_TYPES, HresDataUnavailable
+from meteogram.downloadJsonData import LocationNotFound
+from meteogram.plotMeteogram import PLOT_TYPES, HresDataUnavailable
 from base64 import b64encode
 import os
 

@@ -11,8 +11,9 @@ single deterministic line.
 
 ## Commands
 
-Everything runs from `webapp/`. Relative paths (`./pictogram/...`, `output/`, `.cache.sqlite`) are
-resolved against the CWD, so running from elsewhere breaks image loading.
+Run from `webapp/`. The only thing still resolved against the CWD is the requests_cache store
+(`.cache.sqlite`) and the CLI's `output/` directory; pictograms and code are found relative to the
+package, so imports work from anywhere.
 
 ```bash
 cd webapp
@@ -21,15 +22,17 @@ pip install -r requirements.txt
 python run.py                      # Flask dev server, debug on, 0.0.0.0:5003
 
 # Render a meteogram PNG to ./output/forecast.png without the webapp:
-python plotMeteogram.py --location 'Braunschweig, Germany' --days 10 --ensemble
-python plotMeteogram.py --lat 52.26 --lon 10.52 --days 10 --ensemble
-python plotMeteogram.py            # no args: replays webapp/allmeteogramdata.json (offline)
+python -m meteogram.plotMeteogram --location 'Braunschweig, Germany' --days 10 --ensemble
+python -m meteogram.plotMeteogram --lat 52.26 --lon 10.52 --days 10 --ensemble
+python -m meteogram.plotMeteogram  # no args: replays webapp/allmeteogramdata.json (offline)
 
 # Fetch + cache ensemble data to allmeteogramdata.json:
-python downloadJsonData.py --location 'Braunschweig, Germany'
+python -m meteogram.downloadJsonData --location 'Braunschweig, Germany'
 
 docker build -t meteogram . && docker run -p 5003:5003 meteogram
 ```
+
+Both CLIs must be run with `-m`: they are package modules and import their siblings by package path.
 
 ### Tests
 
@@ -51,12 +54,15 @@ linters or CI.
 
 ## Architecture
 
-Three layers, deliberately decoupled by a plain-dict data format:
+Two packages under `webapp/`: `meteogram/` is the domain (fetch, render, assets) and knows nothing
+about the web; `app/` is the Flask layer. Three layers, decoupled by a plain-dict data format:
 
-1. **`downloadJsonData.py`** — fetches the ECMWF IFS 0.25° 51-member ensemble from the Open-Meteo
-   ensemble API, reduces each member set to percentiles, and emits the `allMeteogramData` dict.
-2. **`plotMeteogram.py`** — pure rendering. Takes `allMeteogramData` + index range + timezone +
-   plot type, returns a matplotlib `Figure`. Never touches the network.
+1. **`meteogram/downloadJsonData.py`** — fetches the ECMWF IFS 0.25° 51-member ensemble from the
+   Open-Meteo ensemble API, reduces each member set to percentiles, and emits the
+   `allMeteogramData` dict.
+2. **`meteogram/plotMeteogram.py`** — pure rendering. Takes `allMeteogramData` + index range +
+   timezone + plot type, returns a matplotlib `Figure`. Never touches the network. Loads its
+   glyphs from `meteogram/pictogram/`, resolved via `PICTOGRAM_DIR` (`__file__`-relative, not CWD).
 3. **`app/`** — thin Flask layer. `views.py` (form + routes) → `controller.py` (geocode, fetch,
    plot, save to `/tmp`, read back as base64, delete) → template renders the PNG inline. No DB;
    `models.py` is empty and the `flask_sqlalchemy` wiring in `app/__init__.py` is commented out.
@@ -71,18 +77,12 @@ Rejections re-render `index.html` with a 400 and the form intact. `quick_form` s
 errors itself, but **not** for a `RadioField`, so anything the user would otherwise not see is
 passed to the template as `error` and drawn as an alert.
 
-`app/downloadJsonData.py` and `app/plotMeteogram.py` are **symlinks** to the `webapp/` copies so the
-`app` package can import them relatively. The Dockerfile instead copies the real files into
-`/app/app/`. Edit the originals in `webapp/`, never the symlinks. (`app/pictogram` is a stale broken
-symlink to a non-existent repo-root `pictogram/`; it is unused — the plot code loads
-`./pictogram/...` relative to the CWD.)
-
-**The symlinks make each file importable under two module names**, and Python treats
-`downloadJsonData` and `app.downloadJsonData` as separate modules with separate class objects. So
-`except LocationNotFound` in `views.py` catches only `app.downloadJsonData.LocationNotFound`, and an
-`isinstance` check against the top-level class silently fails. The webapp only ever uses the `app.`
-path, so this is invisible in production — but tests that touch exception types or class identity
-must import from `app.…` to match.
+`app/` previously reached the domain modules through symlinks (`app/downloadJsonData.py` →
+`../downloadJsonData.py`), which made each file importable under **two** module names —
+`downloadJsonData` and `app.downloadJsonData` — with separate class objects, so `except
+LocationNotFound` caught only one of them. The `meteogram/` package replaces that: one file, one
+module path, imported as `meteogram.…` everywhere including the Dockerfile. Do not reintroduce a
+symlink or a second copy to make an import work.
 
 ### The `allMeteogramData` format
 
@@ -174,6 +174,9 @@ function rather than adding ad-hoc assertions.
 
 - `matplotlib.use('Agg')` is set at import in `plotMeteogram.py` — required, Tk is not thread-safe
   under Flask. Don't switch backends.
+- Assets are found through `PICTOGRAM_DIR`, never a `./pictogram/...` literal. The `output/`
+  directory is created by the CLI's `__main__` block, not at import — keep import side effects out
+  of the package so it stays importable on a read-only filesystem.
 - Text rendering prefers `~/.fonts/BebasNeue Regular.otf` and silently falls back to DejaVu Sans.
   The shared `prop` FontProperties object is mutated in place (`prop.set_size`) and restored — keep
   that pattern if you touch title sizing.
