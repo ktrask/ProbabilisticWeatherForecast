@@ -25,11 +25,10 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy application files. meteogram/ carries its own pictogram assets, so there
+# is nothing left to place by hand.
 COPY app /app/app
-COPY pictogram /app/pictogram
-COPY downloadJsonData.py /app/app/
-COPY plotMeteogram.py /app/app/
+COPY meteogram /app/meteogram
 COPY startup.sh /app/
 COPY run.py /app/
 COPY config.py /app/

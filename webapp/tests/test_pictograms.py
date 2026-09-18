@@ -7,7 +7,8 @@ import os
 
 import pytest
 
-from plotMeteogram import (
+from meteogram.plotMeteogram import PICTOGRAM_DIR
+from meteogram.plotMeteogram import (
     getVSUPCloudCoordinate,
     getVSUPWindCoordinate,
     getVSUPrainCoordinate,
@@ -18,7 +19,7 @@ from tests.conftest import LOCATION_KEYS, load_fixture
 # there without a matching change here is caught.
 VSUP_FILES = {
     "cloud": (
-        "pictogram/cloud/",
+        os.path.join(PICTOGRAM_DIR, "cloud") + os.sep,
         [
             "step1.png",
             "step2_mostly_clear.png",
@@ -30,7 +31,7 @@ VSUP_FILES = {
         ],
     ),
     "rain": (
-        "pictogram/rain/",
+        os.path.join(PICTOGRAM_DIR, "rain") + os.sep,
         [
             "step1_v2.png",
             "Stufe2_KaumRegen.png",
@@ -42,7 +43,7 @@ VSUP_FILES = {
         ],
     ),
     "wind": (
-        "pictogram/wind/",
+        os.path.join(PICTOGRAM_DIR, "wind") + os.sep,
         [
             "step1_v2.png",
             "Stufe2_kaumWind.png",

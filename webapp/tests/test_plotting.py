@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import matplotlib
 import pytest
 
-from plotMeteogram import HresDataUnavailable, getTimeFrame, plotMeteogram
+from meteogram.plotMeteogram import HresDataUnavailable, getTimeFrame, plotMeteogram
 from tests.conftest import LOCATION_KEYS, load_fixture
 
 

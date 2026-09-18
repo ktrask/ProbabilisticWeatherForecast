@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from downloadJsonData import getData
+from meteogram.downloadJsonData import getData
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 

@@ -194,7 +194,7 @@ class TestInputValidation:
 
     def test_form_choices_match_the_renderer(self):
         """The radio buttons and plotMeteogram's whitelist must not drift apart."""
-        from app.plotMeteogram import PLOT_TYPES
+        from meteogram.plotMeteogram import PLOT_TYPES
         from app.views import searchForm
 
         assert tuple(value for value, _ in searchForm.plotType.kwargs["choices"]) == PLOT_TYPES
@@ -214,10 +214,7 @@ class TestUnresolvableLocation:
     def test_an_unknown_place_name_is_a_400_naming_it(self, client, monkeypatch):
         """geocode() returning None used to surface as AttributeError -> 500."""
         from app import controller
-        #Must be app.downloadJsonData, not downloadJsonData: the app/ symlinks
-        #make that the same file imported twice, so the two LocationNotFound
-        #classes are not the same object and views.py only catches this one.
-        from app.downloadJsonData import LocationNotFound
+        from meteogram.downloadJsonData import LocationNotFound
 
         def cannotResolve(name):
             raise LocationNotFound(f"No place called {name!r} was found.")

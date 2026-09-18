@@ -1,9 +1,10 @@
 """Shared pytest setup.
 
-plotMeteogram.py resolves './pictogram/...' and 'output/' against the process CWD
-(and creates 'output/' at import time), so every test run has to happen from
-webapp/ regardless of where pytest was invoked. Doing the chdir at conftest module
-level means it is in effect before pytest imports any test module.
+The chdir keeps the requests_cache store (webapp/.cache.sqlite, gitignored) in one
+predictable place no matter where pytest was invoked from; it is the last thing in
+the project that resolves against the working directory. Doing it at conftest
+module level means it is in effect before pytest imports any test module, and the
+sys.path insert is what makes `meteogram` and `app` importable.
 """
 import json
 import os

@@ -18,6 +18,10 @@ import matplotlib.font_manager as fm
 
 home = str(Path.home())
 
+#Pictograms ship with this package. Resolving them against __file__ rather than
+#the working directory is what lets the renderer be imported from anywhere.
+PICTOGRAM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pictogram")
+
 if os.path.exists(home + "/.fonts/BebasNeue Regular.otf"):
     prop = fm.FontProperties(fname=home+'/.fonts/BebasNeue Regular.otf')
     prop.set_size(14)
@@ -51,9 +55,6 @@ def assertHresAvailable(allMeteogramData):
                 "downloader does not provide HRES data; use the pure ensemble plot."
                 % name)
 
-
-if not os.path.exists("output/"):
-    os.mkdir("output")
 
 #print(home)
 
@@ -219,11 +220,11 @@ def plotWindBft(ax, qdata, fromIdx, toIdx, plotType):
         #vsupFilenames = ["", "Stufe2_Windstille.png", "Stufe3_Windstille.png", "Stufe1_leichterWind.png", "Stufe2_leichterWind.png", "Stufe3_leichterWind.png", "Stufe1_starkerWind.png", "Stufe2_starkerWind.png", "Stufe3_starkerWind.png", "Stufe1_Sturm.png", "Stufe2_Sturm.png", "Stufe3_Sturm.png"]
         vsupFilenames = ["Stufe1_Windstille.png", "Stufe2_Windstille.png", "Stufe3_Windstille.png", "Stufe4_Windstille.png", "Stufe1_leichterWind.png", "Stufe2_leichterWind.png", "Stufe3_leichterWind.png", "Stufe4_leichterWind.png", "Stufe1_starkerWind.png", "Stufe2_starkerWind.png", "Stufe3_starkerWind.png", "Stufe4_starkerWind.png", "Stufe1_Sturm.png", "Stufe2_Sturm.png", "Stufe3_Sturm.png", "Stufe4_Sturm.png"]
         files = [vsupFilenames[getHresWindCoordinate({key: qdata[key][i] for key in qdata})] for i in range(fromIdx,toIdx)]
-        image_path = './pictogram/wind/enhanced_hres/'
+        image_path = os.path.join(PICTOGRAM_DIR, "wind", "enhanced_hres") + os.sep
     else:
         vsupFilenames = ["step1_v2.png", "Stufe2_kaumWind.png", "Stufe2_vielWind.png", "Stufe3_Windstille.png", "Stufe3_leichterWind.png", "Stufe3_starkerWind.png", "Stufe3_Sturm.png"]
         files = [vsupFilenames[getVSUPWindCoordinate({key: qdata[key][i] for key in qdata})] for i in range(fromIdx,toIdx)]
-        image_path = './pictogram/wind/'
+        image_path = os.path.join(PICTOGRAM_DIR, "wind") + os.sep
     zoomFactor = 7.72 / (toIdx - fromIdx)
     if zoomFactor > 0.45:
         zoomFactor = 0.45
@@ -237,11 +238,11 @@ def plotCloudVSUP(ax, qdata, fromIdx, toIdx, plotType):
         #vsupFilenames = ["Stufe1_klarerHimmel.png", "Stufe2_klarerHimmel.png", "Stufe3_klarerHimmel.png", "Stufe1_leichtBedeckt.png", "Stufe2_leichtBedeckt.png", "Stufe3_leichtBedeckt.png", "Stufe1_mittlereBewoelkung.png", "Stufe2_mittlereBewoelkung.png", "Stufe3_mittlereBewoelkung.png", "Stufe1_starkBewoelkt.png", "Stufe2_starkBewoelkt.png", "Stufe3_starkBewoelkt.png"]
         vsupFilenames = ["Stufe1_klarerHimmel.png", "Stufe2_klarerHimmel.png", "Stufe3_klarerHimmel.png", "Stufe4_klarerHimmel.png", "Stufe1_leichtBedeckt.png", "Stufe2_leichtBedeckt.png", "Stufe3_leichtBedeckt.png", "Stufe4_leichtBedeckt.png", "Stufe1_mittlereBewoelkung.png", "Stufe2_mittlereBewoelkung.png", "Stufe3_mittlereBewoelkung.png", "Stufe4_mittlereBewoelkung.png", "Stufe1_starkBewoelkt.png", "Stufe2_starkBewoelkt.png", "Stufe3_starkBewoelkt.png", "Stufe4_starkBewoelkt.png"]
         files = [vsupFilenames[getHresCloudCoordinate({key: qdata[key][i] for key in qdata})] for i in range(fromIdx,toIdx)]
-        image_path = './pictogram/cloud/enhanced_hres/'
+        image_path = os.path.join(PICTOGRAM_DIR, "cloud", "enhanced_hres") + os.sep
     else:
         vsupFilenames = ["step1.png", "step2_mostly_clear.png", "step2_mostly_cloudy.png", "step3_sunny.png", "step3_light_clouds.png", "step3_medium_cloudy.png", "step3_cloud_max.png"]
         files = [vsupFilenames[getVSUPCloudCoordinate({key: qdata[key][i] for key in qdata})] for i in range(fromIdx,toIdx)]
-        image_path = './pictogram/cloud/'
+        image_path = os.path.join(PICTOGRAM_DIR, "cloud") + os.sep
     zoomFactor = 7.72 / (toIdx - fromIdx)
     if zoomFactor > 0.45:
         zoomFactor = 0.45
@@ -444,11 +445,11 @@ def plotPrecipitationVSUP(ax, qdata, fromIdx, toIdx, plotType):
         #hresFilenames = ["Stufe1_KeinRegen.png", "Stufe2_KeinRegen.png", "Stufe3_KeinRegen.png", "Stufe1_leichterRegen.png", "Stufe2_leichterRegen.png", "Stufe3_leichterRegen.png", "Stufe1_MittlererRegen.png", "Stufe2_MittlererRegen.png", "Stufe3_MittlererRegen.png", "Stufe1_Starkregen.png", "Stufe2_Starkregen.png",  "Stufe3_Starkregen.png"]
         hresFilenames = ["Stufe1_KeinRegen.png", "Stufe2_KeinRegen.png", "Stufe3_KeinRegen.png", "Stufe4_KeinRegen.png", "Stufe1_leichterRegen.png", "Stufe2_leichterRegen.png", "Stufe3_leichterRegen.png", "Stufe4_leichterRegen.png", "Stufe1_MittlererRegen.png", "Stufe2_MittlererRegen.png", "Stufe3_MittlererRegen.png", "Stufe4_MittlererRegen.png", "Stufe1_Starkregen.png", "Stufe2_Starkregen.png", "Stufe3_Starkregen.png", "Stufe4_Starkregen.png"]
         files = [hresFilenames[getHresrainCoordinate({key: qdata[key][i] for key in qdata})] for i in range(fromIdx,toIdx)]
-        image_path = './pictogram/rain/enhanced_hres/'
+        image_path = os.path.join(PICTOGRAM_DIR, "rain", "enhanced_hres") + os.sep
     else:
         vsupFilenames = ["step1_v2.png", "Stufe2_KaumRegen.png", "Stufe2_Regen.png", "Stufe3_KeinRegen.png", "Stufe3_leichterRegen.png", "Stufe3_MittlererRegen.png", "Stufe3_Starkregen.png"]
         files = [vsupFilenames[getVSUPrainCoordinate({key: qdata[key][i] for key in qdata})] for i in range(fromIdx,toIdx)]
-        image_path = './pictogram/rain/'
+        image_path = os.path.join(PICTOGRAM_DIR, "rain") + os.sep
     zoomFactor = 7.72 / (toIdx - fromIdx)
     if zoomFactor > 0.45:
         zoomFactor = 0.45
@@ -552,13 +553,15 @@ def plotMeteogram(allMeteogramData, fromIndex, toIndex, tzName, plotType):
 
 
 if __name__ == '__main__':
+    if not os.path.exists("output/"):
+        os.mkdir("output")
     #today = datetime.date.today()
     today = datetime.utcnow()
     days = 15
     plotType = "ensemble"
     if len(sys.argv) > 1:
         print(sys.argv)
-        from downloadJsonData import getData, getCoordinates
+        from meteogram.downloadJsonData import getData, getCoordinates
         try:
             opts, args = getopt.getopt(sys.argv[1:], "hd:", ["days=", "lat=", "lon=", "location=", "ensemble", "hres"])
         except getopt.GetoptError:

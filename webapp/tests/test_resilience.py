@@ -10,8 +10,8 @@ import pytest
 import requests
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 
-import downloadJsonData
-from downloadJsonData import (
+from meteogram import downloadJsonData
+from meteogram.downloadJsonData import (
     ELEVATION_TIMEOUT,
     GEOCODE_TIMEOUT,
     OPEN_METEO_TIMEOUT,

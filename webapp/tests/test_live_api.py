@@ -13,7 +13,7 @@ import socket
 import pytest
 import requests
 
-import downloadJsonData
+from meteogram import downloadJsonData
 from tests.schema import ENSEMBLE_MEMBERS, assert_meteogram_schema
 
 pytestmark = pytest.mark.live
