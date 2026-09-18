@@ -132,3 +132,80 @@ class TestRendering:
             braunschweig, fromIndex, toIndex, "Europe/Berlin", "enhanced-hres"
         )
         matplotlib.pyplot.close(fig)
+
+
+class TestNoDeprecatedApis:
+    """Guards against APIs with a known removal date, which otherwise surface as
+    a hard failure on a routine dependency bump rather than as a warning."""
+
+    def test_rendering_emits_no_deprecation_warnings_of_our_own(self, braunschweig):
+        import warnings
+        from pathlib import Path
+
+        ourCode = str(Path(__file__).resolve().parent.parent)
+        start = reference_time(braunschweig)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            fromIndex, toIndex = getTimeFrame(
+                braunschweig, start, start + timedelta(days=3)
+            )
+            fig = plotMeteogram(
+                braunschweig, fromIndex, toIndex, "Europe/Berlin", "ensemble"
+            )
+            matplotlib.pyplot.close(fig)
+        ours = [
+            w for w in caught
+            if str(Path(w.filename).resolve()).startswith(ourCode)
+            and "site-packages" not in w.filename
+        ]
+        assert not ours, [f"{w.category.__name__}: {w.message}" for w in ours]
+
+    @staticmethod
+    def attributesNamed(path, name):
+        """Attribute accesses called `name` in `path`, via the AST.
+
+        Not a substring search: the comments explaining why these calls were
+        removed mention them by name, and would match.
+        """
+        import ast
+
+        tree = ast.parse(open(path).read())
+        return [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute) and node.attr == name
+        ]
+
+    def test_plot_date_is_gone(self):
+        """Deprecated in matplotlib 3.9, removed in 3.11; we pin 3.10.x."""
+        assert not self.attributesNamed("meteogram/plotMeteogram.py", "plot_date")
+
+    def test_utcnow_is_gone(self):
+        """datetime.utcnow() is deprecated; utcNow() replaces it."""
+        for name in ("meteogram/plotMeteogram.py", "app/controller.py"):
+            assert not self.attributesNamed(name, "utcnow"), name
+
+
+class TestUtcNow:
+    def test_is_naive(self):
+        """getTimeFrame compares it against datetimes parsed from the forecast's
+        date/time strings, which have no tzinfo; Python refuses mixed comparison."""
+        from meteogram.plotMeteogram import utcNow
+
+        assert utcNow().tzinfo is None
+
+    def test_is_actually_utc(self):
+        from datetime import datetime, timezone
+
+        from meteogram.plotMeteogram import utcNow
+
+        delta = abs(
+            (utcNow() - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()
+        )
+        assert delta < 5
+
+    def test_can_be_compared_with_a_forecast_timestamp(self, braunschweig):
+        from meteogram.plotMeteogram import utcNow
+
+        now = utcNow()
+        fromIndex, toIndex = getTimeFrame(braunschweig, now, now + timedelta(days=2))
+        assert isinstance(fromIndex, int) and isinstance(toIndex, int)
