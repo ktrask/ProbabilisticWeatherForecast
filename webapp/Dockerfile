@@ -36,6 +36,13 @@ COPY config.py /app/
 # Make startup script executable
 RUN chmod +x /app/startup.sh
 
+# Drop root. /app must stay writable: requests_cache keeps its store in the
+# working directory.
+RUN useradd --create-home --uid 10001 meteogram && chown -R meteogram:meteogram /app
+USER meteogram
+
+# Pass SECRET_KEY in at run time (docker run -e SECRET_KEY=...). It is
+# deliberately not baked into the image; config.py warns if it is missing.
 EXPOSE 5003
 
 ENTRYPOINT ["/bin/bash", "/app/startup.sh"]

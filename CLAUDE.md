@@ -19,7 +19,8 @@ package, so imports work from anywhere.
 cd webapp
 pip install -r requirements.txt
 
-python run.py                      # Flask dev server, debug on, 0.0.0.0:5003
+python run.py                      # Flask dev server, 127.0.0.1:5003, debug OFF
+FLASK_DEBUG=1 python run.py        # debug on; refused unless bound to loopback
 
 # Render a meteogram PNG to ./output/forecast.png without the webapp:
 python -m meteogram.plotMeteogram --location 'Braunschweig, Germany' --days 10 --ensemble
@@ -29,8 +30,12 @@ python -m meteogram.plotMeteogram  # no args: replays webapp/allmeteogramdata.js
 # Fetch + cache ensemble data to allmeteogramdata.json:
 python -m meteogram.downloadJsonData --location 'Braunschweig, Germany'
 
-docker build -t meteogram . && docker run -p 5003:5003 meteogram
+docker build -t meteogram . && docker run -p 5003:5003 -e SECRET_KEY="$(openssl rand -hex 32)" meteogram
 ```
+
+The container serves with gunicorn (`startup.sh`), not `run.py`. Environment: `SECRET_KEY`,
+`HOST`/`PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT`, and `FLASK_DEBUG`/`ALLOW_PUBLIC_DEBUG` for
+`run.py` only.
 
 Both CLIs must be run with `-m`: they are package modules and import their siblings by package path.
 
@@ -154,6 +159,26 @@ function rather than adding ad-hoc assertions.
   delivered unit; fix wind the same way rather than converting the data.
 - `controller.py` ignores the computed `fromIndex` (hardcodes `0`), and `plotMeteogram()` overrides it
   to `1`, so meteograms always start at the forecast's second step rather than "now".
+
+## Serving
+
+- **`run.py` is development only** — Flask's built-in server. The container runs
+  `gunicorn app:app` from `startup.sh`, which `exec`s so gunicorn is PID 1 and `docker stop`
+  actually stops it (verified: exits on SIGTERM in ~1s). It replaced a `while :; do python3 run.py;
+  sleep 1; done` loop that restarted after every crash and swallowed the error.
+- **Debug is opt-in and refuses a public bind.** `run.py` defaults to `127.0.0.1` with debug off;
+  `FLASK_DEBUG=1` with a non-loopback `HOST` raises `SystemExit` unless `ALLOW_PUBLIC_DEBUG=1`.
+  That combination exposes the Werkzeug debugger, which is remote code execution for anyone who can
+  reach the port and provoke a traceback. A public bind *without* debug is fine and is what the
+  container does.
+- **`SECRET_KEY` comes from the environment.** If unset, `config.py` generates a random per-process
+  key and warns — safe by default, but sessions will not survive a restart or be shared between
+  gunicorn workers, so set it before serving traffic. Never commit one; the previous hardcoded key
+  is still in the git history.
+- **CSRF is off deliberately**, not by oversight: every route is a read-only GET, there is no
+  session, login or state change, and enabling it would break `/search`, which binds the form to
+  `request.args` where no `csrf_token` exists. `test_deployment.py` fails if any route starts
+  accepting POST/PUT/PATCH/DELETE while CSRF is disabled — that is the signal to revisit it.
 
 ## Conventions
 
