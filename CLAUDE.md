@@ -77,6 +77,13 @@ passed to the template as `error` and drawn as an alert.
 symlink to a non-existent repo-root `pictogram/`; it is unused — the plot code loads
 `./pictogram/...` relative to the CWD.)
 
+**The symlinks make each file importable under two module names**, and Python treats
+`downloadJsonData` and `app.downloadJsonData` as separate modules with separate class objects. So
+`except LocationNotFound` in `views.py` catches only `app.downloadJsonData.LocationNotFound`, and an
+`isinstance` check against the top-level class silently fails. The webapp only ever uses the `app.`
+path, so this is invisible in production — but tests that touch exception types or class identity
+must import from `app.…` to match.
+
 ### The `allMeteogramData` format
 
 The contract between layers. Top-level keys are ECMWF-style variable names — `2t` (temperature),
@@ -149,6 +156,17 @@ function rather than adding ad-hoc assertions.
   to `1`, so meteograms always start at the forecast's second step rather than "now".
 
 ## Conventions
+
+- Every outbound call sets an explicit timeout: `requests` has no default, and `requests.Session`
+  offers no way to set one, so `TimeoutCachedSession` injects `OPEN_METEO_TIMEOUT` into
+  `session.request()` — `openmeteo_requests` never passes one itself. Keep that wrapper in place;
+  without it a stalled forecast call blocks a worker indefinitely.
+- Elevation is decoration on the plot title, so a failed lookup degrades to `UNKNOWN_ELEVATION`
+  (-999) rather than failing the forecast. The web path takes elevation from `getData`'s `metadata`
+  (what Open-Meteo reports for the grid cell it used); `getElevation`'s call to open-elevation.com
+  is only used by the CLI.
+- A place name that cannot be resolved raises `LocationNotFound`, which `/search` turns into a 400
+  naming what the user typed. Do not let `geocode()` return `None` into a forecast request.
 
 - `plotMeteogram()` and `plotTemperature()` reject an unknown `plotType` with `ValueError` rather
   than falling through their `if/elif` chains. Keep the explicit `else: raise` — without it the

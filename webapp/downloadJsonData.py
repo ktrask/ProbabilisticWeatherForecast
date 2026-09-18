@@ -2,6 +2,7 @@ from datetime import date, timedelta, datetime
 import time, json, sys
 from pathlib import Path
 from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 import requests
 import getopt
 import numpy as np
@@ -85,11 +86,61 @@ def create_dictionary(df, name="2t", step_interval=1):
 
     return output
 
-def getElevation(latitude: int,longitute: int):
+#requests has no default timeout, so every call below sets one explicitly: a
+#hung third party would otherwise tie up a worker indefinitely.
+ELEVATION_TIMEOUT = 10
+GEOCODE_TIMEOUT = 10
+OPEN_METEO_TIMEOUT = 30
+
+UNKNOWN_ELEVATION = -999
+
+
+class LocationNotFound(ValueError):
+    """A place name could not be resolved to coordinates.
+
+    Raised rather than returning None so callers cannot accidentally carry a
+    missing coordinate into a forecast request; the web layer turns it into a
+    400 with the name the user typed.
+    """
+
+
+def getElevation(latitude, longitute):
+    """Elevation in metres from open-elevation.com, or None if it cannot say.
+
+    Only used by the command line path. Open-Meteo reports the elevation of the
+    grid cell it actually used, which getData() hands back through `metadata`,
+    so the web path does not need this second service at all.
+    """
     baseUrl = "https://api.open-elevation.com"
-    response = requests.get(f"{baseUrl}/api/v1/lookup?locations={latitude},{longitute}")
-    result = json.loads(response.text)
-    return(result["results"][0]["elevation"])
+    try:
+        response = requests.get(
+            f"{baseUrl}/api/v1/lookup?locations={latitude},{longitute}",
+            timeout=ELEVATION_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()["results"][0]["elevation"]
+    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+        #Elevation is decoration on the plot title; never fail a forecast for it.
+        print(f"elevation lookup failed ({type(exc).__name__}: {exc}), continuing without it")
+        return None
+
+
+def geocodeLocation(name):
+    """Resolve a place name to (latitude, longitude), or raise LocationNotFound."""
+    geolocator = Nominatim(user_agent="ESOWC-Meteogram-2018", timeout=GEOCODE_TIMEOUT)
+    try:
+        loc = geolocator.geocode(name)
+    except (GeocoderTimedOut, GeocoderServiceError) as exc:
+        raise LocationNotFound(
+            f"Could not look up {name!r} right now: the geocoding service did not "
+            f"respond. Please try again, or enter a latitude and longitude."
+        ) from exc
+    if loc is None:
+        raise LocationNotFound(
+            f"No place called {name!r} was found. Check the spelling, or enter a "
+            f"latitude and longitude instead."
+        )
+    return loc.latitude, loc.longitude
 
 def getCoordinates(opts):
     latitude = 0
@@ -104,10 +155,7 @@ def getCoordinates(opts):
         elif opt == "--location":
             #print("location", arg)
             location = arg
-            geolocator = Nominatim(user_agent="ESOWC-Meteogram-2018")
-            loc = geolocator.geocode(arg)
-            latitude = loc.latitude
-            longitude = loc.longitude
+            latitude, longitude = geocodeLocation(arg)
             print(latitude, longitude)
         elif opt == "--lat":
             latitude = float(arg)
@@ -115,7 +163,7 @@ def getCoordinates(opts):
             longitude = float(arg)
     altitude = getElevation(latitude, longitude)
     if altitude is None:
-        altitude = -999
+        altitude = UNKNOWN_ELEVATION
     print(altitude)
     return ( latitude, longitude, altitude, location )
 
@@ -129,15 +177,33 @@ import pandas as pd
 import requests_cache
 from retry_requests import retry
 
+class TimeoutCachedSession(requests_cache.CachedSession):
+    """CachedSession that applies a default timeout.
+
+    requests.Session has no timeout setting, and openmeteo_requests does not pass
+    one, so without this a stalled Open-Meteo connection blocks forever.
+    """
+
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", OPEN_METEO_TIMEOUT)
+        return super().request(*args, **kwargs)
+
+
 # Setup the Open-Meteo API client with cache and retry on error
-cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
+cache_session = TimeoutCachedSession('.cache', expire_after = 3600)
 retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
 openmeteo = openmeteo_requests.Client(session = retry_session)
 
 # Make sure all required weather variables are listed here
 # The order of variables in hourly or daily is important to assign them correctly below
 url = "https://ensemble-api.open-meteo.com/v1/ensemble"
-def getData(longitude, latitude, altitude, writeToFile = True, meteogram = "10days"):
+def getData(longitude, latitude, altitude, writeToFile = True, meteogram = "10days", metadata = None):
+    """Fetch the ensemble and reduce it to the allMeteogramData dict.
+
+    `metadata`, if given, is filled with what the response says about the grid
+    cell that was actually used - elevation and timezone - which saves callers a
+    separate elevation lookup.
+    """
     params = {
         "latitude": latitude,
         "longitude": longitude,
@@ -154,6 +220,11 @@ def getData(longitude, latitude, altitude, writeToFile = True, meteogram = "10da
     print(f"Elevation {response.Elevation()} m asl")
     print(f"Timezone {response.Timezone()}{response.TimezoneAbbreviation()}")
     print(f"Timezone difference to GMT+0 {response.UtcOffsetSeconds()} s")
+
+    if metadata is not None:
+        metadata["elevation"] = response.Elevation()
+        metadata["latitude"] = response.Latitude()
+        metadata["longitude"] = response.Longitude()
 
     # Process hourly data
     hourly = response.Hourly()
@@ -237,10 +308,7 @@ if __name__ == '__main__':
             sys.exit(2)
     else:
         location = "Braunschweig Germany"
-        geolocator = Nominatim(user_agent="ESOWC-Meteogram-2018")
-        loc = geolocator.geocode(location)
-        latitude = loc.latitude
-        longitude = loc.longitude
+        latitude, longitude = geocodeLocation(location)
         #print(opts)
         latitude, longitude, altitude, _ = getCoordinates(opts)
     midTime = time.time()
