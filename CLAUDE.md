@@ -75,6 +75,13 @@ The contract between layers. Top-level keys are ECMWF-style variable names — `
 Note the doubled nesting: `allMeteogramData['tp']['tp']['median']`. Percentile lists are parallel to
 `steps` (hours offset from `date`/`time`, currently 6-hourly).
 
+`2t`, `tcc` and `ws` are instantaneous samples at each step — `create_dictionary` subsamples the
+hourly frame with `df.iloc[::6]`. `tp` is different: it is the rainfall **accumulated across** the
+step, summed per member by `accumulate_over_steps()` before percentiles are taken, then passed to
+`create_dictionary` with `step_interval=1`. The summing must happen per member and before the
+percentiles — the 90th percentile of 6-hour totals is not the sum of hourly 90th percentiles. Any
+new accumulated variable needs the same treatment; subsampling one silently discards 5/6 of it.
+
 ### Pictogram selection
 
 `getVSUP*Coordinate()` / `getHres*Coordinate()` map a single timestep's percentiles to an index into
@@ -83,9 +90,10 @@ a fixed filename list under `pictogram/{rain,wind,cloud}/` (7 files, ensemble) o
 a pictogram means updating both the coordinate function's thresholds and the filename list in the
 matching `plot*VSUP` function — they are positionally coupled.
 
-Cloud cover thresholds are in percent (10 / 30 / 50 / 70 / 90), matching what Open-Meteo delivers.
-Wind (m/s: 3 / 10 / 17.2) and precipitation (metres: 1e-4 … 2e-3) are still written in the old grib
-pipeline's units and do **not** match the API — see "Wind and precipitation units" under Known gaps.
+Cloud cover thresholds are in percent (10 / 30 / 50 / 70 / 90) and precipitation in mm per 6-hour
+step (0.1 / 1 / 1.5 / 2), both matching what the pipeline delivers. Wind (m/s: 3 / 10 / 17.2) is
+still written in the old grib pipeline's units and does **not** match the API — see "Wind units"
+under Known gaps.
 
 ## Tests
 
@@ -119,15 +127,12 @@ function rather than adding ad-hoc assertions.
 - A plotly rewrite of the renderer was started twice and dropped both times (commit `3e00557`, and an
   untracked `app/plotMeteogram_plotly.py` deleted on 2026-09-18). The repo-root `plotly.html` is a
   leftover sample output. Rendering is matplotlib-only; `plotly` is not in `requirements.txt`.
-- **Wind and precipitation units do not match the thresholds.** Open-Meteo delivers
-  precipitation in mm and wind in km/h, but `getVSUPrainCoordinate` /
-  `getVSUPWindCoordinate` (and their `getHres*` twins) still use the grib pipeline's
-  metres and m/s. So any measurable rain clears the `2e-3` "strong rain" threshold —
-  making the light/medium rain pictograms (indices 4 and 5) unreachable — and wind is
-  over-reported by a factor of 3.6, putting a 4.8 m/s breeze over the "storm" line.
-  Covered by `tests/test_pictograms.py::TestUnitMismatch` as an xfail. Cloud cover had
-  the same defect and was fixed by restating its thresholds in percent; fix these the
-  same way rather than converting the data.
+- **Wind units do not match the thresholds.** Open-Meteo delivers wind in km/h, but
+  `getVSUPWindCoordinate` / `getHresWindCoordinate` still use the grib pipeline's m/s,
+  so every threshold fires 3.6× too early and a 4.8 m/s breeze is drawn as a storm.
+  Covered by `tests/test_pictograms.py::TestUnitMismatch` as an xfail. Cloud cover and
+  precipitation had the same defect and were fixed by restating their thresholds in the
+  delivered unit; fix wind the same way rather than converting the data.
 - `controller.py` ignores the computed `fromIndex` (hardcodes `0`), and `plotMeteogram()` overrides it
   to `1`, so meteograms always start at the forecast's second step rather than "now".
 

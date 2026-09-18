@@ -346,61 +346,65 @@ def getVSUPWindCoordinate(qdata):
         return(1)#probably light wind
     return(0)
 
+#Precipitation is millimetres accumulated over the 6-hour step, as summed by
+#downloadJsonData.accumulate_over_steps.
 def getHresrainCoordinate(qdata):
     #print(qdata)
     #print(qdata[1])
-    if qdata['hres'] < 1e-4:#no rain 0-3
-        if(qdata['ninety'] < 1e-4):
+    if qdata['hres'] < 0.1:#no rain 0-3
+        if(qdata['ninety'] < 0.1):
             return 3
-        elif(qdata['median'] < 1e-4):
+        elif(qdata['median'] < 0.1):
             return 2
-        elif(qdata['twenty_five'] < 1e-4):
+        elif(qdata['twenty_five'] < 0.1):
             return 1
         else:
             return 0
-    if qdata['hres'] < 1e-3:#light rain 4-7
-        if(qdata['ninety'] < 1e-3):
+    if qdata['hres'] < 1:#light rain 4-7
+        if(qdata['ninety'] < 1):
             return 7
-        elif(qdata['median'] < 1e-3):
+        elif(qdata['median'] < 1):
             return 6
-        elif(qdata['twenty_five'] < 1e-3):
+        elif(qdata['twenty_five'] < 1):
             return 5
         else:
             return 4
-    if qdata['hres'] > 2e-3:#strong rain 12-15
-        if(qdata['ten'] > 2e-3):
+    if qdata['hres'] > 2:#strong rain 12-15
+        if(qdata['ten'] > 2):
             return 15
-        elif(qdata['median'] > 2e-3):
+        elif(qdata['median'] > 2):
             return 14
-        elif(qdata['twenty_five'] > 2e-3):
+        elif(qdata['twenty_five'] > 2):
             return 13
         else:
             return 12
     else: #medium rain 8-11
-        if(qdata['ten'] > 1e-3):
+        if(qdata['ten'] > 1):
             return 11
-        elif(qdata['median'] > 1e-3):
+        elif(qdata['median'] > 1):
             return 10
-        elif(qdata['twenty_five'] > 1e-3):
+        elif(qdata['twenty_five'] > 1):
             return 9
         else:
             return 8
         pass
 
+#Precipitation is millimetres accumulated over the 6-hour step, as summed by
+#downloadJsonData.accumulate_over_steps.
 def getVSUPrainCoordinate(qdata):
-    if qdata['ninety'] < 1e-4:
+    if qdata['ninety'] < 0.1:
         return(3)# no rain
-    if qdata['ten'] > 2e-3:
+    if qdata['ten'] > 2:
         return(6)#strong rain
-    if qdata['ten'] > 1e-3 and qdata['ninety'] < 2e-3:
+    if qdata['ten'] > 1 and qdata['ninety'] < 2:
         return(5)#medium rain
-    if qdata['ten'] > 1e-3:
+    if qdata['ten'] > 1:
         return(2)#possibly rain
-    if qdata['ninety'] < 1e-3:
+    if qdata['ninety'] < 1:
         return(4)#light rain
-    if qdata['median'] > 1e-3:
+    if qdata['median'] > 1:
         return(2)#possibly strong or medium rain
-    if qdata['seventy_five'] < 1.5e-3:
+    if qdata['seventy_five'] < 1.5:
         return(1)#possibly light rain
     return(0)
 
