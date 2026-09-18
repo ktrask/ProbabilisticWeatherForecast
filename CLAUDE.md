@@ -114,11 +114,11 @@ function rather than adding ad-hoc assertions.
   always returns 6-hourly `tp`/`2t` keys, so the `tp24`/`mn2t24`/`mx2t24` paths in
   `plotMeteogram()` and `getTimeFrame()` are unreachable. `controller.py` still branches on
   `days > 10`.
-- `app/plotMeteogram_plotly.py` is an in-progress, untracked port following
-  `.posit/assistant/plans/2026-07-22-2025-plan.md`. It is not wired into `controller.py`, and neither
-  `plotly` nor `kaleido` is in `requirements.txt`.
 - The repo-root `requirements.txt` belongs to the removed ECMWF grib/metview data API and is not what
   the webapp installs; `webapp/requirements.txt` is the live one.
+- A plotly rewrite of the renderer was started twice and dropped both times (commit `3e00557`, and an
+  untracked `app/plotMeteogram_plotly.py` deleted on 2026-09-18). The repo-root `plotly.html` is a
+  leftover sample output. Rendering is matplotlib-only; `plotly` is not in `requirements.txt`.
 - **Wind and precipitation units do not match the thresholds.** Open-Meteo delivers
   precipitation in mm and wind in km/h, but `getVSUPrainCoordinate` /
   `getVSUPWindCoordinate` (and their `getHres*` twins) still use the grib pipeline's
@@ -128,8 +128,6 @@ function rather than adding ad-hoc assertions.
   Covered by `tests/test_pictograms.py::TestUnitMismatch` as an xfail. Cloud cover had
   the same defect and was fixed by restating its thresholds in percent; fix these the
   same way rather than converting the data.
-- `app/plotMeteogram_plotly.py` still carries the pre-fix 0–1 cloud thresholds. Port
-  the percent change across before wiring it in.
 - `controller.py` ignores the computed `fromIndex` (hardcodes `0`), and `plotMeteogram()` overrides it
   to `1`, so meteograms always start at the forecast's second step rather than "now".
 
