@@ -1,0 +1,168 @@
+{
+  "$defs": {
+    "FixtureSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "const": "fixture",
+          "title": "Adapter",
+          "type": "string"
+        },
+        "directory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recorded forecasts, relative to this file. Default: tests/fixtures.",
+          "title": "Directory"
+        }
+      },
+      "required": [
+        "adapter"
+      ],
+      "title": "FixtureSpec",
+      "type": "object"
+    },
+    "OpenMeteoEnsembleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "const": "open_meteo_ensemble",
+          "title": "Adapter",
+          "type": "string"
+        },
+        "model": {
+          "default": "ecmwf_ifs025",
+          "description": "Open-Meteo's name for the ensemble model.",
+          "title": "Model",
+          "type": "string"
+        },
+        "forecast_days": {
+          "default": 15,
+          "description": "How far ahead to ask; NaN past the run's end is dropped.",
+          "maximum": 35,
+          "minimum": 1,
+          "title": "Forecast Days",
+          "type": "integer"
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "exclusiveMinimum": 0,
+          "maximum": 120,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "adapter"
+      ],
+      "title": "OpenMeteoEnsembleSpec",
+      "type": "object"
+    },
+    "ProductSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "description": "What the UI calls it.",
+          "title": "Label",
+          "type": "string"
+        },
+        "ensemble": {
+          "description": "Key of the ensemble source under `sources`.",
+          "title": "Ensemble",
+          "type": "string"
+        },
+        "schemes": {
+          "description": "VSUP schemes from vsup.yaml, at most one per variable.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Schemes",
+          "type": "array"
+        },
+        "variables": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "temperature_2m",
+                  "precipitation",
+                  "cloud_cover",
+                  "wind_speed_10m"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What to fetch. Default: everything the source delivers.",
+          "title": "Variables"
+        }
+      },
+      "required": [
+        "label",
+        "ensemble",
+        "schemes"
+      ],
+      "title": "ProductSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "sources": {
+      "additionalProperties": {
+        "discriminator": {
+          "mapping": {
+            "fixture": "#/$defs/FixtureSpec",
+            "open_meteo_ensemble": "#/$defs/OpenMeteoEnsembleSpec"
+          },
+          "propertyName": "adapter"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/OpenMeteoEnsembleSpec"
+          },
+          {
+            "$ref": "#/$defs/FixtureSpec"
+          }
+        ]
+      },
+      "minProperties": 1,
+      "title": "Sources",
+      "type": "object"
+    },
+    "products": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ProductSpec"
+      },
+      "description": "The first one is the default.",
+      "minProperties": 1,
+      "title": "Products",
+      "type": "object"
+    }
+  },
+  "required": [
+    "version",
+    "sources",
+    "products"
+  ],
+  "title": "Forecast sources and products",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

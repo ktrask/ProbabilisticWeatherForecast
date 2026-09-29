@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=sources.schema.json
+#
+# Where forecasts come from, and the products the UI offers. Checked against
+# vsup.yaml on load - run `python -m sources check` after editing.
+#
+# A source is an adapter plus its settings. A product ties an ensemble source
+# to the VSUP schemes drawn from it; the first product is the default.
+#
+# For offline development and tests, sources.fixtures.yaml serves the recorded
+# forecasts in tests/fixtures/ under the same product name.
+
+version: 1
+
+sources:
+  ecmwf-ens:
+    adapter: open_meteo_ensemble
+    model: ecmwf_ifs025
+    forecast_days: 15
+    timeout_s: 30
+
+products:
+  ecmwf:
+    label: ECMWF ensemble
+    ensemble: ecmwf-ens
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]

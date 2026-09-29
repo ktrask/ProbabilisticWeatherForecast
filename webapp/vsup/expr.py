@@ -13,9 +13,7 @@ Comparisons are < <= > >=. There is no == on purpose: forecast values are floats
 import re
 from dataclasses import dataclass
 
-from core.model import quantile_level
-
-DETERMINISTIC = "deterministic"
+from core.model import DETERMINISTIC, quantile_level
 _KEYWORDS = {"and", "or", "not"}
 
 

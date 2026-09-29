@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=sources.schema.json
+#
+# Offline stand-in for sources.yaml: the same product, served from the
+# recorded forecasts in tests/fixtures/ (Braunschweig, Reykjavik, Singapore,
+# Zermatt, Alice Springs - a request is answered from the nearest one within
+# half a degree). No network, and the same answer every time, which is what
+# the API tests and the frontend's screenshot tests need.
+#
+#   SOURCES_CONFIG=config/sources.fixtures.yaml python -m api serve
+
+version: 1
+
+sources:
+  recorded:
+    adapter: fixture
+    directory: ../tests/fixtures
+
+products:
+  ecmwf:
+    label: ECMWF ensemble (recorded)
+    ensemble: recorded
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]

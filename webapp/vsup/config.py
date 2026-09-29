@@ -4,18 +4,18 @@ Two stages. The Pydantic models below describe the file's shape (and export
 the JSON Schema that editors use for completion). Then every scheme is checked
 for what a shape cannot express - thresholds in order, pictograms on disk,
 quantiles that are actually computed, a unit that converts to the variable's -
-and compiled. Every problem found is collected with its line in the file, and
-all of them are raised together as one ConfigError, so a broken config is
-fixed in one pass rather than one error per restart.
+and compiled. Every problem is collected with its line in the file and all of
+them are raised together as one ConfigError (see core.configfile).
 """
+import hashlib
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Literal, NamedTuple
+from typing import Annotated, Literal
 
-import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from core.configfile import ConfigError, ConfigFile, ConfigIssue  # noqa: F401 - re-exported
 from core.model import quantile_level, quantile_name
 from core.units import UNITS, UnitError, converter
 from core.variables import VARIABLES, variable
@@ -135,7 +135,9 @@ class _Rule:
 @dataclass(frozen=True)
 class RulesScheme:
     name: str
+    description: str | None
     variable: str
+    unit: str  # as written in the file; the compiled thresholds are canonical
     window_hours: int | None
     reads: frozenset  # quantile names, and maybe "deterministic"
     rules: tuple
@@ -163,7 +165,9 @@ class _Level:
 @dataclass(frozen=True)
 class TreeScheme:
     name: str
+    description: str | None
     variable: str
+    unit: str
     window_hours: int | None
     reads: frozenset
     class_ids: tuple
@@ -202,6 +206,7 @@ class VsupConfig:
     quantiles: tuple
     pictogram_root: Path
     schemes: dict
+    version: str  # changes with the file or any pictogram it uses
 
     def scheme(self, name):
         try:
@@ -210,140 +215,23 @@ class VsupConfig:
             raise KeyError(f"no scheme {name!r} in {self.path}; there are {', '.join(self.schemes)}") from None
 
 
-# --- Errors with line numbers -----------------------------------------------
-
-class ConfigIssue(NamedTuple):
-    line: int | None
-    where: str
-    message: str
-
-
-class ConfigError(ValueError):
-    def __init__(self, path, issues):
-        super().__init__(path, issues)
-        self.path = Path(path)
-        self.issues = list(issues)
-
-    def __str__(self):
-        lines = [f"{self.path}: {len(self.issues)} problem{'s' if len(self.issues) != 1 else ''}"]
-        for issue in sorted(self.issues, key=lambda i: (i.line or 0, i.where)):
-            position = f"{self.path.name}:{issue.line}" if issue.line else self.path.name
-            where = f" {issue.where}:" if issue.where else ""
-            lines.append(f"  {position}:{where} {issue.message}")
-        return "\n".join(lines)
-
-
-class _Locator:
-    """Maps a path like ("schemes", "wind", "rules", 3, "when") to its line."""
-
-    def __init__(self, root):
-        self.root = root
-
-    def find(self, loc):
-        node, parts = self.root, []
-        for part in loc:
-            child = self._child(node, part)
-            if child is not None:  # skip what is not in the file, e.g. Pydantic's union tags
-                node = child
-                parts.append(part)
-        return node, parts
-
-    def line(self, loc):
-        node, _ = self.find(loc)
-        return node.start_mark.line + 1 if node is not None else None
-
-    def where(self, loc):
-        _, parts = self.find(loc)
-        text = ""
-        for part in parts:
-            text += f"[{part}]" if isinstance(part, int) else (f".{part}" if text else str(part))
-        return text
-
-    @staticmethod
-    def _child(node, part):
-        if isinstance(node, yaml.MappingNode):
-            for key, value in node.value:
-                if isinstance(key, yaml.ScalarNode) and key.value == str(part):
-                    return value
-        elif isinstance(node, yaml.SequenceNode) and isinstance(part, int) and 0 <= part < len(node.value):
-            return node.value[part]
-        return None
-
-    def duplicate_keys(self):
-        """PyYAML keeps the last of two equal keys without a word; a second
-        scheme or pictogram under the same name would simply vanish."""
-        found, seen, stack = [], set(), [self.root]
-        while stack:
-            node = stack.pop()
-            if node is None or id(node) in seen:
-                continue
-            seen.add(id(node))
-            if isinstance(node, yaml.MappingNode):
-                keys = set()
-                for key, value in node.value:
-                    if isinstance(key, yaml.ScalarNode) and key.value != "<<":
-                        if key.value in keys:
-                            found.append(ConfigIssue(key.start_mark.line + 1, "",
-                                                     f"duplicate key {key.value!r}; YAML would keep only the last"))
-                        keys.add(key.value)
-                    stack.append(value)
-            elif isinstance(node, yaml.SequenceNode):
-                stack.extend(node.value)
-        return found
-
-
 # --- Loading ----------------------------------------------------------------
-
-_MODES = ("rules", "tree")
-
-
-def _without_union_tag(loc):
-    """Pydantic puts the chosen `mode` into the error path of a scheme:
-    ("schemes", "wind", "rules", "variable"). That tag is not in the file, and
-    "rules" is also a real key, so left in, it would send the line lookup to
-    the rules list instead of `variable:`."""
-    if len(loc) >= 3 and loc[0] == "schemes" and loc[2] in _MODES:
-        return loc[:2] + loc[3:]
-    return loc
-
 
 def load(path=DEFAULT_CONFIG):
     """Load and compile `path`. Raises ConfigError listing every problem found."""
-    path = Path(path)
-    text = path.read_text(encoding="utf-8")
-    try:
-        root = yaml.compose(text, Loader=yaml.SafeLoader)
-        data = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
-        mark = getattr(exc, "problem_mark", None)
-        raise ConfigError(path, [ConfigIssue(mark.line + 1 if mark else None, "",
-                                             f"not valid YAML: {getattr(exc, 'problem', None) or exc}")]) from None
-    locator = _Locator(root)
-    issues = locator.duplicate_keys()
-    try:
-        spec = VsupFile.model_validate(data)
-    except ValidationError as exc:
-        for error in exc.errors():
-            loc = _without_union_tag(error["loc"])
-            issues.append(ConfigIssue(locator.line(loc), locator.where(loc), error["msg"]))
-        raise ConfigError(path, issues) from None
-    config = _Compiler(spec, path, locator, issues).compile()
-    if issues:
-        raise ConfigError(path, issues)
+    file = ConfigFile(path, VsupFile, union_tags={"schemes": ("rules", "tree")})
+    config = _Compiler(file).compile()
+    file.check()
     return config
 
 
 class _Compiler:
-    def __init__(self, spec, path, locator, issues):
-        self.spec = spec
-        self.path = path
-        self.locator = locator
-        self.issues = issues
-        self.root = (path.parent / spec.pictogram_root).resolve()
-        self.computed = {quantile_name(level) for level in spec.quantiles}
-
-    def report(self, loc, message):
-        self.issues.append(ConfigIssue(self.locator.line(loc), self.locator.where(loc), message))
+    def __init__(self, file):
+        self.file = file
+        self.spec = file.spec
+        self.report = file.report
+        self.root = (file.path.parent / self.spec.pictogram_root).resolve()
+        self.computed = {quantile_name(level) for level in self.spec.quantiles}
 
     def compile(self):
         if not self.root.is_dir():
@@ -352,7 +240,19 @@ class _Compiler:
         for name, scheme in self.spec.schemes.items():
             compile_mode = self._rules if scheme.mode == "rules" else self._tree
             schemes[name] = compile_mode(name, scheme, ("schemes", name), self._unit(scheme, ("schemes", name)))
-        return VsupConfig(self.path, tuple(self.spec.quantiles), self.root, schemes)
+        return VsupConfig(self.file.path, tuple(self.spec.quantiles), self.root, schemes,
+                          self._version(schemes))
+
+    def _version(self, schemes):
+        """A short hash of the file and every pictogram it uses, so that
+        clients can cache both for as long as it stays the same."""
+        digest = hashlib.sha256(self.file.text.encode())
+        for picture in sorted({choice.pictogram for s in schemes.values() for choice, _ in s.outcomes()}):
+            digest.update(picture.encode())
+            path = self.root / picture
+            if path.is_file():
+                digest.update(path.read_bytes())
+        return digest.hexdigest()[:12]
 
     def _unit(self, scheme, at):
         spec = variable(scheme.variable)
@@ -408,7 +308,8 @@ class _Compiler:
         if not scheme.rules[last].default:
             self.report(at + ("rules", last), "the last rule has to be `default: true`, "
                                               "or a step no rule matches would get no pictogram")
-        return RulesScheme(name, scheme.variable, scheme.window_hours, frozenset(reads), tuple(rules))
+        return RulesScheme(name, scheme.description, scheme.variable, scheme.unit, scheme.window_hours,
+                           frozenset(reads), tuple(rules))
 
     def _tree(self, name, scheme, at, convert):
         ids = [c.id for c in scheme.classes]
@@ -489,8 +390,8 @@ class _Compiler:
                 self._pictogram(at + ("pictograms", key), picture)
 
         return TreeScheme(
-            name, scheme.variable, scheme.window_hours, frozenset(reads), tuple(ids),
-            tuple(convert(b) for b in bounds), tuple(levels),
+            name, scheme.description, scheme.variable, scheme.unit, scheme.window_hours, frozenset(reads),
+            tuple(ids), tuple(convert(b) for b in bounds), tuple(levels),
         )
 
     def _partition(self, loc, groups, ids):

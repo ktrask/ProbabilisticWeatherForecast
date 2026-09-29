@@ -11,9 +11,9 @@ from datetime import timedelta
 from pathlib import Path
 
 from core import legacy
-from core.model import Location
+from core.model import Location, quantile_level
 from core.pipeline import SourceResult
-from sources.base import SourceError
+from sources.base import NoData
 
 DEFAULT_DIRECTORY = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
 
@@ -21,7 +21,7 @@ DEFAULT_DIRECTORY = Path(__file__).resolve().parent.parent / "tests" / "fixtures
 MAX_DISTANCE_DEG = 0.5
 
 
-class FixtureNotFound(SourceError):
+class FixtureNotFound(NoData):
     pass
 
 
@@ -31,6 +31,7 @@ class FixtureSource:
     variables = frozenset(legacy.VARIABLES.values())
     native_step = timedelta(hours=6)
     max_lead = timedelta(days=14)
+    quantile_levels = tuple(quantile_level(name) for name in legacy.QUANTILES.values())
 
     def __init__(self, directory=DEFAULT_DIRECTORY):
         self.directory = Path(directory)
