@@ -1,8 +1,9 @@
 # Plan: Neuentwicklung als reaktive Webanwendung
 
 Stand: 29.09.2026 · Ursprünglicher Plan vom 28.09.2026, seitdem mit dem Umsetzungsstand
-fortgeschrieben. Phase 0 liegt auf dem Branch `tests-and-cloud-unit-fix`, alles danach auf
-`new-webinterface`. Beide sind noch nicht nach `main` gemergt.
+fortgeschrieben. Die Phasen 0–4 sind in `main` (Fast-Forward am 29.09.2026). Der letzte Stand der
+alten Flask-App liegt auf dem Branch `old-webapp` (`dc7984f`, nach Phase 0 mit allen Tests und
+Korrekturen, Dockerfile startet noch Flask).
 
 ## 0. Umsetzungsstand
 
@@ -549,7 +550,7 @@ GitHub Actions). Mindestens: `pytest -m "not live"`, `vsup check`, `sources chec
 | Harte Klassengrenzen führen zu Symbolsprüngen | vorerst beibehalten | eventuell Hysterese oder Unschärfebereich im `tree`-Modus |
 | Open-Meteo-Rate-Limits bei öffentlichem Betrieb | Cache 1 h, gleiche Anfragen gebündelt | kein eigenes Rate-Limiting; kommerzieller API-Key oder gemeinsamer Cache (Redis), falls die Nutzung wächst |
 | SVG-Neuzeichnung der HRES-Piktogramme | offen | Designarbeit, nicht Code |
-| Merge nach `main` | bewusst noch nicht | – |
+| Merge nach `main` | erledigt (29.09.2026), alte App auf `old-webapp` | – |
 
 ## 13. Aufwand
 
