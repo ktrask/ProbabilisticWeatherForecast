@@ -5,10 +5,10 @@ import { I18nContext, makeI18n } from "../i18n";
 import { forecast } from "../test/fixtures";
 import { Meteogram } from "./Meteogram";
 
-function draw(from = 0, to = 12, lang: "de" | "en" = "en") {
+function draw(from = 0, to = 12, lang: "de" | "en" = "en", width = 900, steps = 12) {
   return render(
     <I18nContext.Provider value={makeI18n(lang)}>
-      <Meteogram forecast={forecast()} pictogramBase="/pictograms/v1/" window={{ from, to, stale: false }} width={900} />
+      <Meteogram forecast={forecast(steps)} pictogramBase="/pictograms/v1/" window={{ from, to, stale: false }} width={width} />
     </I18nContext.Provider>,
   );
 }
@@ -89,5 +89,64 @@ describe("Meteogram", () => {
     fireEvent.keyDown(screen.getByRole("group"), { key: "Home" });
     expect(screen.getByTestId("tooltip")).toHaveTextContent("Dienstag 29.9., 00:00");
     expect(screen.getByRole("group")).toHaveAccessibleName(/Meteogramm für Braunschweig/);
+  });
+
+  describe("on a narrow screen", () => {
+    // 360 px is a phone: sections hold five days (21 steps). Eight days from
+    // local midnight - 32 steps - are cut at the midnight nearest the middle,
+    // step 16, into two sections sharing that step.
+    const narrow = () => draw(0, 32, "en", 360, 32);
+    const sectionsOf = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll(".section")).map((el) => [
+        Number(el.getAttribute("data-first")),
+        Number(el.getAttribute("data-last")),
+      ]);
+
+    it("splits into sections, one below the other", () => {
+      const { container } = narrow();
+      expect(sectionsOf(container)).toEqual([
+        [0, 16],
+        [16, 31],
+      ]);
+    });
+
+    it("keeps five days in one row, even on a phone", () => {
+      const { container } = draw(0, 21, "en", 360, 32);
+      expect(container.querySelectorAll(".section")).toHaveLength(1);
+    });
+
+    it("draws every total exactly once across the cut", () => {
+      const { container } = narrow();
+      const rain = images(container, "precipitation").map((i) => i.querySelector("title")?.textContent);
+      expect(rain).toHaveLength(31); // as in one row: the last step's window is beyond the end
+      // The shared step's instants appear at the end of one section and the start of the next.
+      expect(images(container, "cloud_cover")).toHaveLength(33);
+    });
+
+    it("uses one time scale and one temperature scale for all sections", () => {
+      const { container } = narrow();
+      const svgs = Array.from(container.querySelectorAll("svg"));
+      const perStep = svgs.map((svg) => {
+        const xs = Array.from(svg.querySelectorAll('g[data-variable="cloud_cover"] image')).map((i) =>
+          Number(i.getAttribute("x")),
+        );
+        return (xs[1] as number) - (xs[0] as number);
+      });
+      expect(perStep[0]).toBeCloseTo(perStep[1] as number, 6);
+      const ticks = svgs.map((svg) => Array.from(svg.querySelectorAll(".grid text")).map((t) => t.textContent));
+      expect(ticks[0]).toEqual(ticks[1]);
+    });
+
+    it("walks through the cut with the keyboard", () => {
+      const { container } = narrow();
+      const chart = screen.getByRole("group");
+      fireEvent.keyDown(chart, { key: "Home" });
+      for (let i = 0; i < 16; i++) fireEvent.keyDown(chart, { key: "ArrowRight" });
+      // Step 16, shared by both sections, is shown in the later one.
+      const second = container.querySelectorAll(".section")[1] as HTMLElement;
+      expect(second.querySelector(".crosshair")).not.toBeNull();
+      expect(container.querySelectorAll(".crosshair")).toHaveLength(1);
+      expect(screen.getByTestId("tooltip")).toHaveTextContent("Saturday 03/10, 00:00");
+    });
   });
 });

@@ -104,3 +104,59 @@ export function extent(series: number[][], from: number, to: number): [number, n
   }
   return [lo, hi];
 }
+
+export interface Section {
+  first: number; // step index
+  last: number; // step index, inclusive
+}
+
+/** Splits the steps [from, to) into sections of at most `maxSteps` steps each,
+ * to be drawn one below the other when a single row would make the pictograms
+ * too small.
+ *
+ * Sections are cut where a local day begins, as evenly as the days allow.
+ * Neighbours share the step they are cut at: the temperature line runs on,
+ * and the total that begins at the cut is drawn in the later section - were
+ * they not to overlap, the total spanning the cut would fit in neither.
+ */
+export function sections(steps: Date[], from: number, to: number, maxSteps: number, timeZone: string): Section[] {
+  const last = to - 1;
+  const span = last - from; // intervals between the first and the last step
+  const room = Math.max(1, maxSteps - 1); // intervals a section can hold
+  if (span <= room) return [{ first: from, last }];
+
+  const dayStarts: number[] = [];
+  for (let i = from + 1; i < last; i++) {
+    if (dayKey(steps[i] as Date, timeZone) !== dayKey(steps[i - 1] as Date, timeZone)) dayStarts.push(i);
+  }
+
+  // Even: as few sections as fit, each cut at the day start nearest its share.
+  const count = Math.ceil(span / room);
+  const even: number[] = [];
+  let previous = from;
+  for (let k = 1; k < count; k++) {
+    const target = from + (span * k) / count;
+    const options = dayStarts.filter((c) => c > previous && c - previous <= room);
+    if (!options.length) break;
+    const cut = options.reduce((best, c) => (Math.abs(c - target) < Math.abs(best - target) ? c : best));
+    even.push(cut);
+    previous = cut;
+  }
+  const cuts = even.length === count - 1 && last - previous <= room ? even : greedy(from, last, room, dayStarts);
+
+  const bounds = [from, ...cuts, last];
+  return bounds.slice(0, -1).map((first, i) => ({ first, last: bounds[i + 1] as number }));
+}
+
+/** As many whole days per section as fit; mid-day only where a day alone is too long. */
+function greedy(from: number, last: number, room: number, dayStarts: number[]): number[] {
+  const cuts: number[] = [];
+  let start = from;
+  while (last - start > room) {
+    const fitting = dayStarts.filter((c) => c > start && c - start <= room);
+    const cut = fitting.length ? (fitting[fitting.length - 1] as number) : start + room;
+    cuts.push(cut);
+    start = cut;
+  }
+  return cuts;
+}
