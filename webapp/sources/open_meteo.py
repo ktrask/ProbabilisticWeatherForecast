@@ -18,7 +18,8 @@ from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from core.model import Location
 from core.pipeline import SourceResult
 from core.units import UnitError, to_canonical
-from sources.base import SourceError, SourceTimeout
+from sources import http
+from sources.base import SourceError
 
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
 DEFAULT_TIMEOUT_S = 30.0
@@ -56,6 +57,7 @@ class OpenMeteoEnsemble:
     kind = "ensemble"
     native_step = timedelta(hours=1)
     variables = frozenset(SDK_VARIABLES.values())
+    quantile_levels = None  # members, so any level can be computed
 
     def __init__(self, model="ecmwf_ifs025", *, forecast_days=15, timeout_s=DEFAULT_TIMEOUT_S,
                  client=None, url=ENSEMBLE_URL):
@@ -93,27 +95,9 @@ class OpenMeteoEnsemble:
         unknown = variables - self.variables
         if unknown:
             raise ValueError(f"{self.id} cannot deliver {', '.join(sorted(unknown))}")
-        params = self.params(location, variables)
-        try:
-            if self._client is not None:
-                response = await self._client.get(self.url, params=params, timeout=self.timeout)
-            else:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.get(self.url, params=params)
-        except httpx.TimeoutException as exc:
-            raise SourceTimeout(f"{self.id} did not answer within {self.timeout.read}s") from exc
-        except httpx.HTTPError as exc:
-            raise SourceError(f"{self.id} could not be reached: {type(exc).__name__}: {exc}") from exc
-        if response.status_code != 200:
-            raise SourceError(f"{self.id} answered {response.status_code}: {_reason(response)}")
+        response = await http.get(self.url, self.params(location, variables), timeout=self.timeout,
+                                  what=self.id, client=self._client)
         return decode(response.content, self.id, variables, name=location.name)
-
-
-def _reason(response):
-    try:
-        return response.json().get("reason", response.text[:200])
-    except ValueError:
-        return response.text[:200]
 
 
 def messages(content):

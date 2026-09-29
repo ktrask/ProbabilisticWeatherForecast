@@ -28,6 +28,9 @@ from core.variables import VARIABLES
 
 _QUANTILE_NAME = re.compile(r"p(100|[1-9]?[0-9])")
 
+# The name of a variable's deterministic series, alongside its quantiles.
+DETERMINISTIC = "deterministic"
+
 
 def quantile_name(level):
     """10 -> "p10"."""
@@ -106,7 +109,7 @@ class VariableSeries(BaseModel):
     def _series(self):
         yield from self.quantiles.items()
         if self.deterministic is not None:
-            yield "deterministic", self.deterministic
+            yield DETERMINISTIC, self.deterministic
 
     def __len__(self):
         return len(next(iter(self.quantiles.values())))
