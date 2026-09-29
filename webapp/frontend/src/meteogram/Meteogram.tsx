@@ -1,12 +1,17 @@
-// The meteogram as one SVG: cloud and precipitation pictograms, the
-// temperature quantile band with daily extremes, wind pictograms, and a time
-// axis in the location's local time. Hover, touch or the arrow keys move a
-// crosshair that lists everything known about the step.
+// The meteogram: cloud and precipitation pictograms, the temperature quantile
+// band with daily extremes, wind pictograms, and a time axis in the location's
+// local time. Hover, touch or the arrow keys move a crosshair that lists
+// everything known about the step.
 //
 // Instant variables (clouds, wind, temperature) belong to their step's time.
 // Precipitation is the total over [t, t + window), so its pictogram sits in
 // the middle of that window - between two instants, like the precipitation
 // bars of a classic meteogram.
+//
+// Where one row would make the pictograms too small to tell their levels
+// apart - many days, or a phone - the chart is split into sections one below
+// the other (layout.sections), each at least MIN_SECTION_DAYS long. All sections share one time scale per pixel
+// and one temperature scale, so they compare like a single chart.
 import { scaleLinear, scaleUtc } from "d3-scale";
 import { area, curveMonotoneX, line } from "d3-shape";
 import { type KeyboardEvent, type PointerEvent, useMemo, useState } from "react";
@@ -14,13 +19,19 @@ import { type KeyboardEvent, type PointerEvent, useMemo, useState } from "react"
 import type { Forecast, PictogramSeries, VariableSeries } from "../api/client";
 import { useI18n } from "../i18n";
 import { unitLabel } from "./format";
-import { type Window, dailyExtremes, dayBands, extent } from "./layout";
+import { type Extreme, type Section as Part, type Window, dailyExtremes, dayBands, extent, sections } from "./layout";
 import { HOUR_MS } from "./time";
 import { Tooltip } from "./Tooltip";
 
-const ROW = { pictogram: 56, temperature: 210, axis: 46 };
-const MARGIN = { left: 44, right: 14, top: 6 };
+const MARGIN = { left: 44, right: 14, top: 4 };
 const PICTOGRAM = { min: 14, max: 46 };
+const AXIS_HEIGHT = 44;
+// Below this many pixels per step, pictograms are split into sections...
+export const MIN_CELL = 28;
+// ...but never into sections shorter than this: up to five days stay in one
+// row even on a phone, where the pictograms then shrink instead. Splitting
+// sooner broke a few days into too many pieces to read as one forecast.
+export const MIN_SECTION_DAYS = 5;
 // The temperature band, from the widest spread to the narrowest.
 const BANDS: [string, string, string][] = [
   ["p0", "p100", "band-outer"],
@@ -38,6 +49,18 @@ export interface MeteogramProps {
   width: number;
 }
 
+interface Sizes {
+  cell: number; // pixels per step, the same in every section
+  pictogram: number;
+  row: number; // height of a pictogram row
+  band: number; // height of the temperature band
+}
+
+interface Active {
+  index: number; // step
+  section: number; // the section showing it - a shared boundary step is in two
+}
+
 interface Row {
   variable: string;
   series: PictogramSeries;
@@ -47,54 +70,40 @@ interface Row {
 
 export function Meteogram({ forecast, pictogramBase, window: view, width }: MeteogramProps) {
   const i18n = useI18n();
-  const [active, setActive] = useState<number | null>(null);
+  const [active, setActive] = useState<Active | null>(null);
   const timeZone = forecast.location.timezone ?? "UTC";
-  const stepMs = forecast.step_hours * HOUR_MS;
   const steps = useMemo(() => forecast.steps.map((s) => new Date(s)), [forecast.steps]);
   const { from, to } = view;
-  const first = steps[from] as Date;
-  const last = steps[to - 1] as Date;
-  const start = new Date(first.getTime() - stepMs / 2);
-  const end = new Date(last.getTime() + stepMs / 2);
-  const x = scaleUtc().domain([start, end]).range([MARGIN.left, width - MARGIN.right]);
-  const cell = (width - MARGIN.left - MARGIN.right) / (to - from);
-  const size = Math.max(PICTOGRAM.min, Math.min(PICTOGRAM.max, cell * 0.92));
 
-  // Rows, top to bottom.
-  let y = MARGIN.top;
-  const rows: Row[] = [];
-  const addRows = (variables: string[]) => {
-    for (const variable of variables) {
-      const series = forecast.pictograms[variable];
-      if (!series) continue;
-      const hours = forecast.variables[variable]?.window_hours;
-      rows.push({ variable, series, y, windowMs: hours ? hours * HOUR_MS : null });
-      y += ROW.pictogram;
-    }
+  const plot = Math.max(1, width - MARGIN.left - MARGIN.right);
+  const stepsPerDay = Math.max(1, Math.round(24 / forecast.step_hours));
+  const maxSteps = Math.max(MIN_SECTION_DAYS * stepsPerDay + 1, Math.floor(plot / MIN_CELL));
+  const parts = useMemo(() => sections(steps, from, to, maxSteps, timeZone), [steps, from, to, maxSteps, timeZone]);
+  const widest = Math.max(...parts.map((p) => p.last - p.first + 1));
+  const cell = plot / widest;
+  const pictogram = Math.max(PICTOGRAM.min, Math.min(PICTOGRAM.max, cell * 0.92));
+  const sizes: Sizes = {
+    cell,
+    pictogram,
+    row: Math.round(pictogram + 10),
+    band: Math.round(Math.max(130, Math.min(210, plot * 0.32))),
   };
-  addRows(ABOVE);
+
   const temperature = forecast.variables.temperature_2m;
-  const bandTop = y;
-  if (temperature) y += ROW.temperature;
-  addRows(BELOW);
-  const axisTop = y;
-  const height = axisTop + ROW.axis;
+  const domain = useMemo(() => (temperature ? temperatureDomain(temperature, from, to) : null), [temperature, from, to]);
+  const extremes = useMemo(() => {
+    const median = temperature?.quantiles.p50;
+    return median ? dailyExtremes(steps, median, from, to, timeZone) : [];
+  }, [temperature, steps, from, to, timeZone]);
 
-  const indices = useMemo(() => Array.from({ length: to - from }, (_, k) => from + k), [from, to]);
-  const bands = useMemo(() => dayBands(start, end, timeZone), [start.getTime(), end.getTime(), timeZone]);
-
+  // A shared boundary step belongs to the later section, except at the very end.
+  const owner = (index: number) => {
+    const found = parts.findIndex((p, i) => index >= p.first && (index < p.last || i === parts.length - 1));
+    return Math.max(0, found);
+  };
   const place = forecast.location.name ?? `${forecast.location.lat}, ${forecast.location.lon}`;
 
-  const nearest = (px: number) => {
-    const t = x.invert(px).getTime();
-    const index = Math.round((t - (steps[0] as Date).getTime()) / stepMs);
-    return Math.max(from, Math.min(to - 1, index));
-  };
-  const onPointer = (event: PointerEvent<SVGRectElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    setActive(nearest(event.clientX - box.left + MARGIN.left));
-  };
-  const onKey = (event: KeyboardEvent<SVGSVGElement>) => {
+  const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const moves: Record<string, (current: number) => number> = {
       ArrowRight: (c) => c + 1,
       ArrowLeft: (c) => c - 1,
@@ -108,32 +117,122 @@ export function Meteogram({ forecast, pictogramBase, window: view, width }: Mete
     const move = moves[event.key];
     if (!move) return;
     event.preventDefault();
-    setActive((current) => Math.max(from, Math.min(to - 1, current === null ? from : move(current))));
+    setActive((current) => {
+      const index = Math.max(from, Math.min(to - 1, current === null ? from : move(current.index)));
+      return { index, section: owner(index) };
+    });
   };
 
   return (
-    <div className="meteogram" data-testid="meteogram" style={{ width }}>
-      <svg
-        width={width}
-        height={height}
-        tabIndex={0}
-        role="group"
-        aria-label={i18n.t.chartLabel(place)}
-        onKeyDown={onKey}
-        onBlur={() => setActive(null)}
-      >
+    <div
+      className="meteogram"
+      data-testid="meteogram"
+      data-sections={parts.length}
+      style={{ width }}
+      tabIndex={0}
+      role="group"
+      aria-label={i18n.t.chartLabel(place)}
+      onKeyDown={onKey}
+      onBlur={() => setActive(null)}
+    >
+      {parts.map((part, i) => (
+        <Section
+          key={part.first}
+          forecast={forecast}
+          steps={steps}
+          part={part}
+          last={i === parts.length - 1}
+          sizes={sizes}
+          domain={domain}
+          extremes={extremes.filter((e) => owner(e.index) === i)}
+          pictogramBase={pictogramBase}
+          timeZone={timeZone}
+          active={active?.section === i ? active.index : null}
+          onActive={(index) => setActive(index === null ? null : { index, section: i })}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** The temperature axis for the whole window, so that every section uses the
+ * same scale and 5 degrees look like 5 degrees everywhere. */
+function temperatureDomain(series: VariableSeries, from: number, to: number): [number, number] {
+  const q = series.quantiles;
+  const outer = BANDS.find(([lo, hi]) => q[lo] && q[hi]);
+  const [lo, hi] = extent(outer ? [q[outer[0]] as number[], q[outer[1]] as number[]] : [q.p50 ?? []], from, to);
+  // Room above and below for the extreme markers.
+  return [lo - 1.5, hi + 1.5];
+}
+
+interface SectionProps {
+  forecast: Forecast;
+  steps: Date[];
+  part: Part;
+  last: boolean;
+  sizes: Sizes;
+  domain: [number, number] | null;
+  extremes: Extreme[];
+  pictogramBase: string;
+  timeZone: string;
+  active: number | null;
+  onActive: (index: number | null) => void;
+}
+
+function Section({ forecast, steps, part, last, sizes, domain, extremes, pictogramBase, timeZone, active, onActive }: SectionProps) {
+  const stepMs = forecast.step_hours * HOUR_MS;
+  const { first, last: final } = part;
+  const start = new Date((steps[first] as Date).getTime() - stepMs / 2);
+  const end = new Date((steps[final] as Date).getTime() + stepMs / 2);
+  const width = MARGIN.left + sizes.cell * (final - first + 1) + MARGIN.right;
+  const x = scaleUtc().domain([start, end]).range([MARGIN.left, width - MARGIN.right]);
+
+  // Rows, top to bottom.
+  let y = MARGIN.top;
+  const rows: Row[] = [];
+  const addRows = (variables: string[]) => {
+    for (const variable of variables) {
+      const series = forecast.pictograms[variable];
+      if (!series) continue;
+      const hours = forecast.variables[variable]?.window_hours;
+      rows.push({ variable, series, y, windowMs: hours ? hours * HOUR_MS : null });
+      y += sizes.row;
+    }
+  };
+  addRows(ABOVE);
+  const temperature = forecast.variables.temperature_2m;
+  const bandTop = y;
+  if (temperature) y += sizes.band;
+  addRows(BELOW);
+  const axisTop = y;
+  const height = axisTop + AXIS_HEIGHT;
+
+  const indices = useMemo(() => Array.from({ length: final - first + 1 }, (_, k) => first + k), [first, final]);
+  const bands = useMemo(() => dayBands(start, end, timeZone), [start.getTime(), end.getTime(), timeZone]);
+
+  const onPointer = (event: PointerEvent<SVGRectElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const t = x.invert(event.clientX - box.left + MARGIN.left).getTime();
+    const index = first + Math.round((t - (steps[first] as Date).getTime()) / stepMs);
+    onActive(Math.max(first, Math.min(final, index)));
+  };
+
+  return (
+    <div className="section" data-first={first} data-last={final}>
+      <svg width={width} height={height}>
         <DayShading bands={bands} x={x} top={MARGIN.top} bottom={axisTop} />
-        {temperature && (
+        {temperature && domain && (
           <TemperatureBand
             series={temperature}
             steps={steps}
             indices={indices}
             x={x}
+            domain={domain}
+            extremes={extremes}
             top={bandTop}
-            height={ROW.temperature}
+            height={sizes.band}
             left={MARGIN.left}
             right={width - MARGIN.right}
-            timeZone={timeZone}
           />
         )}
         {rows.map((row) => (
@@ -144,11 +243,11 @@ export function Meteogram({ forecast, pictogramBase, window: view, width }: Mete
             indices={indices}
             x={x}
             end={end}
-            size={size}
+            sizes={sizes}
             base={pictogramBase}
           />
         ))}
-        <TimeAxis bands={bands} steps={steps} indices={indices} x={x} top={axisTop} timeZone={timeZone} cell={cell} />
+        <TimeAxis bands={bands} steps={steps} indices={indices} x={x} top={axisTop} timeZone={timeZone} cell={sizes.cell} />
         {active !== null && (
           <Crosshair
             x={x}
@@ -157,6 +256,7 @@ export function Meteogram({ forecast, pictogramBase, window: view, width }: Mete
             bottom={axisTop}
             windowRow={rows.find((r) => r.windowMs !== null)}
             windowEnd={end}
+            rowHeight={sizes.row}
           />
         )}
         <rect
@@ -167,10 +267,11 @@ export function Meteogram({ forecast, pictogramBase, window: view, width }: Mete
           height={axisTop}
           onPointerMove={onPointer}
           onPointerDown={onPointer}
-          onPointerLeave={() => setActive(null)}
+          onPointerLeave={() => onActive(null)}
         />
       </svg>
       <Tooltip forecast={forecast} steps={steps} index={active} x={active === null ? 0 : x(steps[active] as Date)} width={width} />
+      {last ? null : <div className="section-gap" aria-hidden="true" />}
     </div>
   );
 }
@@ -202,26 +303,21 @@ interface BandProps {
   steps: Date[];
   indices: number[];
   x: Scale;
+  domain: [number, number];
+  extremes: Extreme[];
   top: number;
   height: number;
   left: number;
   right: number;
-  timeZone: string;
 }
 
-function TemperatureBand({ series, steps, indices, x, top, height, left, right, timeZone }: BandProps) {
+function TemperatureBand({ series, steps, indices, x, domain, extremes, top, height, left, right }: BandProps) {
   const i18n = useI18n();
   const q = series.quantiles;
-  const from = indices[0] as number;
-  const to = (indices[indices.length - 1] as number) + 1;
   const present = BANDS.filter(([lo, hi]) => q[lo] && q[hi]);
-  const outer = present[0];
-  const [lo, hi] = extent(outer ? [q[outer[0]] as number[], q[outer[1]] as number[]] : [q.p50 ?? []], from, to);
-  // Room above and below for the extreme markers.
-  const y = scaleLinear().domain([lo - 1.5, hi + 1.5]).nice(4).range([top + height - 14, top + 14]);
+  const y = scaleLinear().domain(domain).nice(4).range([top + height - 14, top + 14]);
   const px = (i: number) => x(steps[i] as Date);
   const median = q.p50;
-  const extremes = median ? dailyExtremes(steps, median, from, to, timeZone) : [];
 
   return (
     <g className="temperature">
@@ -268,13 +364,14 @@ interface RowProps {
   indices: number[];
   x: Scale;
   end: Date;
-  size: number;
+  sizes: Sizes;
   base: string;
 }
 
-function PictogramRow({ row, steps, indices, x, end, size, base }: RowProps) {
+function PictogramRow({ row, steps, indices, x, end, sizes, base }: RowProps) {
   const i18n = useI18n();
-  const cy = row.y + ROW.pictogram / 2;
+  const cy = row.y + sizes.row / 2;
+  const size = sizes.pictogram;
   return (
     <g className="pictograms" data-variable={row.variable}>
       {indices.map((i) => {
@@ -365,9 +462,10 @@ interface CrosshairProps {
   bottom: number;
   windowRow: Row | undefined;
   windowEnd: Date;
+  rowHeight: number;
 }
 
-function Crosshair({ x, at, top, bottom, windowRow, windowEnd }: CrosshairProps) {
+function Crosshair({ x, at, top, bottom, windowRow, windowEnd, rowHeight }: CrosshairProps) {
   const cx = x(at);
   const windowMs = windowRow?.windowMs ?? null;
   const showWindow = windowRow && windowMs !== null && at.getTime() + windowMs <= windowEnd.getTime();
@@ -379,7 +477,7 @@ function Crosshair({ x, at, top, bottom, windowRow, windowEnd }: CrosshairProps)
           x={cx}
           y={windowRow.y}
           width={x(new Date(at.getTime() + windowMs)) - cx}
-          height={ROW.pictogram}
+          height={rowHeight}
         />
       )}
       <line x1={cx} x2={cx} y1={top} y2={bottom} />

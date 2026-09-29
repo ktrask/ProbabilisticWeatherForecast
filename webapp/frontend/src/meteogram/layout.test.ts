@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dailyExtremes, dayBands, daysAvailable, extent, startIndex, visibleWindow } from "./layout";
+import { dailyExtremes, dayBands, daysAvailable, extent, sections, startIndex, visibleWindow } from "./layout";
 import { dayKey, localMidnight, localTime, midnightsBetween, offsetMs } from "./time";
 
 const H = 3_600_000;
@@ -106,4 +106,61 @@ describe("daily extremes", () => {
 
 it("extent spans every series in the window", () => {
   expect(extent([[5, 1, 9], [7, 0, 20]], 0, 2)).toEqual([0, 7]);
+});
+
+describe("sections", () => {
+  const s = steps("2026-09-28T22:00:00", 58); // Berlin: every 4th step is local midnight
+  const TZ = "Europe/Berlin";
+
+  it("keeps a window that fits in one piece", () => {
+    expect(sections(s, 2, 30, 41, TZ)).toEqual([{ first: 2, last: 29 }]);
+  });
+
+  it("cuts at local midnight, neighbours sharing the cut", () => {
+    // Noon today to 06:00 in 3 days on a phone: 9 steps (two days) per section at most.
+    const parts = sections(s, 2, 15, 9, TZ);
+    expect(parts).toEqual([
+      { first: 2, last: 8 },
+      { first: 8, last: 14 },
+    ]);
+    for (const part of parts.slice(1)) expect(localTime(s[part.first] as Date, TZ).hour).toBe(0);
+  });
+
+  it("spreads the days evenly rather than leaving a stub", () => {
+    // 14 days on a desktop: 10 fit in a row, but 7 + 7 reads better than 10 + 4.
+    const parts = sections(s, 0, 57, 41, TZ);
+    expect(parts).toEqual([
+      { first: 0, last: 28 },
+      { first: 28, last: 56 },
+    ]);
+  });
+
+  it("covers every step, and no section is too long", () => {
+    for (const [from, to, max] of [[2, 58, 9], [0, 58, 13], [3, 40, 5], [0, 58, 29]] as const) {
+      const parts = sections(s, from, to, max, TZ);
+      expect(parts[0]?.first).toBe(from);
+      expect(parts.at(-1)?.last).toBe(to - 1);
+      parts.forEach((p, i) => {
+        expect(p.last - p.first + 1).toBeLessThanOrEqual(max);
+        if (i > 0) expect(p.first).toBe(parts[i - 1]?.last);
+      });
+    }
+  });
+
+  it("cuts mid-day only when a single day does not fit", () => {
+    const parts = sections(s, 0, 9, 3, TZ);
+    expect(parts.every((p) => p.last - p.first + 1 <= 3)).toBe(true);
+    expect(parts.at(-1)?.last).toBe(8);
+  });
+
+  it("cuts at the first step of a day when DST moves the grid off midnight", () => {
+    // After the clocks go back, the 6-hour grid lands on 23/05/11/17 local.
+    const late = steps("2026-10-23T22:00:00", 20);
+    const parts = sections(late, 0, 20, 9, TZ);
+    for (const part of parts.slice(1)) {
+      const here = dayKey(late[part.first] as Date, TZ);
+      const before = dayKey(late[part.first - 1] as Date, TZ);
+      expect(here).not.toBe(before);
+    }
+  });
 });

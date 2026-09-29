@@ -482,3 +482,13 @@ main {
     padding-top: 0;
   }
 }
+
+.section {
+  position: relative;
+}
+
+.section-gap {
+  height: 18px;
+  border-bottom: 1px dashed var(--line);
+  margin-bottom: 14px;
+}

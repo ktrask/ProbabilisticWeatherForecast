@@ -62,6 +62,21 @@ test("on a phone @phone", async ({ page }) => {
   await expect(page).toHaveScreenshot("reykjavik-phone.png", { fullPage: true });
 });
 
+test("up to five days stay in one row on a phone @phone", async ({ page }) => {
+  await freezeClock(page, "braunschweig");
+  const chart = await showMeteogram(page, url("braunschweig", "&days=5"));
+  await expect(chart.locator(".section")).toHaveCount(1);
+});
+
+test("a week on a phone comes in two sections @phone", async ({ page }) => {
+  await freezeClock(page, "braunschweig");
+  const chart = await showMeteogram(page, url("braunschweig", "&days=7"));
+  await expect(chart.locator(".section")).toHaveCount(2);
+  // Each 6-hour total once, however the week is cut: 28 steps, the last one's window beyond the end.
+  await expect(chart.locator('g[data-variable="precipitation"] image')).toHaveCount(27);
+  await expect(chart).toHaveScreenshot("braunschweig-week-phone.png");
+});
+
 test("starts at the step nearest to now, in the place's own time", async ({ page }) => {
   await freezeClock(page);
   const chart = await showMeteogram(page, url("braunschweig"));
@@ -73,7 +88,7 @@ test("starts at the step nearest to now, in the place's own time", async ({ page
 test("hovering lists the step's values", async ({ page }) => {
   await freezeClock(page);
   const chart = await showMeteogram(page, url("braunschweig"));
-  const box = (await chart.locator("svg").boundingBox()) as { x: number; y: number; width: number };
+  const box = (await chart.locator("svg").first().boundingBox()) as { x: number; y: number; width: number };
   await page.mouse.move(box.x + box.width / 2, box.y + 200);
   const tooltip = page.getByTestId("tooltip");
   await expect(tooltip).toBeVisible();

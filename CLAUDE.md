@@ -199,6 +199,12 @@ Rules worth knowing:
   still uses Nominatim through geopy.
 - **The chart works in the forecast location's time zone, never the browser's** (`meteogram/time.ts`
   via `Intl`, DST included). Playwright runs with the browser in America/New_York to keep it so.
+- **Long meteograms split into sections one below the other** (`layout.sections`): when a step would
+  get under 28 px (`MIN_CELL`), but never into sections shorter than 5 days (`MIN_SECTION_DAYS`,
+  the user's call - splitting sooner read as too fragmented; on a phone the pictograms shrink
+  instead up to 5 days). Cuts are at local midnight, as even as the days allow; neighbours share
+  the cut step so the line runs on and the total starting there is drawn once, in the later one.
+  All sections share one px-per-step and one temperature scale.
 - **Instants sit at their step, totals in the middle of their window**: cloud/wind/temperature at
   `t`, precipitation at `t + 3h`, between two instants. A total is drawn only if its whole window
   fits on the chart, so there is one precipitation pictogram fewer than steps.
@@ -284,9 +290,9 @@ function rather than adding ad-hoc assertions.
   for it, but no adapter delivers one, the `anchored` mode for HRES schemes does not exist, and a
   product cannot name a deterministic source. `variant=hres` answers 409.
 - The new API has no rate limiting, and its cache is per worker process.
-- Frontend MVP gaps: no 12-hour aggregation for narrow screens (the plan's `step_hours` API
-  parameter; pictograms just shrink to 14 px), no SVG/PNG export, light theme only, and the
-  variant/product pickers only appear once there is more than one to choose.
+- Frontend MVP gaps: no 12-hour aggregation (the plan's `step_hours` API parameter - sections
+  took its place for now), no SVG/PNG export, light theme only, and the variant/product pickers
+  only appear once there is more than one to choose.
 
 ## Serving
 
