@@ -8,6 +8,7 @@ no network.
 import asyncio
 import dataclasses
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -25,7 +26,11 @@ from sources.fixture import FixtureSource
 from sources.geocode import OpenMeteoGeocoder
 from vsup import config as vsup_config
 
-OFFLINE = Settings(sources_config=sources_config.DEFAULT_SOURCES.parent / "sources.fixtures.yaml")
+# No frontend: whether one happens to be built locally must not change these tests.
+OFFLINE = Settings(
+    sources_config=sources_config.DEFAULT_SOURCES.parent / "sources.fixtures.yaml",
+    frontend_dist=Path("/nonexistent/frontend/dist"),
+)
 BRAUNSCHWEIG = "lat=52.26&lon=10.52"
 
 
@@ -339,6 +344,59 @@ class TestContract:
         broken.write_text(OFFLINE.sources_config.read_text().replace("wind-vsup", "wind-vsupp"))
         with pytest.raises(ConfigError, match="no scheme 'wind-vsupp'"):
             create_app(Settings(sources_config=broken))
+
+
+@pytest.fixture
+def built(tmp_path):
+    """A stand-in for `npm run build`: a page and one hashed asset."""
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><title>meteogram</title>")
+    (dist / "assets" / "index-abc123.js").write_text("console.log('meteogram')")
+    return dist
+
+
+def app_serving(dist):
+    return create_app(dataclasses.replace(OFFLINE, frontend_dist=dist), geocoder=geocoder_answering({"results": []}))
+
+
+class TestFrontend:
+    """One container serves the page, its assets, the API and the pictograms."""
+
+    def test_the_page_is_served_and_always_revalidated(self, built):
+        response = get(app_serving(built), "/")
+        assert response.status_code == 200
+        assert "<title>meteogram</title>" in response.text
+        assert response.headers["cache-control"] == "no-cache"
+
+    def test_a_shared_link_gets_the_page(self, built):
+        """The view lives in the query string, so every link is the root path."""
+        response = get(app_serving(built), "/?lat=52.26&lon=10.52&name=Braunschweig&days=7")
+        assert response.status_code == 200
+        assert "<title>meteogram</title>" in response.text
+
+    def test_hashed_assets_are_cached_for_good(self, built):
+        response = get(app_serving(built), "/assets/index-abc123.js")
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+    def test_the_api_and_the_pictograms_still_come_first(self, built):
+        app = app_serving(built)
+        assert get(app, "/api/products").json()["products"][0]["id"] == "ecmwf"
+        base = get(app, "/api/schemes").json()["pictogram_base"]
+        assert get(app, base + "rain/step3_dry.svg").headers["content-type"] == "image/svg+xml"
+        assert get(app, "/api/openapi.json").status_code == 200
+
+    def test_unknown_paths_are_not_found(self, built):
+        app = app_serving(built)
+        assert get(app, "/admin").status_code == 404
+        assert get(app, "/api/nothing").status_code == 404
+        assert get(app, "/%2e%2e/%2e%2e/etc/passwd").status_code == 404
+
+    def test_without_a_build_the_api_runs_alone(self, tmp_path):
+        app = app_serving(tmp_path / "missing")
+        assert get(app, "/").status_code == 404
+        assert get(app, "/api/products").status_code == 200
 
 
 class TestSettings:

@@ -1,6 +1,7 @@
-"""The FastAPI application.
+"""The FastAPI application: the JSON API, the pictograms, and the built frontend.
 
-    uvicorn api.app:create_app --factory
+    uvicorn api.app:create_app --factory             # development
+    gunicorn -k uvicorn_worker.UvicornWorker 'api.app:create_app()'   # the container
 
 Status codes, all with {"detail": ...}:
     422  a parameter is invalid - including an unknown product
@@ -9,6 +10,7 @@ Status codes, all with {"detail": ...}:
     502  the upstream source failed or sent unusable data
     504  the upstream source did not answer in time
 """
+import logging
 from typing import Literal
 
 from fastapi import FastAPI, Query, Request, Response
@@ -46,6 +48,12 @@ COORDINATE_DECIMALS = 2
 
 API_CACHE = "public, max-age=300"
 PICTOGRAM_CACHE = "public, max-age=31536000, immutable"
+# Vite puts a content hash into every file name under assets/; index.html
+# must be revalidated so a new build is picked up.
+FRONTEND_ASSET_CACHE = PICTOGRAM_CACHE
+FRONTEND_PAGE_CACHE = "no-cache"
+
+log = logging.getLogger(__name__)
 
 ERRORS = {
     404: {"model": ErrorOut, "description": "The source has no data for this place."},
@@ -62,6 +70,17 @@ class _Pictograms(StaticFiles):
         response = await super().get_response(path, scope)
         if response.status_code == 200:
             response.headers["Cache-Control"] = PICTOGRAM_CACHE
+        return response
+
+
+class _Frontend(StaticFiles):
+    """The built frontend, mounted last so it only answers what no route took."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            hashed = path.startswith("assets/")
+            response.headers["Cache-Control"] = FRONTEND_ASSET_CACHE if hashed else FRONTEND_PAGE_CACHE
         return response
 
 
@@ -205,6 +224,10 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
         )
 
     app.mount(pictogram_base.rstrip("/"), _Pictograms(directory=schemes.pictogram_root), name="pictograms")
+    if (settings.frontend_dist / "index.html").is_file():
+        app.mount("/", _Frontend(directory=settings.frontend_dist, html=True), name="frontend")
+    else:
+        log.warning("no built frontend in %s - serving the API only", settings.frontend_dist)
     return app
 
 
