@@ -14,4 +14,5 @@ retry_requests==2.0.0
 timezonefinder==6.5.9
 WTForms==3.2.1
 pydantic==2.13.5
+PyYAML==6.0.3
 httpx==0.28.1

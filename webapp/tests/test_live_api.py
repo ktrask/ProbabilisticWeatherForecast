@@ -130,3 +130,34 @@ def test_live_and_fixture_variables_agree(live_meteogram_data, braunschweig):
     for name in braunschweig:
         assert set(live_meteogram_data[name]) == set(braunschweig[name])
         assert set(live_meteogram_data[name][name]) == set(braunschweig[name][name])
+
+
+def test_open_meteo_adapter_delivers_a_valid_forecast():
+    """The new sources.open_meteo adapter end to end: fetch, reduce to the new
+    Forecast model, classify with the shipped VSUP schemes."""
+    import asyncio
+
+    import httpx
+
+    from core.model import Location
+    from core.pipeline import build_forecast
+    from sources.base import SourceError
+    from sources.open_meteo import OpenMeteoEnsemble
+    from vsup.classify import classify
+    from vsup.config import load
+
+    source = OpenMeteoEnsemble()
+    location = Location(lat=LIVE_LATITUDE, lon=LIVE_LONGITUDE, name="Paris")
+    try:
+        result = asyncio.run(source.fetch(location, source.variables))
+    except SourceError as exc:
+        if isinstance(exc.__cause__, httpx.TransportError):
+            skip_if_offline(exc)
+        raise
+    assert result.member_count == ENSEMBLE_MEMBERS
+    forecast = build_forecast(result)
+    # 15 days are requested; the run ends a little earlier and the NaN padding
+    # after it is dropped, which still leaves more than the legacy 14 days.
+    assert len(forecast.steps) > 14 * 4, f"only {len(forecast.steps)} steps"
+    assert forecast.location.timezone == "Europe/Paris"
+    classify(forecast, load(), ["cloud-vsup", "precipitation-vsup", "wind-vsup"])
