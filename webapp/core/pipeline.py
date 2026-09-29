@@ -16,7 +16,10 @@ from core.model import Forecast, Location, Run, VariableSeries, quantile_name
 from core.variables import variable
 
 STEP_HOURS = 6
-DEFAULT_QUANTILES = (0, 10, 25, 50, 75, 90, 100)
+# The levels config/vsup.yaml computes: the three bands of the temperature
+# chart (0-100, 10-90, 25-75), the median, and 17-83 - the middle two thirds,
+# which decide when a pictogram counts as certain.
+DEFAULT_QUANTILES = (0, 10, 17, 25, 50, 75, 83, 90, 100)
 
 
 @dataclass(frozen=True)

@@ -122,11 +122,17 @@ class TestSchemes:
         assert [c["id"] for c in wind["classes"]] == ["calm", "light", "strong", "storm"]
         assert [c["below"] for c in wind["classes"]] == [3, 10, 17.2, None]
         assert len(wind["outcomes"]) == 7
+        assert wind["levels"] == [
+            {"level": 3, "interval": ["p17", "p83"]},
+            {"level": 2, "interval": ["p25", "p75"]},
+            {"level": 1, "interval": None},
+        ]
         rain = next(s for s in body["schemes"] if s["name"] == "precipitation-legacy")
         assert rain["outcomes"][0] == {
             "pictogram": "rain/Stufe3_KeinRegen.png", "level": 3, "class": "none", "condition": "p90 < 0.1",
         }
         assert rain["classes"] is None
+        assert rain["levels"] is None
 
     def test_every_pictogram_is_served_and_cacheable_for_good(self, app):
         body = get(app, "/api/schemes").json()

@@ -185,6 +185,16 @@ export interface components {
             /** Vsup Version */
             vsup_version: string;
         };
+        /** LevelOut */
+        LevelOut: {
+            /**
+             * Interval
+             * @description The two quantiles that must fall into one class or group for this level, e.g. ['p17', 'p83'] - the middle 66 % of the members. None: the level that always applies.
+             */
+            interval: string[] | null;
+            /** Level */
+            level: number;
+        };
         /** Location */
         Location: {
             /** Elevation M */
@@ -299,6 +309,11 @@ export interface components {
             declared_unit: string;
             /** Description */
             description: string | null;
+            /**
+             * Levels
+             * @description Tree schemes: what each certainty level requires, most certain first.
+             */
+            levels?: components["schemas"]["LevelOut"][] | null;
             /**
              * Mode
              * @enum {string}

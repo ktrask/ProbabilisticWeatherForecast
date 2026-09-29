@@ -42,6 +42,9 @@ const de = {
     wind_speed_10m: "Wind",
   } as Record<string, string>,
   levels: { 3: "sicher", 2: "wahrscheinlich", 1: "unsicher" } as Record<number, string>,
+  levelRule: (share: number, grouped: boolean) =>
+    `mind. ${share} % der Mitglieder in ${grouped ? "einer Gruppe" : "einer Klasse"}`,
+  otherwise: "sonst",
   classes: {
     precipitation: { none: "kein Regen", light: "leichter Regen", medium: "mäßiger Regen", heavy: "starker Regen" },
     cloud_cover: { clear: "klar", light: "leicht bewölkt", cloudy: "bewölkt", overcast: "bedeckt" },
@@ -87,6 +90,8 @@ const en: Strings = {
     wind_speed_10m: "Wind",
   },
   levels: { 3: "certain", 2: "likely", 1: "uncertain" },
+  levelRule: (share, grouped) => `at least ${share} % of members in ${grouped ? "one group" : "one class"}`,
+  otherwise: "otherwise",
   classes: {
     precipitation: { none: "no rain", light: "light rain", medium: "moderate rain", heavy: "heavy rain" },
     cloud_cover: { clear: "clear", light: "partly cloudy", cloudy: "cloudy", overcast: "overcast" },

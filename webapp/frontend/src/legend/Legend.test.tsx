@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { I18nContext, makeI18n } from "../i18n";
 import { rainScheme, windRules } from "../test/fixtures";
-import { Legend, range } from "./Legend";
+import { Legend, levelRule, range } from "./Legend";
 
 function draw(lang: "de" | "en" = "en") {
   return render(
@@ -41,6 +41,24 @@ describe("Legend", () => {
   it("states the window of totals", () => {
     draw();
     expect(screen.getByText("(mm / 6 h)")).toBeInTheDocument();
+  });
+
+  it("says what each certainty level asks of the ensemble", () => {
+    const { container } = draw("de");
+    const rules = Array.from(container.querySelectorAll('[data-scheme="precipitation-vsup"] .level-rule')).map(
+      (el) => el.textContent,
+    );
+    expect(rules).toEqual([
+      "mind. 66 % der Mitglieder in einer Klasse",
+      "mind. 50 % der Mitglieder in einer Gruppe",
+      "sonst",
+    ]);
+  });
+
+  it("explains nothing for hand-written rules", () => {
+    const en = makeI18n("en");
+    expect(levelRule(windRules, 3, en)).toBe("");
+    expect(levelRule(rainScheme, 3, en)).toBe("at least 66 % of members in one class");
   });
 
   it("gives the thresholds of tree classes and groups", () => {
