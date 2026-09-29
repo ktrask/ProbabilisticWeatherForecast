@@ -12,7 +12,8 @@ single deterministic line.
 The app was rebuilt in 2026 (plan, in German: `docs/neuentwicklung-plan.md`): a Python backend that
 returns only JSON, a browser-drawn meteogram, and VSUP rules as validated configuration. The old
 Flask + matplotlib app was removed in phase 4; its pictogram rules survive as a frozen test
-reference. Phases 0-4 are done; phase 5 (HRES, a second product) is open.
+reference, and its last complete state - with its own Flask Dockerfile - is the branch
+`old-webapp` (`dc7984f`). Phases 0-4 are on `main`; phase 5 (HRES, a second product) is open.
 
 ## Commands
 
