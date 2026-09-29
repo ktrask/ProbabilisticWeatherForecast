@@ -7,15 +7,16 @@ model:
     python tests/generate_fixtures.py reykjavik zermatt
 
 Each fixture is a Forecast in the new format - exactly what the pipeline
-builds from sources.open_meteo, before any pictograms - so the offline tests
-and the offline configuration run on the real thing. sources/fixture.py still
-reads the legacy allMeteogramData files recorded before; running this replaces
-them. The screenshot baselines of the frontend depend on the fixtures and have
-to be re-recorded afterwards (npm run e2e -- --update-snapshots).
+builds from sources.open_meteo, with the quantile levels vsup.yaml computes and
+before any pictograms - so the offline tests and the offline configuration run
+on the real thing. The legacy-format sample in fixtures/legacy/ is not touched.
+The screenshot baselines of the frontend depend on the fixtures and have to be
+re-recorded afterwards (npm run e2e -- --update-snapshots).
 
-Location metadata lives in fixtures/locations.json. It also records one raw
-Open-Meteo response, exactly as the adapter requests it, to fixtures/open_meteo/
-for the adapter tests to replay.
+Location metadata lives in fixtures/locations.json. Without arguments it also
+records one raw Open-Meteo response, exactly as the adapter requests it, to
+fixtures/open_meteo/ for the adapter tests to replay; with location keys only
+those fixtures are re-recorded.
 """
 import asyncio
 import json

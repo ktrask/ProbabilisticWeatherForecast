@@ -1,9 +1,9 @@
 """The legacy allMeteogramData contract, in one place.
 
-The removed downloadJsonData.getData() produced this format; the fixtures it
-recorded are kept as they are, and test_data_format.py holds them to this.
-Fixtures written since (generate_fixtures.py) are Forecasts and are checked
-by the model's own validators instead.
+The removed downloadJsonData.getData() produced this format. One file recorded
+by it is kept as a sample (tests/fixtures/legacy/), and test_data_format.py
+holds it to this. The fixtures proper are Forecasts (generate_fixtures.py) and
+are checked by the model's own validators instead.
 """
 
 # Top-level ECMWF-style variable names of the legacy format, mapped to the

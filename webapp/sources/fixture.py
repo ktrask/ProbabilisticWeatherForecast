@@ -7,8 +7,9 @@ are read, told apart by their content:
 - a Forecast, as tests/generate_fixtures.py writes it now - the new pipeline's
   own output, precipitation totalled over [t, t + 6 h);
 - the legacy allMeteogramData dict that the removed downloadJsonData.getData()
-  produced. The files recorded that way are kept as they are; their
-  precipitation window is the legacy one, an hour early (see core.reduce).
+  produced, with its precipitation window an hour early (see core.reduce).
+  Only a sample is left in that format (tests/fixtures/legacy/), which keeps
+  this reader tested.
 """
 import json
 from datetime import timedelta
