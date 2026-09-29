@@ -116,7 +116,7 @@ pictograms. Do not restate the wind thresholds in km/h.
   a new accumulated variable needs.
 - **The step at `t` covers `[t, t+6h)`** = hourly rows `t+1 … t+6`, because Open-Meteo reports
   precipitation as the *preceding* hour's total. The legacy pipeline summed `t … t+5`, an hour
-  early; the fixtures it recorded still carry that.
+  early; only the legacy sample in `tests/fixtures/legacy/` still carries that.
 - The adapter asks for 15 days; the run ends around hour 350 and Open-Meteo pads the rest with NaN.
   `reduce.complete_rows` drops trailing NaN rows and refuses holes, and all variables share the
   steps a 6-hour *sum* can fill (58-59 for `ecmwf_ifs025`).
@@ -131,9 +131,15 @@ pictograms. Do not restate the wind thresholds in km/h.
   `tests/legacy_reference.py` - on every fixture step and on an exhaustive grid around every
   threshold (read from that source, not from the YAML). Do not edit either side; design changes go
   into the `*-vsup` tree schemes, which are allowed to differ.
-- The default product draws with the tree schemes. On real ensembles their certain level (3) is
-  rarely reached for middle classes, because p10..p90 seldom fits one class - an open design
-  question; narrowing the level-3 interval is a config change.
+- **"Certain" (level 3) means the middle two thirds of the members (p17..p83) lie in one class**
+  - "likely" in the IPCC's wording; "likely" (level 2) means the middle half (p25..p75) in one
+  group. The user's decision of 2026-09-29, after comparing on live data for the five places:
+  80 % (p10..p90) made only the edge classes ever certain (clouds 9 %, rain 18 % of steps), 50 %
+  was too weak a claim for "certain", 66 % gives 13 % / 26 % / wind 60 %. Middle classes (light
+  rain, partly cloudy) are still almost never certain: that comes from their narrow ranges, not
+  from the threshold - changing it would mean changing the classes. The legend explains each
+  level from `/api/schemes` (`levels`), so it stays true if the config changes. p17/p83 are why
+  `quantiles` has nine levels and why the legacy-format fixtures could not serve it.
 - The legacy rules reference the old PNGs, whose rain glyphs have a white, non-transparent
   background that shows on shaded days. Only the legacy schemes use them.
 
@@ -181,12 +187,13 @@ otherwise fail on some request fails at start-up, with file and line.
 
 - **Fixtures** (`tests/fixtures/*.json`) cover five deliberately different climates (temperate,
   subarctic, equatorial, alpine, arid) so every pictogram branch is reachable offline;
-  `locations.json` holds their metadata. Two formats are read, told apart by content: the legacy
-  `allMeteogramData` files recorded before the rebuild (kept unchanged, checked against
-  `tests/schema.py`) and `Forecast` JSON, which `generate_fixtures.py` writes now. Tests read them
-  through `FixtureSource` or format-aware helpers, so re-recording keeps the suite green - verified
-  by regenerating into a copy and running both suites on it. Re-recording changes the weather, so
-  the frontend's screenshot baselines must be re-recorded with it.
+  `locations.json` holds their metadata. They are `Forecast` JSON written by `generate_fixtures.py`
+  (re-recorded 2026-09-29 with nine quantiles, when "certain" moved to p17..p83).
+  `FixtureSource` also reads the legacy `allMeteogramData` format, told apart by content; one file
+  in it is kept in `tests/fixtures/legacy/` so that reader and `tests/schema.py` stay tested. A
+  source's `quantile_levels` are what every recording offers, and the start-up check refuses a
+  config that asks for more. Re-recording changes the weather, so the frontend's screenshot
+  baselines must be re-recorded with it (`npm run e2e -- --update-snapshots`).
 - Tests derive dates from each fixture's own first step, never `now()`, so they stay deterministic
   as fixtures age; the e2e tests freeze the browser clock inside the recording.
 - `tests/fixtures/open_meteo/reykjavik_3d.fb` is one raw flatbuffers response recorded with the

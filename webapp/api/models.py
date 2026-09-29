@@ -33,6 +33,14 @@ class ClassOut(BaseModel):
     below: float | None = Field(description="Upper bound in `unit`, exclusive; none for the last class.")
 
 
+class LevelOut(BaseModel):
+    level: int
+    interval: list[str] | None = Field(
+        description="The two quantiles that must fall into one class or group for this level, "
+        "e.g. ['p17', 'p83'] - the middle 66 % of the members. None: the level that always applies."
+    )
+
+
 class SchemeOut(BaseModel):
     name: str
     description: str | None
@@ -43,6 +51,9 @@ class SchemeOut(BaseModel):
     window_hours: int | None
     outcomes: list[OutcomeOut] = Field(description="Every pictogram the scheme can choose, in order.")
     classes: list[ClassOut] | None = Field(description="Tree schemes: the intensity classes.")
+    levels: list[LevelOut] | None = Field(
+        None, description="Tree schemes: what each certainty level requires, most certain first."
+    )
 
 
 class SchemesOut(BaseModel):

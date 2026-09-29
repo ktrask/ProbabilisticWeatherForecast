@@ -36,13 +36,20 @@ class FixtureSource:
     kind = "quantiles"
     variables = frozenset(legacy.VARIABLES.values())
     native_step = timedelta(hours=6)
-    max_lead = timedelta(days=14)
-    quantile_levels = tuple(quantile_level(name) for name in legacy.QUANTILES.values())
+    max_lead = timedelta(days=15)
 
     def __init__(self, directory=DEFAULT_DIRECTORY):
         self.directory = Path(directory)
         with open(self.directory / "locations.json") as fp:
             self._locations = json.load(fp)
+        # The quantile levels every recording offers - what a configuration
+        # may ask of this source. Legacy files have the seven fixed ones.
+        levels = None
+        for key in self.keys():
+            with open(self.directory / f"{key}.json") as fp:
+                offered = set(read(json.load(fp))[2]["temperature_2m"])
+            levels = offered if levels is None else levels & offered
+        self.quantile_levels = tuple(sorted(quantile_level(name) for name in levels or ()))
 
     def keys(self):
         return sorted(self._locations)

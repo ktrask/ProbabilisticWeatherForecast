@@ -129,7 +129,7 @@ class TestProducts:
 
 class TestSources:
     def test_recorded_quantiles_must_cover_the_computed_ones(self, tmp_path, schemes):
-        text = vsup.DEFAULT_CONFIG.read_text().replace("[0, 10, 25, 50, 75, 90, 100]", "[0, 10, 25, 50, 75, 90, 95, 100]")
+        text = vsup.DEFAULT_CONFIG.read_text().replace("83, 90, 100]", "83, 90, 95, 100]")
         text = text.replace("pictogram_root: ../pictograms", f"pictogram_root: {schemes.pictogram_root}")
         more = vsup.load(write(tmp_path, text, "vsup.yaml"))
         issue = one(broken(tmp_path, more, "", ""), "computes p95 too")

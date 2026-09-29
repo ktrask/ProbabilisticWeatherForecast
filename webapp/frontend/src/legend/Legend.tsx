@@ -37,7 +37,10 @@ function LegendScheme({ scheme, pictogramBase }: { scheme: Scheme; pictogramBase
       </figcaption>
       {levels.map((level) => (
         <div key={level} className="legend-level" data-level={level}>
-          <div className="level-name">{i18n.t.levels[level] ?? level}</div>
+          <div className="level-name">
+            {i18n.t.levels[level] ?? level}
+            <small className="level-rule">{levelRule(scheme, level, i18n)}</small>
+          </div>
           <ul>
             {scheme.outcomes
               .filter((o) => o.level === level)
@@ -61,6 +64,19 @@ function LegendScheme({ scheme, pictogramBase }: { scheme: Scheme; pictogramBase
       ))}
     </figure>
   );
+}
+
+/** What a tree scheme's level asks of the ensemble: "at least 66 % of members
+ * in one class" for an interval p17..p83, "otherwise" for the level that
+ * always applies. Nothing for rules schemes, whose levels are hand-written. */
+export function levelRule(scheme: Scheme, level: number, i18n: I18n): string {
+  const spec = scheme.levels?.find((l) => l.level === level);
+  if (!spec) return "";
+  if (!spec.interval) return i18n.t.otherwise;
+  const [low, high] = spec.interval.map((q) => Number(q.slice(1)));
+  if (low === undefined || high === undefined) return "";
+  const grouped = scheme.outcomes.some((o) => o.level === level && o.class.includes("+"));
+  return i18n.t.levelRule(high - low, grouped);
 }
 
 /** "0.1–1 mm" for a tree scheme's class or group; nothing for rules schemes. */

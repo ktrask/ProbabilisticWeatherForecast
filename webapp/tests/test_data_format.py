@@ -6,13 +6,15 @@ Forecasts. Either way the fixture source has to turn them into a valid
 Forecast with plausible values, which is what the rest of the suite and the
 offline configuration build on.
 """
+import json
+
 import pytest
 
 from core import legacy
 from core.model import Forecast
 from core.pipeline import build_forecast
 from sources.fixture import FixtureSource, is_forecast
-from tests.conftest import LOCATION_KEYS, load_fixture
+from tests.conftest import FIXTURE_DIR, LOCATION_KEYS, load_fixture
 from tests.schema import EXPECTED_VARIABLES, assert_meteogram_schema
 
 # The plausible range of each variable, in its canonical unit.
@@ -21,6 +23,12 @@ RANGES = {legacy.VARIABLES[key]: (spec["low"], spec["high"]) for key, spec in EX
 
 def forecast(key):
     return build_forecast(FixtureSource().load(key))
+
+
+def test_the_legacy_sample_still_matches_its_contract():
+    """The one file kept in the removed pipeline's format (fixtures/legacy/)."""
+    with open(FIXTURE_DIR / "legacy" / "braunschweig.json") as fp:
+        assert_meteogram_schema(json.load(fp))
 
 
 def test_all_fixtures_present():

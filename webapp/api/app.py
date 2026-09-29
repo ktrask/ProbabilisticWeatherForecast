@@ -24,6 +24,7 @@ from api.models import (
     ErrorOut,
     GeocodeOut,
     HealthOut,
+    LevelOut,
     OutcomeOut,
     ProductOut,
     ProductsOut,
@@ -233,10 +234,14 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
 
 def _scheme_out(scheme):
     canonical = variable(scheme.variable).unit
-    classes = None
+    classes = levels = None
     if scheme.mode == "tree":
         bounds = list(scheme.bounds) + [None]
         classes = [ClassOut(id=class_id, below=below) for class_id, below in zip(scheme.class_ids, bounds)]
+        levels = [
+            LevelOut(level=level.level, interval=list(level.interval) if level.interval else None)
+            for level in scheme.levels
+        ]
     return SchemeOut(
         name=scheme.name,
         description=scheme.description,
@@ -250,4 +255,5 @@ def _scheme_out(scheme):
             for choice, text in scheme.outcomes()
         ],
         classes=classes,
+        levels=levels,
     )

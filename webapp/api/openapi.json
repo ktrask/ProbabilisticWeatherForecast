@@ -204,6 +204,35 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "LevelOut": {
+        "properties": {
+          "interval": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The two quantiles that must fall into one class or group for this level, e.g. ['p17', 'p83'] - the middle 66 % of the members. None: the level that always applies.",
+            "title": "Interval"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "level",
+          "interval"
+        ],
+        "title": "LevelOut",
+        "type": "object"
+      },
       "Location": {
         "additionalProperties": false,
         "properties": {
@@ -550,6 +579,21 @@
               }
             ],
             "title": "Description"
+          },
+          "levels": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/LevelOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tree schemes: what each certainty level requires, most certain first.",
+            "title": "Levels"
           },
           "mode": {
             "enum": [

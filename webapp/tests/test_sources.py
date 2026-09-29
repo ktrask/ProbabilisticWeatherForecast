@@ -6,6 +6,7 @@ flatbuffers decoding runs without a network, and its reduction is checked
 against numpy on the raw members.
 """
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -80,6 +81,24 @@ class TestFixtureSource:
         f = build_forecast(FixtureSource().load(key))
         assert f.steps[0] == recorded(key)[0]
         assert f.steps[0].tzinfo == timezone.utc
+
+    def test_still_reads_the_legacy_format(self, tmp_path):
+        """tests/fixtures/legacy/ keeps one file recorded by the removed
+        getData(), so the reader for that format stays tested."""
+        sample = FIXTURE_DIR / "legacy" / "braunschweig.json"
+        data = json.loads(sample.read_text())
+        assert not is_forecast(data)
+        (tmp_path / "braunschweig.json").write_text(sample.read_text())
+        (tmp_path / "locations.json").write_text(json.dumps(
+            {"braunschweig": json.loads((FIXTURE_DIR / "locations.json").read_text())["braunschweig"]}
+        ))
+        source = FixtureSource(tmp_path)
+        # The legacy format has seven fixed quantiles - not the 17th and 83rd.
+        assert source.quantile_levels == (0, 10, 25, 50, 75, 90, 100)
+        f = build_forecast(source.load("braunschweig"), quantile_levels=source.quantile_levels)
+        assert f.steps[0] == legacy.reference_time(data["2t"])
+        assert f.variables["precipitation"].quantiles["p90"] == data["tp"]["tp"]["ninety"]
+        assert f.variables["wind_speed_10m"].quantiles["p50"] == data["ws"]["ws"]["median"]
 
     def test_location_metadata(self):
         location = FixtureSource().location("zermatt")

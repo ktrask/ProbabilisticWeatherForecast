@@ -50,11 +50,16 @@ export const rainScheme: Scheme = {
     { id: "medium", below: 2 },
     { id: "heavy", below: null },
   ],
+  levels: [
+    { level: 3, interval: ["p17", "p83"] },
+    { level: 2, interval: ["p25", "p75"] },
+    { level: 1, interval: null },
+  ],
   outcomes: [
-    { pictogram: "rain/dry.svg", level: 3, class: "none", condition: "p10..p90 in one group" },
-    { pictogram: "rain/light.svg", level: 3, class: "light", condition: "p10..p90 in one group" },
-    { pictogram: "rain/medium.svg", level: 3, class: "medium", condition: "p10..p90 in one group" },
-    { pictogram: "rain/heavy.svg", level: 3, class: "heavy", condition: "p10..p90 in one group" },
+    { pictogram: "rain/dry.svg", level: 3, class: "none", condition: "p17..p83 in one group" },
+    { pictogram: "rain/light.svg", level: 3, class: "light", condition: "p17..p83 in one group" },
+    { pictogram: "rain/medium.svg", level: 3, class: "medium", condition: "p17..p83 in one group" },
+    { pictogram: "rain/heavy.svg", level: 3, class: "heavy", condition: "p17..p83 in one group" },
     { pictogram: "rain/mostly-dry.svg", level: 2, class: "none+light", condition: "p25..p75 in one group" },
     { pictogram: "rain/mostly-wet.svg", level: 2, class: "medium+heavy", condition: "p25..p75 in one group" },
     { pictogram: "rain/unknown.svg", level: 1, class: "none+light+medium+heavy", condition: "always" },
@@ -70,6 +75,7 @@ export const windRules: Scheme = {
   declared_unit: "m/s",
   window_hours: null,
   classes: null,
+  levels: null,
   outcomes: [
     { pictogram: "wind/calm.png", level: 3, class: "calm", condition: "p90 < 3" },
     { pictogram: "wind/strong.png", level: 2, class: "strong+storm", condition: "p10 > 10" },

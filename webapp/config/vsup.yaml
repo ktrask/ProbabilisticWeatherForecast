@@ -17,7 +17,7 @@
 # precipitation also say which window their thresholds refer to.
 
 version: 1
-quantiles: [0, 10, 25, 50, 75, 90, 100]
+quantiles: [0, 10, 17, 25, 50, 75, 83, 90, 100]
 pictogram_root: ../pictograms
 
 schemes:
@@ -78,6 +78,12 @@ schemes:
   # the quantiles lie rather than from hand-ordered special cases. Deliberately
   # not identical to the legacy rules - e.g. a step whose p10 is dry and p90 is
   # light rain is "light rain" there, "mostly dry" here.
+  #
+  # Certain (3): the middle two thirds of the members (p17..p83) in one class -
+  #   "likely" in the IPCC's wording. 80 % (p10..p90) made only the edge classes
+  #   ever certain; the middle half (p25..p75) is too weak a claim for "certain".
+  # Likely (2): the middle half of the members (p25..p75) in one group.
+  # Uncertain (1): everything else.
 
   cloud-vsup:
     description: Cloud cover by the VSUP tree
@@ -90,7 +96,7 @@ schemes:
       - { id: cloudy, below: 90 }
       - { id: overcast }
     levels:
-      - { level: 3, interval: [p10, p90], groups: [[clear], [light], [cloudy], [overcast]] }
+      - { level: 3, interval: [p17, p83], groups: [[clear], [light], [cloudy], [overcast]] }
       - { level: 2, interval: [p25, p75], groups: [[clear, light], [cloudy, overcast]] }
       - { level: 1, groups: [[clear, light, cloudy, overcast]] }
     pictograms:
@@ -114,7 +120,7 @@ schemes:
       - { id: medium, below: 2.0 }
       - { id: heavy }
     levels:
-      - { level: 3, interval: [p10, p90], groups: [[none], [light], [medium], [heavy]] }
+      - { level: 3, interval: [p17, p83], groups: [[none], [light], [medium], [heavy]] }
       - { level: 2, interval: [p25, p75], groups: [[none, light], [medium, heavy]] }
       - { level: 1, groups: [[none, light, medium, heavy]] }
     pictograms:
@@ -137,7 +143,7 @@ schemes:
       - { id: strong, below: 17.2 }
       - { id: storm }
     levels:
-      - { level: 3, interval: [p10, p90], groups: [[calm], [light], [strong], [storm]] }
+      - { level: 3, interval: [p17, p83], groups: [[calm], [light], [strong], [storm]] }
       - { level: 2, interval: [p25, p75], groups: [[calm, light], [strong, storm]] }
       - { level: 1, groups: [[calm, light, strong, storm]] }
     pictograms:

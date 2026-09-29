@@ -294,13 +294,15 @@ class TestTreeClassification:
         return load().scheme("precipitation-vsup")
 
     @staticmethod
-    def q(p10, p25, p75, p90):
-        return {"p10": p10, "p25": p25, "p75": p75, "p90": p90}
+    def q(p17, p25, p75, p83):
+        """The quantiles the shipped tree schemes read: p17..p83 for certain,
+        p25..p75 for likely."""
+        return {"p17": p17, "p25": p25, "p75": p75, "p83": p83}
 
     def test_class_bounds_are_lower_inclusive(self, rain):
         assert [rain.class_of(v) for v in (0.0, 0.0999, 0.1, 0.99, 1.0, 2.0, 50.0)] == [0, 0, 1, 1, 2, 3, 3]
 
-    def test_whole_interval_in_one_class_is_certain(self, rain):
+    def test_two_thirds_in_one_class_is_certain(self, rain):
         choice = rain.classify(self.q(1.2, 1.4, 1.6, 1.8))
         assert (choice.level, choice.class_, choice.pictogram) == (3, "medium", "rain/step3_medium_rain.svg")
 
@@ -312,11 +314,17 @@ class TestTreeClassification:
         choice = rain.classify(self.q(0.0, 0.5, 3.0, 8.0))
         assert (choice.level, choice.class_) == (1, "none+light+medium+heavy")
 
+    def test_a_third_of_the_members_outside_the_class_is_not_certain(self, rain):
+        """p25..p75 all light rain, but p17 is dry: two thirds are not in one
+        class, so it is only "likely"."""
+        choice = rain.classify(self.q(0.05, 0.2, 0.8, 0.9))
+        assert (choice.level, choice.class_) == (2, "none+light")
+
     def test_deliberately_differs_from_legacy(self, rain):
         """p10 dry, p90 light: legacy says confident light rain, the tree says
         it is not even sure it rains."""
         legacy = load().scheme("precipitation-legacy")
-        values = {"p10": 0.0, "p25": 0.0, "p50": 0.2, "p75": 0.5, "p90": 0.8}
+        values = {"p10": 0.0, "p17": 0.0, "p25": 0.0, "p50": 0.2, "p75": 0.5, "p83": 0.7, "p90": 0.8}
         assert legacy.classify(values).class_ == "light"
         assert rain.classify(values).class_ == "none+light"
 
@@ -347,7 +355,7 @@ class TestApplyingSchemes:
 
     def test_quantiles_must_be_present(self, forecast):
         thin = build_forecast(FixtureSource().load("reykjavik"), quantile_levels=(50,))
-        with pytest.raises(SchemeMismatch, match="reads p10, p25, p75, p90"):
+        with pytest.raises(SchemeMismatch, match="reads p17, p25, p75, p83"):
             classify(thin, load(), ["wind-vsup"])
 
     def test_deterministic_rules_need_a_deterministic_run(self, forecast, tmp_path):
