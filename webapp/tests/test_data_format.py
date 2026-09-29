@@ -1,10 +1,10 @@
 """Offline tests: the recorded fixtures are usable, whichever format they are in.
 
-Files recorded by the removed legacy pipeline are held to the allMeteogramData
-contract (tests/schema.py); files written by generate_fixtures.py are
-Forecasts. Either way the fixture source has to turn them into a valid
-Forecast with plausible values, which is what the rest of the suite and the
-offline configuration build on.
+The fixtures are Forecasts written by generate_fixtures.py; the one sample left
+from the removed legacy pipeline (fixtures/legacy/) is held to the
+allMeteogramData contract (tests/schema.py). Either way the fixture source has
+to turn them into a valid Forecast with plausible values, which is what the
+rest of the suite and the offline configuration build on.
 """
 import json
 

@@ -26,9 +26,12 @@ docker run -p 5003:5003 -e SOURCES_CONFIG=config/sources.fixtures.yaml meteogram
 
 ```bash
 cd webapp
-pip install -r requirements-dev.txt && python -m api serve     # API on 127.0.0.1:8000
-cd frontend && npm ci && npm run dev                            # UI on localhost:5173
-pytest && npm test && npm run e2e                               # tests
+pip install -r requirements-dev.txt
+python -m api serve                         # API on 127.0.0.1:8000
+cd frontend && npm ci && npm run dev        # UI on localhost:5173 (second terminal)
+
+pytest                                      # backend tests, in webapp/
+cd frontend && npm test && npm run e2e      # frontend unit and end-to-end tests
 ```
 
 The pictogram rules are configuration, not code: `webapp/config/vsup.yaml`,

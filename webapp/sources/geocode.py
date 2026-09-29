@@ -1,7 +1,7 @@
 """Place search for the location box.
 
-Open-Meteo's geocoding API rather than Nominatim, which the legacy app uses.
-The new frontend searches while the user types, and Nominatim's usage policy
+Open-Meteo's geocoding API rather than Nominatim, which the legacy app used.
+The frontend searches while the user types, and Nominatim's usage policy
 rules that out ("you must not implement such a service on the client side
 using the API") along with anything above one request per second. Open-Meteo's
 service is made for it, comes from the same provider as the forecasts, and

@@ -34,6 +34,7 @@ python -m api openapi -o api/openapi.json               # after changing a route
 cd frontend && npm ci
 npm run dev                        # Vite on :5173, proxies /api and /pictograms to 127.0.0.1:8000
 npm run build                      # tsc + vite build -> dist/ (the API serves it when present)
+npm run typecheck                  # tsc --noEmit only
 npm test                           # Vitest unit/component tests (jsdom)
 npm run e2e                        # Playwright; starts the offline API and a preview build itself
 npm run e2e -- --update-snapshots  # after an intended visual change - review the PNG diff
@@ -47,7 +48,8 @@ docker run -p 5003:5003 -e SOURCES_CONFIG=config/sources.fixtures.yaml meteogram
 All Python CLIs must be run with `-m`: they are package modules and import their siblings by
 package path. Environment: `HOST`/`PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT` (container only);
 `VSUP_CONFIG`, `SOURCES_CONFIG`, `FRONTEND_DIST`, `FORECAST_CACHE_TTL_S`, `FORECAST_CACHE_SIZE`,
-`GEOCODE_CACHE_TTL_S`, `GEOCODE_CACHE_SIZE`, `GEOCODER_TIMEOUT_S` (`api/settings.py`).
+`GEOCODE_CACHE_TTL_S`, `GEOCODE_CACHE_SIZE`, `GEOCODER_TIMEOUT_S`, and `PROBE_LAT`/`PROBE_LON` (where
+`/api/health?deep=true` asks each source) - see `api/settings.py`.
 
 ### Tests
 
@@ -57,11 +59,14 @@ pytest -m "not live"               # offline only - no network at all
 pytest -m live                     # only the live checks; they skip when the network is down
 pytest tests/test_vsup_golden.py   # a single file
 
-python tests/generate_fixtures.py [key ...]   # re-record tests/fixtures/ from the live API
+python tests/generate_fixtures.py             # re-record every fixture + the raw response
+python tests/generate_fixtures.py zermatt     # re-record just these fixtures
 ```
 
-`tests/conftest.py` chdirs to `webapp/` at import, so pytest works from any directory. There is no
-linter and no CI; `tsc --noEmit` (in `npm run build`) is the frontend's type check.
+`tests/conftest.py` chdirs to `webapp/` at import, so pytest works from any directory; from outside
+`webapp/` pass the path (`pytest webapp`), or its `pytest.ini` - which registers the `live` marker -
+is not read. There is no linter and no CI; `tsc --noEmit` (in `npm run build`) is the frontend's type
+check.
 
 ## Architecture
 
@@ -208,7 +213,8 @@ otherwise fail on some request fails at start-up, with file and line.
 - Frontend: Vitest next to the code (`*.test.ts[x]`) and Playwright in `frontend/e2e/` (screenshots
   of all five fixtures and on a phone, hover, days without refetch, search with back/forward, 404,
   legend). Baselines are taken with Playwright's pinned Chromium against `sources.fixtures.yaml`.
-- Known bugs are recorded as `strict=True` xfails, so they flip to a loud XPASS once fixed.
+- Known bugs are recorded as `strict=True` xfails, so they flip to a loud XPASS once fixed (there
+  are none at the moment).
 - The API tests call the app through `httpx.ASGITransport` (`tests/test_api.get`): Starlette 1.7
   deprecates its httpx-based `TestClient`.
 
