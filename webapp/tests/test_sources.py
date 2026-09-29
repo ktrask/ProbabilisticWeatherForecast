@@ -2,11 +2,11 @@
 
 The Open-Meteo adapter is fed a recorded response (tests/fixtures/open_meteo/,
 written by generate_fixtures.py) through httpx.MockTransport, so the real
-flatbuffers decoding runs without a network. The same bytes also go through
-the legacy getData, which is how the new reduction is held to the old one.
+flatbuffers decoding runs without a network, and its reduction is checked
+against numpy on the raw members.
 """
 import asyncio
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import numpy as np
@@ -15,10 +15,9 @@ import pytest
 from core import legacy
 from core.model import Location
 from core.pipeline import build_forecast
-from meteogram import downloadJsonData
 from sources import open_meteo
 from sources.base import SourceError, SourceTimeout
-from sources.fixture import FixtureNotFound, FixtureSource
+from sources.fixture import FixtureNotFound, FixtureSource, is_forecast
 from sources.open_meteo import OpenMeteoEnsemble, decode, messages
 from tests.conftest import FIXTURE_DIR, LOCATION_KEYS, load_fixture
 
@@ -45,23 +44,41 @@ def serving(content=RAW, status=200, seen=None, raises=None):
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 
+def recorded(key):
+    """What a fixture file says, read straight from its JSON in either format:
+    (first step, {variable: {quantile: [values]}})."""
+    data = load_fixture(key)
+    if is_forecast(data):
+        first = datetime.fromisoformat(data["steps"][0])
+        return first, {name: series["quantiles"] for name, series in data["variables"].items()}
+    first = legacy.reference_time(data["2t"])
+    return first, {
+        name: {q: data[k][k][legacy_name] for legacy_name, q in legacy.QUANTILES.items()}
+        for k, name in legacy.VARIABLES.items()
+    }
+
+
 class TestFixtureSource:
     @pytest.mark.parametrize("key", LOCATION_KEYS)
     def test_every_fixture_becomes_a_valid_forecast(self, key):
         f = build_forecast(FixtureSource().load(key))
-        assert len(f.steps) == len(load_fixture(key)["2t"]["2t"]["steps"])
+        _, quantiles = recorded(key)
+        assert len(f.steps) == len(quantiles["temperature_2m"]["p50"])
         assert f.step_hours == 6
         assert set(f.variables) == set(legacy.VARIABLES.values())
 
-    def test_values_come_through_unchanged(self, braunschweig):
-        f = build_forecast(FixtureSource().load("braunschweig"))
-        for key, name in legacy.VARIABLES.items():
-            for legacy_name, quantile in legacy.QUANTILES.items():
-                assert f.variables[name].quantiles[quantile] == braunschweig[key][key][legacy_name]
+    @pytest.mark.parametrize("key", LOCATION_KEYS)
+    def test_values_come_through_unchanged(self, key):
+        f = build_forecast(FixtureSource().load(key))
+        _, quantiles = recorded(key)
+        for name, by_quantile in quantiles.items():
+            for quantile, values in by_quantile.items():
+                assert f.variables[name].quantiles[quantile] == values, f"{key} {name} {quantile}"
 
-    def test_first_step_is_the_fixtures_reference_time(self, braunschweig):
-        f = build_forecast(FixtureSource().load("braunschweig"))
-        assert f.steps[0] == legacy.reference_time(braunschweig["2t"])
+    @pytest.mark.parametrize("key", LOCATION_KEYS)
+    def test_first_step_is_the_recorded_one(self, key):
+        f = build_forecast(FixtureSource().load(key))
+        assert f.steps[0] == recorded(key)[0]
         assert f.steps[0].tzinfo == timezone.utc
 
     def test_location_metadata(self):
@@ -139,20 +156,8 @@ def result():
 
 
 @pytest.fixture(scope="module")
-def both():
-    """The recorded bytes through the legacy getData and through the new pipeline."""
-
-    class Replay:
-        def weather_api(self, url, params):
-            return list(messages(RAW))
-
-    original = downloadJsonData.openmeteo
-    downloadJsonData.openmeteo = Replay()
-    try:
-        old = downloadJsonData.getData(-21.94, 64.15, 61, writeToFile=False)
-    finally:
-        downloadJsonData.openmeteo = original
-    return old, build_forecast(decode(RAW, "t", VARIABLES))
+def reduced(result):
+    return build_forecast(result)
 
 
 class TestOpenMeteoDecoding:
@@ -190,41 +195,32 @@ class TestOpenMeteoDecoding:
             decode(RAW, "t", VARIABLES)
 
 
-class TestParityWithLegacyGetData:
-    """The same recorded bytes through both pipelines."""
+class TestReductionOfTheRecording:
+    """The pipeline on real bytes, checked against numpy on the raw members.
 
-    def test_same_start(self, both):
-        old, new = both
-        assert new.steps[0] == legacy.reference_time(old["2t"])
+    Until the legacy app was removed, these bytes also went through its
+    getData(): instant quantiles agreed to float32 precision, and its
+    precipitation windows were an hour early (rows t..t+5 instead of t+1..t+6).
+    """
 
-    @pytest.mark.parametrize("key", ["2t", "tcc", "ws"])
-    def test_instant_quantiles_agree(self, both, key):
-        old, new = both
-        name = legacy.VARIABLES[key]
-        for legacy_name, quantile in legacy.QUANTILES.items():
-            ours = new.variables[name].quantiles[quantile]
-            theirs = old[key][key][legacy_name][: len(ours)]
-            # The legacy code works in float32, this in float64.
-            np.testing.assert_allclose(ours, theirs, rtol=1e-6, atol=1e-5, err_msg=f"{key} {legacy_name}")
+    @pytest.mark.parametrize("name", ["temperature_2m", "cloud_cover", "wind_speed_10m"])
+    def test_instants_are_the_members_at_each_step(self, result, reduced, name):
+        members = result.members[name]
+        for quantile, values in reduced.variables[name].quantiles.items():
+            level = int(quantile[1:])
+            expected = [np.percentile(members[:, 6 * k], level) for k in range(len(values))]
+            np.testing.assert_allclose(values, expected, rtol=1e-12, err_msg=f"{name} {quantile}")
 
-    @pytest.mark.parametrize("legacy_name,quantile", list(legacy.QUANTILES.items()))
-    def test_precipitation_windows_are_an_hour_later_than_legacy(self, both, legacy_name, quantile):
-        """The one intended difference. Open-Meteo's hourly value is the
-        preceding hour's total, so the window starting at t is rows t+1..t+6;
-        the legacy code took rows t..t+5. Both checked against the raw members."""
-        old, new = both
-        members = decode(RAW, "t", VARIABLES).members["precipitation"]
+    @pytest.mark.parametrize("quantile", list(legacy.QUANTILES.values()))
+    def test_totals_cover_the_six_hours_after_the_step(self, result, reduced, quantile):
+        """Open-Meteo's hourly value is the preceding hour's total, so the
+        window starting at t is made of the rows t+1 ... t+6."""
+        members = result.members["precipitation"]
         level = int(quantile[1:])
-        ours = new.variables["precipitation"].quantiles[quantile]
-        steps = range(len(ours))
-        following = [np.percentile(members[:, 6 * k + 1 : 6 * k + 7].sum(axis=1), level) for k in steps]
-        shifted = [np.percentile(members[:, 6 * k : 6 * k + 6].sum(axis=1), level) for k in steps]
+        ours = reduced.variables["precipitation"].quantiles[quantile]
+        following = [np.percentile(members[:, 6 * k + 1 : 6 * k + 7].sum(axis=1), level) for k in range(len(ours))]
         np.testing.assert_allclose(ours, following, rtol=1e-9)
-        np.testing.assert_allclose(old["tp"]["tp"][legacy_name][: len(ours)], shifted, rtol=1e-5, atol=1e-5)
 
-    def test_the_window_shift_is_visible_in_this_recording(self, both):
-        """Guards the test above against a dry recording, where both would be 0."""
-        old, new = both
-        ours = np.array(new.variables["precipitation"].quantiles["p50"])
-        theirs = np.array(old["tp"]["tp"]["median"][: len(ours)])
-        assert np.abs(ours - theirs).max() > 0.2
+    def test_this_recording_has_rain(self, reduced):
+        """Guards the test above against a dry recording, where every total is 0."""
+        assert max(reduced.variables["precipitation"].quantiles["p50"]) > 1.0

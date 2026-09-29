@@ -1,5 +1,6 @@
 """Golden tests: the *-legacy schemes in config/vsup.yaml choose exactly what the
-old getVSUP*Coordinate() functions choose.
+old getVSUP*Coordinate() functions chose - kept, frozen, in tests/legacy_reference.py
+since the old app was removed.
 
 Checked two ways. First, every step of every fixture, through the whole new
 path (fixture source -> pipeline -> classifier). Second, exhaustively: the
@@ -12,6 +13,9 @@ possible input, not just on the weather the fixtures happen to hold.
 
 The constants are read from the legacy functions' own source, so a typo in the
 YAML (1.6 for 1.5, > for >=) cannot hide by also being in the test.
+
+The fixtures are read through the fixture source, so this works on the
+recorded legacy-format files and on ones regenerated in the new format alike.
 """
 import ast
 import inspect
@@ -21,23 +25,25 @@ import pytest
 
 from core import legacy
 from core.pipeline import build_forecast
-from meteogram.plotMeteogram import getVSUPCloudCoordinate, getVSUPrainCoordinate, getVSUPWindCoordinate
 from sources.fixture import FixtureSource
-from tests.conftest import LOCATION_KEYS, load_fixture
-from tests.test_pictograms import VSUP_FILES
+from tests.conftest import LOCATION_KEYS
+from tests.legacy_reference import (
+    LEVEL as LEGACY_LEVEL,
+    VSUP_FILES,
+    getVSUPCloudCoordinate,
+    getVSUPrainCoordinate,
+    getVSUPWindCoordinate,
+)
 from vsup import expr
 from vsup.classify import classify_series
 from vsup.config import load
 
-# scheme -> (legacy function, legacy variable key, pictogram directory)
+# scheme -> (legacy function, pictogram directory)
 LEGACY = {
-    "cloud-legacy": (getVSUPCloudCoordinate, "tcc", "cloud"),
-    "precipitation-legacy": (getVSUPrainCoordinate, "tp", "rain"),
-    "wind-legacy": (getVSUPWindCoordinate, "ws", "wind"),
+    "cloud-legacy": (getVSUPCloudCoordinate, "cloud"),
+    "precipitation-legacy": (getVSUPrainCoordinate, "rain"),
+    "wind-legacy": (getVSUPWindCoordinate, "wind"),
 }
-
-# What a legacy index means: 0 is the vaguest glyph, 1-2 the middle, 3-6 certain.
-LEGACY_LEVEL = {0: 1, 1: 2, 2: 2, 3: 3, 4: 3, 5: 3, 6: 3}
 
 # The quantiles the legacy functions read; p0 and p100 are never consulted.
 READ = ("ten", "twenty_five", "median", "seventy_five", "ninety")
@@ -51,9 +57,9 @@ def config():
 
 
 def legacy_pictogram(scheme, percentiles):
-    function, _, directory = LEGACY[scheme]
+    function, directory = LEGACY[scheme]
     index = function(percentiles)
-    return f"{directory}/{VSUP_FILES[directory][1][index]}", LEGACY_LEVEL[index]
+    return f"{directory}/{VSUP_FILES[directory][index]}", LEGACY_LEVEL[index]
 
 
 def constants_in_source(function):
@@ -105,13 +111,11 @@ def test_scheme_uses_the_legacy_thresholds(config, scheme):
 @pytest.mark.parametrize("scheme", sorted(LEGACY))
 @pytest.mark.parametrize("key", LOCATION_KEYS)
 def test_same_pictogram_for_every_fixture_step(config, key, scheme):
-    _, variable_key, _ = LEGACY[scheme]
     compiled = config.scheme(scheme)
-    forecast = build_forecast(FixtureSource().load(key))
-    choices = classify_series(compiled, forecast.variables[compiled.variable])
-    series = load_fixture(key)[variable_key][variable_key]
+    series = build_forecast(FixtureSource().load(key)).variables[compiled.variable]
+    choices = classify_series(compiled, series)
     for i, choice in enumerate(choices):
-        percentiles = {name: series[name][i] for name in legacy.QUANTILES}
+        percentiles = legacy.percentiles(series.at(i))
         expected, level = legacy_pictogram(scheme, percentiles)
         assert (choice.pictogram, choice.level) == (expected, level), (
             f"{key} step {i} ({percentiles}): {choice.outcome} gives {choice.pictogram}, "

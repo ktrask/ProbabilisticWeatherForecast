@@ -10,11 +10,13 @@ from datetime import timedelta
 import pytest
 
 from core.pipeline import build_forecast
-from meteogram.plotMeteogram import PICTOGRAM_DIR
 from sources.fixture import FixtureSource
 from vsup import __main__ as cli
 from vsup.classify import SchemeMismatch, classify
 from vsup.config import DEFAULT_CONFIG, ConfigError, json_schema, load
+
+# The shipped pictograms, which the configs below point at.
+PICTOGRAM_DIR = load().pictogram_root
 
 BASE = """\
 version: 1

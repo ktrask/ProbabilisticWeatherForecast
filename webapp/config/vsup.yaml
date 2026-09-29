@@ -18,15 +18,16 @@
 
 version: 1
 quantiles: [0, 10, 25, 50, 75, 90, 100]
-pictogram_root: ../meteogram/pictogram
+pictogram_root: ../pictograms
 
 schemes:
 
   # --- The legacy rules, transcribed exactly --------------------------------
-  # One per getVSUP*Coordinate() in meteogram/plotMeteogram.py, with the PNGs
-  # that function's plot*VSUP() draws. tests/test_vsup_golden.py holds them to
-  # identical pictograms, step for step - keep them as they are; the tree
-  # schemes further down are where the design can change.
+  # One per getVSUP*Coordinate() of the removed matplotlib renderer, with the
+  # PNGs it drew. tests/test_vsup_golden.py holds them to identical pictograms
+  # against a frozen copy of those functions (tests/legacy_reference.py) - keep
+  # them as they are; the tree schemes further down are where the design can
+  # change.
 
   cloud-legacy:
     description: getVSUPCloudCoordinate

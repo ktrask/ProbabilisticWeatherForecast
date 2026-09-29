@@ -19,6 +19,7 @@ from api.app import create_app
 from api.cache import TTLCache
 from api.settings import Settings
 from core.model import Forecast
+from core.pipeline import build_forecast
 from core.reduce import DataGap
 from sources import config as sources_config
 from sources.base import SourceError, SourceTimeout
@@ -150,7 +151,7 @@ class TestForecast:
         response = get(app, f"/api/forecast?{BRAUNSCHWEIG}")
         assert response.status_code == 200
         forecast = Forecast.model_validate(response.json())
-        assert len(forecast.steps) == 56
+        assert len(forecast.steps) == len(build_forecast(FixtureSource().load("braunschweig")).steps)
         assert {name: s.scheme for name, s in forecast.pictograms.items()} == {
             "cloud_cover": "cloud-vsup", "precipitation": "precipitation-vsup", "wind_speed_10m": "wind-vsup",
         }

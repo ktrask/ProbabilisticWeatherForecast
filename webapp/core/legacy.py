@@ -1,8 +1,8 @@
 """Reading the legacy allMeteogramData format.
 
-Only needed while both pipelines exist: the offline fixtures are recorded in
-the legacy format, and the golden tests feed the same data to the old
-getVSUP*Coordinate() functions and to the new classifier.
+The legacy pipeline is gone, but the offline fixtures it recorded are kept as
+they are (sources.fixture reads them through this), and the golden tests hand
+the old getVSUP*Coordinate() rules their quantiles under the legacy names.
 
 The legacy format carries no units. Since the wind fix it is degC, mm per step,
 percent and m/s (tests/schema.py pins that), which happen to be the canonical

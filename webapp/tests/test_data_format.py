@@ -1,27 +1,31 @@
-"""Offline tests: the stored fixtures still match the allMeteogramData contract.
+"""Offline tests: the recorded fixtures are usable, whichever format they are in.
 
-These never touch the network. They pin the format that plotMeteogram.py consumes,
-so a change to downloadJsonData.py that breaks the contract fails here immediately.
+Files recorded by the removed legacy pipeline are held to the allMeteogramData
+contract (tests/schema.py); files written by generate_fixtures.py are
+Forecasts. Either way the fixture source has to turn them into a valid
+Forecast with plausible values, which is what the rest of the suite and the
+offline configuration build on.
 """
-from datetime import datetime
-
 import pytest
 
+from core import legacy
+from core.model import Forecast
+from core.pipeline import build_forecast
+from sources.fixture import FixtureSource, is_forecast
 from tests.conftest import LOCATION_KEYS, load_fixture
-from tests.schema import (
-    EXPECTED_VARIABLES,
-    PERCENTILE_KEYS,
-    assert_meteogram_schema,
-)
+from tests.schema import EXPECTED_VARIABLES, assert_meteogram_schema
+
+# The plausible range of each variable, in its canonical unit.
+RANGES = {legacy.VARIABLES[key]: (spec["low"], spec["high"]) for key, spec in EXPECTED_VARIABLES.items()}
+
+
+def forecast(key):
+    return build_forecast(FixtureSource().load(key))
 
 
 def test_all_fixtures_present():
     for key in LOCATION_KEYS:
         assert load_fixture(key), f"fixture {key} is empty"
-
-
-def test_fixture_matches_schema(meteogram_data):
-    assert_meteogram_schema(meteogram_data)
 
 
 def test_locations_index_covers_every_fixture(locations):
@@ -32,56 +36,44 @@ def test_locations_index_covers_every_fixture(locations):
         assert loc["name"] and loc["timezone"]
 
 
-def test_forecast_covers_about_two_weeks(meteogram_data):
-    """forecast_days=14 at 6-hourly steps -> 56 steps spanning 330 hours."""
-    steps = meteogram_data["2t"]["2t"]["steps"]
-    span_hours = int(steps[-1]) - int(steps[0])
-    assert 13 * 24 <= span_hours <= 14 * 24, (
-        f"forecast spans {span_hours}h, expected roughly 14 days"
-    )
+@pytest.mark.parametrize("key", LOCATION_KEYS)
+def test_fixture_matches_its_format(key):
+    data = load_fixture(key)
+    if is_forecast(data):
+        Forecast.model_validate(data)
+    else:
+        assert_meteogram_schema(data)
 
 
-def test_all_variables_share_one_reference_time(meteogram_data):
-    """plotMeteogram derives the x-axis from 2t's date/time alone, so the other
-    variables have to be on the same clock or the panels silently desynchronise."""
-    stamps = {
-        name: (meteogram_data[name]["date"], meteogram_data[name]["time"])
-        for name in EXPECTED_VARIABLES
-    }
-    assert len(set(stamps.values())) == 1, f"variables disagree on start time: {stamps}"
+@pytest.mark.parametrize("key", LOCATION_KEYS)
+def test_forecast_covers_about_two_weeks(key):
+    """Legacy recordings asked for 14 days, the adapter asks for 15 and keeps
+    what the model run fills - about 14 days of 6-hour steps either way."""
+    steps = forecast(key).steps
+    span_hours = (steps[-1] - steps[0]).total_seconds() / 3600
+    assert 13 * 24 <= span_hours <= 15 * 24, f"forecast spans {span_hours}h"
 
 
-def test_reference_time_is_parseable(meteogram_data):
-    """getTimeFrame and plotTemperature slice date/time by character offset."""
-    entry = meteogram_data["2t"]
-    parsed = datetime(
-        int(entry["date"][0:4]),
-        int(entry["date"][4:6]),
-        int(entry["date"][6:8]),
-        int(entry["time"][0:2]),
-    )
-    assert datetime(2018, 1, 1) < parsed < datetime(2100, 1, 1)
-
-
-def test_precipitation_is_never_negative(meteogram_data):
-    for key in PERCENTILE_KEYS:
-        assert min(meteogram_data["tp"]["tp"][key]) >= 0.0
+@pytest.mark.parametrize("key", LOCATION_KEYS)
+def test_values_are_plausible_in_canonical_units(key):
+    """Out-of-range values mean a unit crept in that is not the canonical one."""
+    for name, series in forecast(key).variables.items():
+        low, high = RANGES[name]
+        for quantile, values in series.quantiles.items():
+            assert low <= min(values) and max(values) <= high, f"{key} {name} {quantile} outside [{low}, {high}]"
 
 
 def test_cloud_cover_spans_the_full_percent_scale():
-    """Cloud cover is a percentage (0-100); the pictogram thresholds are stated in
-    the same unit. Braunschweig reaches full overcast in this fixture."""
-    values = load_fixture("braunschweig")["tcc"]["tcc"]["max"]
-    assert max(values) > 1.0, "cloud cover looks like a 0-1 fraction, not percent"
-    assert max(values) <= 100.0
+    """Cloud cover is a percentage (0-100); a 0-1 fraction would pass the range
+    check and pin every step to the clearest pictogram."""
+    values = forecast("braunschweig").variables["cloud_cover"].quantiles["p100"]
+    assert 1.0 < max(values) <= 100.0
 
 
 @pytest.mark.parametrize("key", LOCATION_KEYS)
 def test_fixture_has_real_spread(key):
     """A fixture where every member agrees would make the uncertainty pictograms
     meaningless and would silently weaken every downstream test."""
-    series = load_fixture(key)["2t"]["2t"]
-    spread = [hi - lo for lo, hi in zip(series["min"], series["max"])]
-    assert max(spread) > 0.5, (
-        f"{key}: ensemble spread never exceeds {max(spread):.2f} degC"
-    )
+    q = forecast(key).variables["temperature_2m"].quantiles
+    spread = [hi - lo for lo, hi in zip(q["p0"], q["p100"])]
+    assert max(spread) > 0.5, f"{key}: ensemble spread never exceeds {max(spread):.2f} degC"

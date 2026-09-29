@@ -1,32 +1,35 @@
-"""Live tests: does Open-Meteo still hand back the shape we expect?
+"""Live tests: does Open-Meteo still hand back what the adapters expect?
 
-These are the only tests that touch the network. They deliberately bypass the
-requests_cache session so a cached response cannot mask an upstream change.
+These are the only tests that touch the network, and nothing here is cached,
+so an upstream change cannot hide behind a stored answer.
 
     pytest -m live          # just these
     pytest -m "not live"    # everything else
 
 They skip themselves (rather than fail) when the network is unreachable.
 """
-import socket
+import asyncio
 
+import httpx
 import pytest
-import requests
 
-from meteogram import downloadJsonData
-from tests.schema import ENSEMBLE_MEMBERS, assert_meteogram_schema
+from core.model import Forecast, Location
+from core.pipeline import build_forecast
+from sources.base import SourceError
+from sources.fixture import FixtureSource
+from sources.geocode import OpenMeteoGeocoder
+from sources.open_meteo import OpenMeteoEnsemble
 
 pytestmark = pytest.mark.live
 
-ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
+ENSEMBLE_MEMBERS = 51  # ecmwf_ifs025
 
-# Somewhere none of the offline fixtures use, so nothing can come from a warm cache.
-LIVE_LATITUDE = 48.8566
-LIVE_LONGITUDE = 2.3522
-LIVE_ALTITUDE = 35
+# Somewhere none of the offline fixtures use.
+PARIS = Location(lat=48.8566, lon=2.3522, name="Paris")
 
-# The units the pictogram thresholds are written in, as the JSON API spells them.
-# getData checks the same thing through the SDK (downloadJsonData.EXPECTED_UNITS).
+# The canonical units, as the JSON API spells them. The adapter asks for them
+# and checks the flatbuffers' own unit field; this checks the other spelling
+# of the same request.
 EXPECTED_UNITS = {
     "temperature_2m": "°C",
     "precipitation": "mm",
@@ -39,53 +42,26 @@ def skip_if_offline(exc):
     pytest.skip(f"Open-Meteo unreachable: {type(exc).__name__}: {exc}")
 
 
+def fetch(source, location, variables):
+    try:
+        return asyncio.run(source.fetch(location, variables))
+    except SourceError as exc:
+        if isinstance(exc.__cause__, httpx.TransportError):
+            skip_if_offline(exc)
+        raise
+
+
 @pytest.fixture(scope="module")
 def raw_response():
-    """One uncached JSON call, shared by the tests that inspect the raw payload.
-
-    Built from getData's own FORECAST_PARAMS, so the units checked here are the
-    ones getData actually asks for - wind in m/s rather than the API's km/h
-    default - and not whatever a hand-copied request happens to say.
-    """
-    params = {
-        **downloadJsonData.FORECAST_PARAMS,
-        "latitude": LIVE_LATITUDE,
-        "longitude": LIVE_LONGITUDE,
-        "forecast_days": 2,
-        "format": "json",
-    }
+    """The adapter's own request, two days of it, as JSON instead of flatbuffers."""
+    source = OpenMeteoEnsemble(forecast_days=2)
+    params = {**source.params(PARIS, source.variables), "format": "json"}
     try:
-        response = requests.get(ENSEMBLE_URL, params=params, timeout=60)
-    except (requests.RequestException, socket.error) as exc:
+        response = httpx.get(source.url, params=params, timeout=60)
+    except httpx.TransportError as exc:
         skip_if_offline(exc)
-    assert response.status_code == 200, (
-        f"{ENSEMBLE_URL} returned {response.status_code}: {response.text[:300]}"
-    )
+    assert response.status_code == 200, f"{source.url} returned {response.status_code}: {response.text[:300]}"
     return response.json()
-
-
-@pytest.fixture(scope="module")
-def live_meteogram_data():
-    """downloadJsonData.getData against the real API, with caching disabled."""
-    import openmeteo_requests
-
-    uncached = openmeteo_requests.Client()
-    original = downloadJsonData.openmeteo
-    downloadJsonData.openmeteo = uncached
-    try:
-        return downloadJsonData.getData(
-            LIVE_LONGITUDE, LIVE_LATITUDE, LIVE_ALTITUDE, writeToFile=False
-        )
-    except (requests.RequestException, socket.error) as exc:
-        skip_if_offline(exc)
-    finally:
-        downloadJsonData.openmeteo = original
-
-
-def test_live_data_matches_the_offline_contract(live_meteogram_data):
-    """The headline check: the live pipeline output is interchangeable with the
-    fixtures the rest of the suite is built on."""
-    assert_meteogram_schema(live_meteogram_data)
 
 
 def test_model_is_still_available(raw_response):
@@ -97,77 +73,72 @@ def test_units_have_not_changed(raw_response):
     """A silent unit switch upstream would quietly corrupt every pictogram."""
     units = raw_response["hourly_units"]
     for variable, expected in EXPECTED_UNITS.items():
-        assert units.get(variable) == expected, (
-            f"{variable} is now in {units.get(variable)!r}, expected {expected!r}"
-        )
+        assert units.get(variable) == expected, f"{variable} is now in {units.get(variable)!r}, expected {expected!r}"
 
 
 def test_still_51_ensemble_members(raw_response):
-    """calculate_percentiles hardcodes range(51); fewer members means a KeyError
-    and more means silently dropped data."""
     hourly = raw_response["hourly"]
     for variable in EXPECTED_UNITS:
-        members = [
-            key
-            for key in hourly
-            if key == variable or key.startswith(f"{variable}_member")
-        ]
-        assert len(members) == ENSEMBLE_MEMBERS, (
-            f"{variable}: found {len(members)} members, expected {ENSEMBLE_MEMBERS}"
-        )
+        members = [key for key in hourly if key == variable or key.startswith(f"{variable}_member")]
+        assert len(members) == ENSEMBLE_MEMBERS, f"{variable}: {len(members)} members, expected {ENSEMBLE_MEMBERS}"
 
 
 def test_hourly_interval_is_still_one_hour(raw_response):
-    """create_dictionary derives its step size from the first two rows and
-    downloadJsonData subsamples every 6th one to get 6-hourly steps."""
+    """The reduction builds 6-hour steps out of hourly rows."""
     times = raw_response["hourly"]["time"]
     assert len(times) >= 24
     assert times[0].endswith(":00"), f"unexpected timestamp format: {times[0]!r}"
 
 
-def test_live_and_fixture_variables_agree(live_meteogram_data, braunschweig):
-    assert set(live_meteogram_data) == set(braunschweig)
-    for name in braunschweig:
-        assert set(live_meteogram_data[name]) == set(braunschweig[name])
-        assert set(live_meteogram_data[name][name]) == set(braunschweig[name][name])
-
-
-def test_open_meteo_adapter_delivers_a_valid_forecast():
-    """The new sources.open_meteo adapter end to end: fetch, reduce to the new
-    Forecast model, classify with the shipped VSUP schemes."""
-    import asyncio
-
-    import httpx
-
-    from core.model import Location
-    from core.pipeline import build_forecast
-    from sources.base import SourceError
-    from sources.open_meteo import OpenMeteoEnsemble
-    from vsup.classify import classify
-    from vsup.config import load
-
+def test_live_forecast_matches_the_fixtures():
+    """The offline suite and the offline configuration stand in for this; they
+    have to look the same."""
     source = OpenMeteoEnsemble()
-    location = Location(lat=LIVE_LATITUDE, lon=LIVE_LONGITUDE, name="Paris")
+    live = build_forecast(fetch(source, PARIS, source.variables))
+    recorded = build_forecast(FixtureSource().load("braunschweig"))
+    assert set(live.variables) == set(recorded.variables)
+    for name, series in live.variables.items():
+        assert list(series.quantiles) == list(recorded.variables[name].quantiles)
+        assert (series.unit, series.kind, series.window_hours) == (
+            recorded.variables[name].unit,
+            recorded.variables[name].kind,
+            recorded.variables[name].window_hours,
+        )
+
+
+def test_geocoder_finds_a_place():
     try:
-        result = asyncio.run(source.fetch(location, source.variables))
+        places = asyncio.run(OpenMeteoGeocoder().search("Braunschweig", language="de"))
     except SourceError as exc:
         if isinstance(exc.__cause__, httpx.TransportError):
             skip_if_offline(exc)
         raise
+    first = places[0]
+    assert (first.name, first.country_code, first.timezone) == ("Braunschweig", "DE", "Europe/Berlin")
+    assert abs(first.lat - 52.26) < 0.1 and abs(first.lon - 10.52) < 0.1
+
+
+def test_open_meteo_adapter_delivers_a_valid_forecast():
+    """The adapter end to end: fetch, reduce to the Forecast model, classify
+    with the shipped VSUP schemes."""
+    from vsup.classify import classify
+    from vsup.config import load
+
+    source = OpenMeteoEnsemble()
+    result = fetch(source, PARIS, source.variables)
     assert result.member_count == ENSEMBLE_MEMBERS
     forecast = build_forecast(result)
     # 15 days are requested; the run ends a little earlier and the NaN padding
-    # after it is dropped, which still leaves more than the legacy 14 days.
+    # after it is dropped, which still leaves more than 14 days.
     assert len(forecast.steps) > 14 * 4, f"only {len(forecast.steps)} steps"
     assert forecast.location.timezone == "Europe/Paris"
     classify(forecast, load(), ["cloud-vsup", "precipitation-vsup", "wind-vsup"])
 
 
 def test_api_end_to_end():
-    """The new API with its real sources: geocode a place, then fetch its forecast."""
+    """The API with its real sources: geocode a place, then fetch its forecast."""
     from api.app import create_app
     from api.settings import Settings
-    from core.model import Forecast
     from tests.test_api import get
 
     app = create_app(Settings())

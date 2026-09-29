@@ -1,8 +1,8 @@
-"""Open-Meteo's ensemble API - successor of meteogram.downloadJsonData.getData.
+"""Open-Meteo's ensemble API.
 
 Fetches over httpx with an explicit timeout on every request, in Open-Meteo's
-flatbuffers format: the same float32 values getData decodes through the SDK,
-where the JSON format would round them to one decimal. Units are asked for in
+flatbuffers format: full float32 values, where the JSON format rounds them to
+one decimal (and the legacy getData() read these same values through the SDK). Units are asked for in
 canonical form and then checked anyway, from the unit each variable reports -
 Open-Meteo silently ignores a parameter it does not know, so asking is not
 proof.

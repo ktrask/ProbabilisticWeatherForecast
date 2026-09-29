@@ -1,10 +1,12 @@
 """VSUP schemes: which pictogram a step's quantiles get, as configuration.
 
-Replaces the hard-coded getVSUP*Coordinate() functions and the filename lists
-they are positionally coupled to. A scheme lives in config/vsup.yaml and is
-checked when it is loaded - missing pictograms, unordered thresholds, a unit
-that is not the variable's, quantiles that are never computed - so a broken
-scheme stops the start-up instead of the first request.
+Replaced the legacy renderer's hard-coded getVSUP*Coordinate() functions and
+the filename lists they were positionally coupled to (kept, frozen, as the
+golden tests' reference in tests/legacy_reference.py). A scheme lives in
+config/vsup.yaml and is checked when it is loaded - missing pictograms,
+unordered thresholds, a unit that is not the variable's, quantiles that are
+never computed - so a broken scheme stops the start-up instead of the first
+request.
 
     python -m vsup check            # validate config/vsup.yaml, show coverage
     python -m vsup schema           # JSON Schema for editor support
