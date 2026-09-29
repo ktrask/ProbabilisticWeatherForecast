@@ -30,6 +30,11 @@ python -m meteogram.plotMeteogram  # no args: replays webapp/allmeteogramdata.js
 # Fetch + cache ensemble data to allmeteogramdata.json:
 python -m meteogram.downloadJsonData --location 'Braunschweig, Germany'
 
+# The new backend's VSUP config (see "The rework" below):
+python -m vsup check                          # validate config/vsup.yaml + rule coverage on the fixtures
+python -m vsup check path/to/other.yaml --no-coverage
+python -m vsup schema -o config/vsup.schema.json   # regenerate after changing vsup/config.py's models
+
 docker build -t meteogram . && docker run -p 5003:5003 -e SECRET_KEY="$(openssl rand -hex 32)" meteogram
 ```
 
@@ -37,7 +42,7 @@ The container serves with gunicorn (`startup.sh`), not `run.py`. Environment: `S
 `HOST`/`PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT`, and `FLASK_DEBUG`/`ALLOW_PUBLIC_DEBUG` for
 `run.py` only.
 
-Both CLIs must be run with `-m`: they are package modules and import their siblings by package path.
+All CLIs must be run with `-m`: they are package modules and import their siblings by package path.
 
 ### Tests
 
@@ -121,6 +126,47 @@ went the other way: the thresholds stay in m/s and `FORECAST_PARAMS` asks Open-M
 `wind_speed_unit=ms` (its default is km/h), because m/s is the unit Beaufort is defined in and the
 canonical unit for the planned rework. Do not restate the wind thresholds in km/h.
 
+### The rework: `core/`, `sources/`, `vsup/`
+
+A new backend is being built next to the legacy one, which keeps serving until the Flask app is
+retired (the plan, in German, is `docs/neuentwicklung-plan.md` when present). The goal: the
+backend returns only JSON data, the browser draws the meteogram, and VSUP rules are configuration
+rather than code. So far there is no web layer; nothing in `app/` uses the new packages.
+
+- **`core/`** — no I/O. `variables.py` lists each variable with its one canonical unit (`degC`,
+  `mm`, `percent`, `m/s`) and whether it is an `instant` or a `sum`; `units.py` converts to those
+  units or raises. `model.py` is the `Forecast` (Pydantic), successor of `allMeteogramData`: steps
+  in UTC, units and aggregation explicit, quantiles named `p0`…`p100`, no doubled nesting. Its
+  validators are the contract; `tests/schema.py` still covers the legacy format. `reduce.py` +
+  `pipeline.py` turn a `SourceResult` into a `Forecast`.
+- **`sources/`** — adapters returning a `SourceResult` in canonical units and UTC.
+  `open_meteo.OpenMeteoEnsemble` (async httpx, flatbuffers so values are the same float32 that
+  `getData` sees, an explicit timeout on every request, unit read from the response and converted
+  or refused). `fixture.FixtureSource` serves `tests/fixtures/` as a quantile source.
+- **`vsup/`** + **`config/vsup.yaml`** — the schemes. `rules` mode is an ordered list of `when:`
+  expressions (own parser in `expr.py`, never `eval`); `tree` mode is classes merging into groups
+  as certainty drops. `config.load()` collects *every* problem with its line number before raising
+  `ConfigError`. `config/vsup.schema.json` is generated from the models; a test fails if it is stale.
+  `pictogram_root` points at `meteogram/pictogram/` for now — no second copy of the assets.
+
+Rules worth knowing:
+
+- The new packages do not import `meteogram` or `app`. Only tests (golden, parity) touch both.
+- **The `*-legacy` schemes are frozen.** `tests/test_vsup_golden.py` holds them to exactly the
+  pictograms `getVSUP*Coordinate()` pick, on every fixture step and on an exhaustive grid around
+  every threshold (read from the legacy functions' source). Change design in the `*-vsup` tree
+  schemes, which are allowed to differ.
+- **Sum windows are an hour later than legacy.** Open-Meteo's hourly precipitation is the
+  *preceding* hour's total, so the step at `t` covers `[t, t+6h)` = rows `t+1 … t+6`.
+  `accumulate_over_steps()` sums rows `t … t+5`. `test_sources.py` pins both against raw members.
+- The adapter asks for 15 days; the run ends around hour 350 and Open-Meteo pads the rest with NaN.
+  `reduce.complete_rows` drops trailing NaN rows and refuses holes, and all variables share the
+  steps a 6-hour *sum* can fill — 58 steps for `ecmwf_ifs025`, where the legacy path had 56.
+- Every conversion in `core/units.py` must stay strictly increasing: `vsup` converts a scheme's
+  thresholds once at load time, which is only sound if `a < b` survives the conversion.
+- `webapp/config/` (data files) sits next to Flask's `webapp/config.py`. `import config` still
+  finds the module because the directory has no `__init__.py` — do not add one.
+
 ## Tests
 
 `tests/schema.py` holds `assert_meteogram_schema()`, the single definition of the
@@ -137,6 +183,13 @@ function rather than adding ad-hoc assertions.
   them if you need current weather, not for correctness.
 - Known bugs are recorded as `strict=True` xfails, so they flip to a loud XPASS the
   moment someone fixes them.
+- `tests/fixtures/open_meteo/reykjavik_3d.fb` is one raw flatbuffers response, recorded by
+  `generate_fixtures.py` with the new adapter's parameters. `test_sources.py` replays it through
+  `httpx.MockTransport` and through the legacy `getData`, which is the parity check between the two
+  reductions. Reykjavik because it rains there — the precipitation checks need rain.
+- New backend: `test_core.py` (units, `Forecast` contract, reduction), `test_sources.py`,
+  `test_vsup_expr.py`, `test_vsup_config.py` (one case per validator error, with line numbers),
+  `test_vsup_golden.py` (legacy parity). The live suite also runs the new adapter end to end.
 
 ## Known gaps
 
@@ -157,6 +210,11 @@ function rather than adding ad-hoc assertions.
   leftover sample output. Rendering is matplotlib-only; `plotly` is not in `requirements.txt`.
 - `controller.py` ignores the computed `fromIndex` (hardcodes `0`), and `plotMeteogram()` overrides it
   to `1`, so meteograms always start at the forecast's second step rather than "now".
+- The legacy precipitation windows are an hour early (see "The rework"). Not fixed in
+  `downloadJsonData`, which is going away; the new pipeline gets it right.
+- The rework has no HRES yet: `deterministic` parses in `when:` expressions and the model has a slot
+  for it, but no adapter delivers one and the `anchored` mode for HRES schemes does not exist.
+  There is no `sources.yaml` or product list either; schemes are chosen by name in code.
 
 ## Serving
 
@@ -183,7 +241,8 @@ function rather than adding ad-hoc assertions.
 - Every outbound call sets an explicit timeout: `requests` has no default, and `requests.Session`
   offers no way to set one, so `TimeoutCachedSession` injects `OPEN_METEO_TIMEOUT` into
   `session.request()` — `openmeteo_requests` never passes one itself. Keep that wrapper in place;
-  without it a stalled forecast call blocks a worker indefinitely.
+  without it a stalled forecast call blocks a worker indefinitely. The new `sources/open_meteo.py`
+  passes its `httpx.Timeout` on each request, so a shared client without one cannot undo it.
 - `getData()` checks the unit Open-Meteo reports for every member of every variable against
   `EXPECTED_UNITS` and raises `UnexpectedUnit` on a mismatch — asking for a unit is not enough.
   If the API ignored or renamed `wind_speed_unit` (it was `windspeed_unit` once), km/h would reach

@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=vsup.schema.json
+#
+# VSUP schemes: which pictogram a forecast step gets, given its quantiles.
+# Checked on load - run `python -m vsup check` after editing; it also shows
+# how often each rule fires on the test fixtures.
+#
+# Two modes:
+#   rules  an ordered list; the first `when:` that holds wins, the last rule is
+#          `default: true`. Expressions use p0 ... p100 (the quantiles below),
+#          numbers, < <= > >=, and/or/not, parentheses.
+#   tree   intensity classes that merge into groups as certainty drops. A level
+#          applies when both ends of its quantile interval fall into one group;
+#          levels are tried from most to least certain, the last always applies.
+#
+# Thresholds are in `unit`. Anything but the variable's canonical unit
+# (degC, mm, percent, m/s) is converted when the file is loaded. Totals such as
+# precipitation also say which window their thresholds refer to.
+
+version: 1
+quantiles: [0, 10, 25, 50, 75, 90, 100]
+pictogram_root: ../meteogram/pictogram
+
+schemes:
+
+  # --- The legacy rules, transcribed exactly --------------------------------
+  # One per getVSUP*Coordinate() in meteogram/plotMeteogram.py, with the PNGs
+  # that function's plot*VSUP() draws. tests/test_vsup_golden.py holds them to
+  # identical pictograms, step for step - keep them as they are; the tree
+  # schemes further down are where the design can change.
+
+  cloud-legacy:
+    description: getVSUPCloudCoordinate
+    variable: cloud_cover
+    unit: percent
+    mode: rules
+    rules:
+      - { when: "p90 < 10", pictogram: cloud/step3_sunny.png, level: 3, class: clear }
+      - { when: "p10 > 90", pictogram: cloud/step3_cloud_max.png, level: 3, class: overcast }
+      - { when: "p10 > 50", pictogram: cloud/step3_medium_cloudy.png, level: 3, class: cloudy }
+      - { when: "p90 < 50", pictogram: cloud/step3_light_clouds.png, level: 3, class: light }
+      - { when: "p75 < 70", pictogram: cloud/step2_mostly_clear.png, level: 2, class: clear+light }
+      - { when: "p25 > 30", pictogram: cloud/step2_mostly_cloudy.png, level: 2, class: cloudy+overcast }
+      - { default: true, pictogram: cloud/step1.png, level: 1, class: clear+light+cloudy+overcast }
+
+  precipitation-legacy:
+    description: getVSUPrainCoordinate
+    variable: precipitation
+    unit: mm
+    window_hours: 6
+    mode: rules
+    rules:
+      - { when: "p90 < 0.1", pictogram: rain/Stufe3_KeinRegen.png, level: 3, class: none }
+      - { when: "p10 > 2", pictogram: rain/Stufe3_Starkregen.png, level: 3, class: heavy }
+      - { when: "p10 > 1 and p90 < 2", pictogram: rain/Stufe3_MittlererRegen.png, level: 3, class: medium }
+      - { when: "p10 > 1", pictogram: rain/Stufe2_Regen.png, level: 2, class: medium+heavy }
+      - { when: "p90 < 1", pictogram: rain/Stufe3_leichterRegen.png, level: 3, class: light }
+      - { when: "p50 > 1", pictogram: rain/Stufe2_Regen.png, level: 2, class: medium+heavy }
+      - { when: "p75 < 1.5", pictogram: rain/Stufe2_KaumRegen.png, level: 2, class: none+light }
+      - { default: true, pictogram: rain/step1_v2.png, level: 1, class: none+light+medium+heavy }
+
+  wind-legacy:
+    description: getVSUPWindCoordinate
+    variable: wind_speed_10m
+    unit: m/s
+    mode: rules
+    rules:
+      - { when: "p90 < 3", pictogram: wind/Stufe3_Windstille.png, level: 3, class: calm }
+      - { when: "p10 > 17.2", pictogram: wind/Stufe3_Sturm.png, level: 3, class: storm }
+      - { when: "p10 > 10 and p90 < 17.2", pictogram: wind/Stufe3_starkerWind.png, level: 3, class: strong }
+      - { when: "p90 < 10", pictogram: wind/Stufe3_leichterWind.png, level: 3, class: light }
+      - { when: "p25 > 10", pictogram: wind/Stufe2_vielWind.png, level: 2, class: strong+storm }
+      - { when: "p75 < 10", pictogram: wind/Stufe2_kaumWind.png, level: 2, class: calm+light }
+      - { default: true, pictogram: wind/step1_v2.png, level: 1, class: calm+light+strong+storm }
+
+  # --- VSUP as a tree ---------------------------------------------------------
+  # Same classes and pictograms (as SVG), but the certainty follows from where
+  # the quantiles lie rather than from hand-ordered special cases. Deliberately
+  # not identical to the legacy rules - e.g. a step whose p10 is dry and p90 is
+  # light rain is "light rain" there, "mostly dry" here.
+
+  cloud-vsup:
+    description: Cloud cover by the VSUP tree
+    variable: cloud_cover
+    unit: percent
+    mode: tree
+    classes:
+      - { id: clear, below: 10 }
+      - { id: light, below: 50 }
+      - { id: cloudy, below: 90 }
+      - { id: overcast }
+    levels:
+      - { level: 3, interval: [p10, p90], groups: [[clear], [light], [cloudy], [overcast]] }
+      - { level: 2, interval: [p25, p75], groups: [[clear, light], [cloudy, overcast]] }
+      - { level: 1, groups: [[clear, light, cloudy, overcast]] }
+    pictograms:
+      "3:clear": cloud/step3_sunny.svg
+      "3:light": cloud/step3_light_clouds.svg
+      "3:cloudy": cloud/step3_medium_cloudy.svg
+      "3:overcast": cloud/step3_cloud_max.svg
+      "2:clear+light": cloud/step2_mostly_clear.svg
+      "2:cloudy+overcast": cloud/step2_mostly_cloudy.svg
+      "1:clear+light+cloudy+overcast": cloud/step1.svg
+
+  precipitation-vsup:
+    description: Precipitation by the VSUP tree
+    variable: precipitation
+    unit: mm
+    window_hours: 6
+    mode: tree
+    classes:
+      - { id: none, below: 0.1 }
+      - { id: light, below: 1.0 }
+      - { id: medium, below: 2.0 }
+      - { id: heavy }
+    levels:
+      - { level: 3, interval: [p10, p90], groups: [[none], [light], [medium], [heavy]] }
+      - { level: 2, interval: [p25, p75], groups: [[none, light], [medium, heavy]] }
+      - { level: 1, groups: [[none, light, medium, heavy]] }
+    pictograms:
+      "3:none": rain/step3_dry.svg
+      "3:light": rain/step3_light_rain_v2.svg
+      "3:medium": rain/step3_medium_rain.svg
+      "3:heavy": rain/step3_heavy_rain.svg
+      "2:none+light": rain/step2_mostly_dry.svg
+      "2:medium+heavy": rain/step2_mostly_rainy.svg
+      "1:none+light+medium+heavy": rain/step1_v2.svg
+
+  wind-vsup:
+    description: Wind speed by the VSUP tree; 17.2 m/s is the bottom of Beaufort 8
+    variable: wind_speed_10m
+    unit: m/s
+    mode: tree
+    classes:
+      - { id: calm, below: 3 }
+      - { id: light, below: 10 }
+      - { id: strong, below: 17.2 }
+      - { id: storm }
+    levels:
+      - { level: 3, interval: [p10, p90], groups: [[calm], [light], [strong], [storm]] }
+      - { level: 2, interval: [p25, p75], groups: [[calm, light], [strong, storm]] }
+      - { level: 1, groups: [[calm, light, strong, storm]] }
+    pictograms:
+      "3:calm": wind/step3_no_wind.svg
+      "3:light": wind/step3_light_wind.svg
+      "3:strong": wind/step3_medium_wind.svg
+      "3:storm": wind/step3_stormy.svg
+      "2:calm+light": wind/step2_mostly_windless.svg
+      "2:strong+storm": wind/step2_mostly_windy.svg
+      "1:calm+light+strong+storm": wind/step1_v2.svg

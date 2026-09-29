@@ -1,0 +1,370 @@
+{
+  "$defs": {
+    "ClassSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "below": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Upper bound, exclusive. The last class has none.",
+          "title": "Below"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ClassSpec",
+      "type": "object"
+    },
+    "LevelSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Two quantiles, e.g. [p10, p90]. The level applies when both fall into the same group. The last level has none and always applies.",
+          "title": "Interval"
+        },
+        "groups": {
+          "description": "The classes, merged into groups, in order.",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "level",
+        "groups"
+      ],
+      "title": "LevelSpec",
+      "type": "object"
+    },
+    "RuleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Condition on the quantiles, e.g. 'p10 > 1 and p90 < 2'. The first rule that holds wins.",
+          "title": "When"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The catch-all. Exactly the last rule has it.",
+          "title": "Default"
+        },
+        "pictogram": {
+          "description": "Path relative to pictogram_root.",
+          "title": "Pictogram",
+          "type": "string"
+        },
+        "level": {
+          "description": "Certainty: higher is more certain.",
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "class": {
+          "description": "Which intensity class or group the pictogram stands for.",
+          "title": "Class",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pictogram",
+        "level",
+        "class"
+      ],
+      "title": "RuleSpec",
+      "type": "object"
+    },
+    "RulesSchemeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "variable": {
+          "enum": [
+            "temperature_2m",
+            "precipitation",
+            "cloud_cover",
+            "wind_speed_10m"
+          ],
+          "title": "Variable",
+          "type": "string"
+        },
+        "unit": {
+          "description": "The unit the thresholds are written in. Anything but the variable's canonical unit is converted once, at load time.",
+          "enum": [
+            "K",
+            "cm",
+            "degC",
+            "degF",
+            "fraction",
+            "inch",
+            "km/h",
+            "kn",
+            "m/s",
+            "mm",
+            "mph",
+            "percent"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "window_hours": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For totals (precipitation): the window the thresholds refer to.",
+          "title": "Window Hours"
+        },
+        "mode": {
+          "const": "rules",
+          "title": "Mode",
+          "type": "string"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/RuleSpec"
+          },
+          "minItems": 1,
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "variable",
+        "unit",
+        "mode",
+        "rules"
+      ],
+      "title": "RulesSchemeSpec",
+      "type": "object"
+    },
+    "TreeSchemeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "variable": {
+          "enum": [
+            "temperature_2m",
+            "precipitation",
+            "cloud_cover",
+            "wind_speed_10m"
+          ],
+          "title": "Variable",
+          "type": "string"
+        },
+        "unit": {
+          "description": "The unit the thresholds are written in. Anything but the variable's canonical unit is converted once, at load time.",
+          "enum": [
+            "K",
+            "cm",
+            "degC",
+            "degF",
+            "fraction",
+            "inch",
+            "km/h",
+            "kn",
+            "m/s",
+            "mm",
+            "mph",
+            "percent"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "window_hours": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For totals (precipitation): the window the thresholds refer to.",
+          "title": "Window Hours"
+        },
+        "mode": {
+          "const": "tree",
+          "title": "Mode",
+          "type": "string"
+        },
+        "classes": {
+          "items": {
+            "$ref": "#/$defs/ClassSpec"
+          },
+          "minItems": 2,
+          "title": "Classes",
+          "type": "array"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/LevelSpec"
+          },
+          "minItems": 1,
+          "title": "Levels",
+          "type": "array"
+        },
+        "pictograms": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "One per level and group, keyed \"level:group\", e.g. \"2:none+light\".",
+          "title": "Pictograms",
+          "type": "object"
+        }
+      },
+      "required": [
+        "variable",
+        "unit",
+        "mode",
+        "classes",
+        "levels",
+        "pictograms"
+      ],
+      "title": "TreeSchemeSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "quantiles": {
+      "description": "The quantile levels to compute, 0-100.",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 1,
+      "title": "Quantiles",
+      "type": "array"
+    },
+    "pictogram_root": {
+      "default": "pictograms",
+      "description": "Directory of the pictograms, relative to this file.",
+      "title": "Pictogram Root",
+      "type": "string"
+    },
+    "schemes": {
+      "additionalProperties": {
+        "discriminator": {
+          "mapping": {
+            "rules": "#/$defs/RulesSchemeSpec",
+            "tree": "#/$defs/TreeSchemeSpec"
+          },
+          "propertyName": "mode"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/RulesSchemeSpec"
+          },
+          {
+            "$ref": "#/$defs/TreeSchemeSpec"
+          }
+        ]
+      },
+      "minProperties": 1,
+      "title": "Schemes",
+      "type": "object"
+    }
+  },
+  "required": [
+    "version",
+    "quantiles",
+    "schemes"
+  ],
+  "title": "VSUP schemes",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
