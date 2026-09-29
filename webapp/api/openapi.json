@@ -1,0 +1,1107 @@
+{
+  "components": {
+    "schemas": {
+      "CacheStats": {
+        "properties": {
+          "entries": {
+            "title": "Entries",
+            "type": "integer"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "misses": {
+            "title": "Misses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "hits",
+          "misses"
+        ],
+        "title": "CacheStats",
+        "type": "object"
+      },
+      "ClassOut": {
+        "properties": {
+          "below": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Upper bound in `unit`, exclusive; none for the last class.",
+            "title": "Below"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "below"
+        ],
+        "title": "ClassOut",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
+      "Forecast": {
+        "additionalProperties": false,
+        "properties": {
+          "deterministic_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Run"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "pictograms": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PictogramSeries"
+            },
+            "default": {},
+            "title": "Pictograms",
+            "type": "object"
+          },
+          "run": {
+            "$ref": "#/components/schemas/Run"
+          },
+          "step_hours": {
+            "minimum": 1.0,
+            "title": "Step Hours",
+            "type": "integer"
+          },
+          "steps": {
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "variables": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VariableSeries"
+            },
+            "title": "Variables",
+            "type": "object"
+          }
+        },
+        "required": [
+          "location",
+          "run",
+          "steps",
+          "step_hours",
+          "variables"
+        ],
+        "title": "Forecast",
+        "type": "object"
+      },
+      "GeocodeOut": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Place"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "results"
+        ],
+        "title": "GeocodeOut",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthOut": {
+        "properties": {
+          "forecast_cache": {
+            "$ref": "#/components/schemas/CacheStats"
+          },
+          "products": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Products",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With deep=true: each source's state.",
+            "title": "Upstream"
+          },
+          "vsup_version": {
+            "title": "Vsup Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "vsup_version",
+          "products",
+          "forecast_cache"
+        ],
+        "title": "HealthOut",
+        "type": "object"
+      },
+      "Location": {
+        "additionalProperties": false,
+        "properties": {
+          "elevation_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation M"
+          },
+          "lat": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon",
+            "type": "number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "Location",
+        "type": "object"
+      },
+      "OutcomeOut": {
+        "properties": {
+          "class": {
+            "title": "Class",
+            "type": "string"
+          },
+          "condition": {
+            "description": "When a rules scheme picks it, as written in the config, in `declared_unit`.",
+            "title": "Condition",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          },
+          "pictogram": {
+            "description": "Relative to `pictogram_base`.",
+            "title": "Pictogram",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pictogram",
+          "level",
+          "class",
+          "condition"
+        ],
+        "title": "OutcomeOut",
+        "type": "object"
+      },
+      "PictogramItem": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "title": "Class",
+            "type": "string"
+          },
+          "level": {
+            "minimum": 1.0,
+            "title": "Level",
+            "type": "integer"
+          },
+          "pictogram": {
+            "title": "Pictogram",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pictogram",
+          "level",
+          "class"
+        ],
+        "title": "PictogramItem",
+        "type": "object"
+      },
+      "PictogramSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PictogramItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "scheme": {
+            "title": "Scheme",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheme",
+          "items"
+        ],
+        "title": "PictogramSeries",
+        "type": "object"
+      },
+      "Place": {
+        "properties": {
+          "admin1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin1"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          },
+          "elevation_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation M"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "name",
+          "lat",
+          "lon"
+        ],
+        "title": "Place",
+        "type": "object"
+      },
+      "ProductOut": {
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "schemes": {
+            "description": "The VSUP schemes its pictograms are drawn with.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Schemes",
+            "type": "array"
+          },
+          "variables": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables",
+            "type": "array"
+          },
+          "variants": {
+            "description": "What `variant` accepts for this product.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "default",
+          "variants",
+          "variables",
+          "schemes"
+        ],
+        "title": "ProductOut",
+        "type": "object"
+      },
+      "ProductsOut": {
+        "properties": {
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/ProductOut"
+            },
+            "title": "Products",
+            "type": "array"
+          }
+        },
+        "required": [
+          "products"
+        ],
+        "title": "ProductsOut",
+        "type": "object"
+      },
+      "Run": {
+        "additionalProperties": false,
+        "properties": {
+          "init_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Init Time"
+          },
+          "members": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Members"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "Run",
+        "type": "object"
+      },
+      "SchemeOut": {
+        "properties": {
+          "classes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ClassOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tree schemes: the intensity classes.",
+            "title": "Classes"
+          },
+          "declared_unit": {
+            "description": "The unit the config was written in.",
+            "title": "Declared Unit",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "mode": {
+            "enum": [
+              "rules",
+              "tree"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outcomes": {
+            "description": "Every pictogram the scheme can choose, in order.",
+            "items": {
+              "$ref": "#/components/schemas/OutcomeOut"
+            },
+            "title": "Outcomes",
+            "type": "array"
+          },
+          "unit": {
+            "description": "The variable's canonical unit, which `classes` are given in.",
+            "title": "Unit",
+            "type": "string"
+          },
+          "variable": {
+            "title": "Variable",
+            "type": "string"
+          },
+          "window_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Hours"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "mode",
+          "variable",
+          "unit",
+          "declared_unit",
+          "window_hours",
+          "outcomes",
+          "classes"
+        ],
+        "title": "SchemeOut",
+        "type": "object"
+      },
+      "SchemesOut": {
+        "properties": {
+          "pictogram_base": {
+            "description": "URL prefix for pictogram paths; cacheable for as long as `version` holds.",
+            "title": "Pictogram Base",
+            "type": "string"
+          },
+          "quantiles": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Quantiles",
+            "type": "array"
+          },
+          "schemes": {
+            "items": {
+              "$ref": "#/components/schemas/SchemeOut"
+            },
+            "title": "Schemes",
+            "type": "array"
+          },
+          "version": {
+            "description": "Changes whenever the config or one of its pictograms does.",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "pictogram_base",
+          "quantiles",
+          "schemes"
+        ],
+        "title": "SchemesOut",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VariableSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "deterministic": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deterministic"
+          },
+          "kind": {
+            "enum": [
+              "instant",
+              "sum"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "window_hours": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Hours"
+          }
+        },
+        "required": [
+          "unit",
+          "kind",
+          "quantiles"
+        ],
+        "title": "VariableSeries",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Probabilistic forecasts as quantiles plus VSUP pictograms. Read-only.",
+    "title": "VSUP meteogram API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/forecast": {
+      "get": {
+        "description": "The whole forecast the source has - the client picks the days it shows -\nas quantiles per step plus the product's pictograms.",
+        "operationId": "forecast_api_forecast_get",
+        "parameters": [
+          {
+            "description": "Rounded to 2 decimals.",
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "description": "Rounded to 2 decimals.",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Rounded to 2 decimals.",
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "description": "Rounded to 2 decimals.",
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lon",
+              "type": "number"
+            }
+          },
+          {
+            "description": "A product id from /api/products; default: the first.",
+            "in": "query",
+            "name": "product",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A product id from /api/products; default: the first.",
+              "title": "Product"
+            }
+          },
+          {
+            "in": "query",
+            "name": "variant",
+            "required": false,
+            "schema": {
+              "default": "ensemble",
+              "enum": [
+                "ensemble",
+                "hres"
+              ],
+              "title": "Variant",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Put into location.name as given.",
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Put into location.name as given.",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forecast"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The source has no data for this place."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The product lacks this variant."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The upstream source failed or sent unusable data."
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The upstream source did not answer in time."
+          }
+        },
+        "summary": "Forecast",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/geocode": {
+      "get": {
+        "description": "Places matching `q`, best first; an empty list rather than an error\nwhen nothing matches. Fine to call while the user types.",
+        "operationId": "geocode_api_geocode_get",
+        "parameters": [
+          {
+            "description": "Place name; fewer than 2 characters find nothing.",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Place name; fewer than 2 characters find nothing.",
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "de",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Count",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeocodeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The source has no data for this place."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The upstream source failed or sent unusable data."
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The upstream source did not answer in time."
+          }
+        },
+        "summary": "Geocode",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Liveness. With deep=true, also fetches from every source, uncached.",
+        "operationId": "health_api_health_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Deep",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "deep=true and a source is failing."
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/products": {
+      "get": {
+        "description": "The products on offer and what each can do. The first is the default.",
+        "operationId": "products_api_products_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Products",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/schemes": {
+      "get": {
+        "description": "Every loaded VSUP scheme with every pictogram it can choose - enough\nto draw a legend that always matches the rules.",
+        "operationId": "list_schemes_api_schemes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Schemes",
+        "tags": [
+          "meta"
+        ]
+      }
+    }
+  }
+}
