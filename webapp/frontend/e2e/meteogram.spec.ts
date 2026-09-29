@@ -12,9 +12,11 @@ interface Location {
 }
 const LOCATIONS = JSON.parse(readFileSync(new URL("locations.json", FIXTURES), "utf8")) as Record<string, Location>;
 
-/** The first step of a recorded forecast, from its "YYYYMMDD"/"HHMM" (UTC). */
+/** The first step of a recorded forecast, in either fixture format: a Forecast
+ * (its first ISO step) or a legacy allMeteogramData dict ("YYYYMMDD"/"HHMM", UTC). */
 function recordedAt(key: string): Date {
   const data = JSON.parse(readFileSync(new URL(`${key}.json`, FIXTURES), "utf8"));
+  if (Array.isArray(data.steps)) return new Date(data.steps[0] as string);
   const { date, time } = data["2t"] as { date: string; time: string };
   return new Date(
     Date.UTC(+date.slice(0, 4), +date.slice(4, 6) - 1, +date.slice(6, 8), +time.slice(0, 2), +time.slice(2, 4)),

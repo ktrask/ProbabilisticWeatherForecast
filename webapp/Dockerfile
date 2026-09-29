@@ -1,5 +1,5 @@
 # One container: the FastAPI backend, which also serves the built frontend and
-# the pictograms. The legacy Flask app is no longer part of the image.
+# the pictograms.
 #
 #   docker build -t meteogram . && docker run -p 5003:5003 meteogram
 #   docker run -p 5003:5003 -e SOURCES_CONFIG=config/sources.fixtures.yaml meteogram   # offline
@@ -21,20 +21,13 @@ ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Unchanged from the Flask image, which is known to build: build-essential is
-# there for any requirement without a wheel. curl serves the health check.
-# Slim this once Flask and matplotlib have left requirements.txt.
+# curl is for the health check. No compiler: every requirement, and every
+# requirement of those, ships a wheel for CPython 3.12 on manylinux x86_64
+# (checked with pip download --only-binary=:all:).
 RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
-    locales \
-    build-essential \
-    curl \
-    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
-    && locale-gen \
-    && update-locale LANG=en_US.UTF-8 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /tmp/* /var/tmp/*
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /app
 
@@ -49,7 +42,7 @@ COPY vsup /app/vsup
 COPY api /app/api
 COPY config /app/config
 # The pictograms, where config/vsup.yaml's pictogram_root points.
-COPY meteogram/pictogram /app/meteogram/pictogram
+COPY pictograms /app/pictograms
 # The recorded forecasts, for SOURCES_CONFIG=config/sources.fixtures.yaml.
 COPY tests/fixtures /app/tests/fixtures
 COPY --from=frontend /build/dist /app/frontend/dist

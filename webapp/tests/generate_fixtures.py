@@ -1,22 +1,24 @@
-"""Regenerate the offline test fixtures in tests/fixtures/.
+"""Regenerate the offline test fixtures in tests/fixtures/ from the live API.
 
-Run from webapp/ when the expected Open-Meteo response format changes, or to
-refresh stale forecast data:
+Run from webapp/ to refresh stale forecast data or after a change to the data
+model:
 
-    python tests/generate_fixtures.py
+    python tests/generate_fixtures.py                 # every location
+    python tests/generate_fixtures.py reykjavik zermatt
 
-Each fixture is the verbatim ``allMeteogramData`` dict that downloadJsonData.getData
-returns, so the offline tests exercise exactly the structure the live pipeline
-produces. Location metadata lives separately in fixtures/locations.json to keep the
-fixture files faithful to the real format.
+Each fixture is a Forecast in the new format - exactly what the pipeline
+builds from sources.open_meteo, before any pictograms - so the offline tests
+and the offline configuration run on the real thing. sources/fixture.py still
+reads the legacy allMeteogramData files recorded before; running this replaces
+them. The screenshot baselines of the frontend depend on the fixtures and have
+to be re-recorded afterwards (npm run e2e -- --update-snapshots).
 
-It also records one raw Open-Meteo response, exactly as the new
-sources.open_meteo adapter requests it, to fixtures/open_meteo/. The adapter
-tests replay those bytes, and so does the parity test that decodes them with
-both the adapter and the legacy getData.
+Location metadata lives in fixtures/locations.json. It also records one raw
+Open-Meteo response, exactly as the adapter requests it, to fixtures/open_meteo/
+for the adapter tests to replay.
 """
+import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -25,8 +27,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import httpx
 
 from core.model import Location
-from meteogram.downloadJsonData import getData
+from core.pipeline import build_forecast
 from sources.open_meteo import OpenMeteoEnsemble
+from vsup.config import load as load_vsup
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 
@@ -75,48 +78,51 @@ LOCATIONS = {
     },
 }
 
-
 # The raw response: short, so the file stays small, but long enough for a
-# couple of days of 6-hour steps.
+# couple of days of 6-hour steps. Reykjavik because the window checks need rain.
 RAW_KEY = "reykjavik"
 RAW_DAYS = 3
 RAW_FILE = FIXTURE_DIR / "open_meteo" / f"{RAW_KEY}_{RAW_DAYS}d.fb"
 
 
-def record_raw_response():
-    loc = LOCATIONS[RAW_KEY]
+def location(key):
+    loc = LOCATIONS[key]
+    return Location(lat=loc["latitude"], lon=loc["longitude"], name=loc["name"])
+
+
+async def record(key, directory=FIXTURE_DIR):
+    source = OpenMeteoEnsemble()
+    result = await source.fetch(location(key), source.variables)
+    forecast = build_forecast(result, quantile_levels=load_vsup().quantiles)
+    target = Path(directory) / f"{key}.json"
+    target.write_text(json.dumps(forecast.model_dump(mode="json"), indent=1) + "\n")
+    print(f"wrote {target} ({len(forecast.steps)} steps from {forecast.steps[0].isoformat()})")
+
+
+def record_raw_response(directory=FIXTURE_DIR):
     source = OpenMeteoEnsemble(forecast_days=RAW_DAYS)
-    params = source.params(
-        Location(lat=loc["latitude"], lon=loc["longitude"], name=loc["name"]), source.variables
-    )
-    response = httpx.get(source.url, params=params, timeout=60)
+    response = httpx.get(source.url, params=source.params(location(RAW_KEY), source.variables), timeout=60)
     response.raise_for_status()
-    RAW_FILE.parent.mkdir(exist_ok=True)
-    RAW_FILE.write_bytes(response.content)
-    print(f"wrote {RAW_FILE} ({len(response.content) / 1024:.0f} KiB)")
+    target = Path(directory) / "open_meteo" / RAW_FILE.name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(response.content)
+    print(f"wrote {target} ({len(response.content) / 1024:.0f} KiB)")
 
 
-def main():
-    FIXTURE_DIR.mkdir(exist_ok=True)
-    for key, loc in LOCATIONS.items():
-        print(f"--- {key}: {loc['name']} ---")
-        # NB: getData takes longitude FIRST.
-        data = getData(
-            loc["longitude"],
-            loc["latitude"],
-            loc["altitude"],
-            writeToFile=False,
-        )
-        target = FIXTURE_DIR / f"{key}.json"
-        with open(target, "w") as fp:
-            json.dump(data, fp, indent=1, sort_keys=True)
-        print(f"wrote {target} ({os.path.getsize(target) / 1024:.0f} KiB)")
-
-    with open(FIXTURE_DIR / "locations.json", "w") as fp:
+def main(keys, directory=FIXTURE_DIR):
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    unknown = set(keys) - set(LOCATIONS)
+    if unknown:
+        sys.exit(f"unknown location(s): {', '.join(sorted(unknown))}; there are {', '.join(LOCATIONS)}")
+    for key in keys or LOCATIONS:
+        asyncio.run(record(key, directory))
+    with open(directory / "locations.json", "w") as fp:
         json.dump(LOCATIONS, fp, indent=1, sort_keys=True)
-    print(f"wrote {FIXTURE_DIR / 'locations.json'}")
-    record_raw_response()
+    print(f"wrote {directory / 'locations.json'}")
+    if not keys:
+        record_raw_response(directory)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

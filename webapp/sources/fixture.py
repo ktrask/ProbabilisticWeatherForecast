@@ -1,17 +1,23 @@
 """Serves the recorded forecasts in tests/fixtures/ as if they were a live source.
 
-For tests, offline development and demos - the successor of replaying
-allmeteogramdata.json. The fixtures are verbatim legacy getData() output, so
-this is a quantile source: the 51 members were reduced when the fixture was
-recorded, and precipitation is already totalled per 6-hour step, with the
-legacy code's window (an hour early, see core.reduce).
+For tests, offline development and demos. It is a quantile source: the 51
+members were reduced to quantiles when the forecast was recorded. Two formats
+are read, told apart by their content:
+
+- a Forecast, as tests/generate_fixtures.py writes it now - the new pipeline's
+  own output, precipitation totalled over [t, t + 6 h);
+- the legacy allMeteogramData dict that the removed downloadJsonData.getData()
+  produced. The files recorded that way are kept as they are; their
+  precipitation window is the legacy one, an hour early (see core.reduce).
 """
 import json
 from datetime import timedelta
 from pathlib import Path
 
+import numpy as np
+
 from core import legacy
-from core.model import Location, quantile_level
+from core.model import Forecast, Location, quantile_level
 from core.pipeline import SourceResult
 from sources.base import NoData
 
@@ -56,7 +62,7 @@ class FixtureSource:
         if key not in self._locations:
             raise FixtureNotFound(f"no fixture {key!r}; there are {', '.join(self.keys())}")
         with open(self.directory / f"{key}.json") as fp:
-            start, step_hours, quantiles = legacy.read(json.load(fp))
+            start, step_hours, quantiles = read(json.load(fp))
         if variables is not None:
             unknown = set(variables) - self.variables
             if unknown:
@@ -85,3 +91,20 @@ class FixtureSource:
 
     async def fetch(self, location, variables):
         return self.load(self.nearest(location), variables)
+
+
+def is_forecast(data):
+    """Whether a recorded file is in the new format rather than the legacy one."""
+    return isinstance(data, dict) and "steps" in data and "variables" in data
+
+
+def read(data):
+    """A recorded file, in either format -> (start, step_hours, {variable: {"p10": array}})."""
+    if not is_forecast(data):
+        return legacy.read(data)
+    forecast = Forecast.model_validate(data)
+    quantiles = {
+        name: {q: np.asarray(values, dtype=np.float64) for q, values in series.quantiles.items()}
+        for name, series in forecast.variables.items()
+    }
+    return forecast.steps[0], forecast.step_hours, quantiles

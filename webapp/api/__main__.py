@@ -1,9 +1,9 @@
 """python -m api serve [--host H] [--port P] [--reload]   development server
 python -m api openapi [-o FILE]                          print the OpenAPI schema
 
-The server binds to 127.0.0.1 unless told otherwise. There is no debug mode to
-guard here (unlike run.py's Werkzeug debugger), but a development server still
-has no business on a public interface by default.
+The server binds to 127.0.0.1 unless told otherwise: a development server has
+no business on a public interface by default. The container runs gunicorn
+instead (startup.sh).
 """
 import argparse
 import json

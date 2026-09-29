@@ -114,14 +114,14 @@ class TestProducts:
 
     def test_window_must_match_the_step(self, tmp_path, schemes):
         text = vsup.DEFAULT_CONFIG.read_text().replace("window_hours: 6", "window_hours: 12")
-        text = text.replace("pictogram_root: ../meteogram/pictogram", f"pictogram_root: {schemes.pictogram_root}")
+        text = text.replace("pictogram_root: ../pictograms", f"pictogram_root: {schemes.pictogram_root}")
         twelve = vsup.load(write(tmp_path, text, "vsup.yaml"))
         issues = broken(tmp_path, twelve, "", "")
         one(issues, "precipitation-vsup is written for 12-hour totals, but forecasts are built in 6-hour steps")
 
     def test_deterministic_schemes_need_a_deterministic_source(self, tmp_path, schemes):
         text = vsup.DEFAULT_CONFIG.read_text().replace('when: "p90 < 3"', 'when: "deterministic < 3"')
-        text = text.replace("pictogram_root: ../meteogram/pictogram", f"pictogram_root: {schemes.pictogram_root}")
+        text = text.replace("pictogram_root: ../pictograms", f"pictogram_root: {schemes.pictogram_root}")
         needs_hres = vsup.load(write(tmp_path, text, "vsup.yaml"))
         issues = broken(tmp_path, needs_hres, "wind-vsup]", "wind-legacy]")
         one(issues, "wind-legacy reads the deterministic run")
@@ -130,7 +130,7 @@ class TestProducts:
 class TestSources:
     def test_recorded_quantiles_must_cover_the_computed_ones(self, tmp_path, schemes):
         text = vsup.DEFAULT_CONFIG.read_text().replace("[0, 10, 25, 50, 75, 90, 100]", "[0, 10, 25, 50, 75, 90, 95, 100]")
-        text = text.replace("pictogram_root: ../meteogram/pictogram", f"pictogram_root: {schemes.pictogram_root}")
+        text = text.replace("pictogram_root: ../pictograms", f"pictogram_root: {schemes.pictogram_root}")
         more = vsup.load(write(tmp_path, text, "vsup.yaml"))
         issue = one(broken(tmp_path, more, "", ""), "computes p95 too")
         assert issue.where == "sources.recorded"

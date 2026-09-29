@@ -1,10 +1,10 @@
 """Shared pytest setup.
 
-The chdir keeps the requests_cache store (webapp/.cache.sqlite, gitignored) in one
-predictable place no matter where pytest was invoked from; it is the last thing in
-the project that resolves against the working directory. Doing it at conftest
-module level means it is in effect before pytest imports any test module, and the
-sys.path insert is what makes `meteogram` and `app` importable.
+The chdir to webapp/ lets tests name project files as they appear there
+("Dockerfile", "config/vsup.yaml") no matter where pytest was invoked from.
+Doing it at conftest module level means it is in effect before pytest imports
+any test module, and the sys.path insert is what makes `core`, `sources`,
+`vsup` and `api` importable.
 """
 import json
 import os

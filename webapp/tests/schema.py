@@ -1,18 +1,16 @@
-"""The allMeteogramData contract, in one place.
+"""The legacy allMeteogramData contract, in one place.
 
-Both the offline fixture tests and the live API test call assert_meteogram_schema(),
-so a change in what Open-Meteo returns shows up as the same failure regardless of
-whether the data came from disk or the network.
+The removed downloadJsonData.getData() produced this format; the fixtures it
+recorded are kept as they are, and test_data_format.py holds them to this.
+Fixtures written since (generate_fixtures.py) are Forecasts and are checked
+by the model's own validators instead.
 """
 
-# Top-level ECMWF-style variable names produced by downloadJsonData.getData, mapped
-# to the plausible range of the values Open-Meteo currently returns for them.
+# Top-level ECMWF-style variable names of the legacy format, mapped to the
+# plausible range of their values in the canonical units.
 #
 # All four are instantaneous samples at the step, except tp, which is the rainfall
-# accumulated across the whole 6-hour step (see accumulate_over_steps).
-#
-# Every unit is the one the pictogram thresholds in plotMeteogram.py are written
-# in; getData refuses a response that does not deliver them (EXPECTED_UNITS).
+# accumulated across the whole 6-hour step.
 EXPECTED_VARIABLES = {
     "2t": {"unit": "degC", "low": -90.0, "high": 60.0},
     "tp": {"unit": "mm accumulated over the step", "low": 0.0, "high": 500.0},
