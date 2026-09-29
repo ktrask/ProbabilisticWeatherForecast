@@ -49,8 +49,11 @@ COPY --from=frontend /build/dist /app/frontend/dist
 COPY startup.sh /app/
 
 # Drop root. The app writes nothing - upstream answers are cached in memory -
-# so /app stays owned by root and read-only to the process.
-RUN useradd --create-home --uid 10001 meteogram
+# so /app stays owned by root and read-only to the process. COPY keeps the
+# permissions of the checkout, which need not be readable by others (a umask
+# of 027 makes startup.sh and the pictograms root-only, and the container then
+# exits at once), so make everything readable and every directory traversable.
+RUN chmod -R a+rX /app && useradd --create-home --uid 10001 meteogram
 USER meteogram
 
 EXPOSE 5003

@@ -109,5 +109,16 @@ class TestContainerServesTheNewApp:
         for legacy in ("COPY app ", "run.py", "config.py"):
             assert legacy not in dockerfile, f"{legacy!r} is still copied"
 
+    def test_the_unprivileged_user_can_read_what_was_copied(self, dockerfile):
+        """COPY keeps the checkout's permissions. With a restrictive umask
+        startup.sh and the pictograms were root-only, and the container exited
+        immediately - the old image hid this with a chown to the app user."""
+        lines = dockerfile.splitlines()
+        runtime = lines[max(i for i, line in enumerate(lines) if line.startswith("FROM ")):]
+        last_copy = max(i for i, line in enumerate(runtime) if line.startswith("COPY "))
+        chmod = next(i for i, line in enumerate(runtime) if "chmod -R a+rX /app" in line)
+        user = next(i for i, line in enumerate(runtime) if line.startswith("USER "))
+        assert last_copy < chmod < user
+
     def test_it_reports_its_health(self, dockerfile):
         assert "HEALTHCHECK" in dockerfile and "/api/health" in dockerfile

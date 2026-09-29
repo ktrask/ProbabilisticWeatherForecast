@@ -215,8 +215,12 @@ otherwise fail on some request fails at start-up, with file and line.
   requirement ships a CPython 3.12 manylinux wheel, checked with `pip download --only-binary`),
   runs as an unprivileged user on a read-only `/app`, and has a health check on `/api/health`.
   `test_deployment.py` pins it to what the app needs - including a `COPY` of wherever
-  `pictogram_root` points. The image has not been built on the development machine (no Docker
-  access there); the gunicorn command and a clean venv from `requirements.txt` were verified instead.
+  `pictogram_root` points. Built and run on 2026-09-29: both workers boot and the container turns
+  healthy. Claude has no Docker access on the development machine; the user runs `docker`.
+- **`COPY` keeps the checkout's permissions.** This checkout has `startup.sh` and `pictograms/`
+  unreadable for others, so the unprivileged user could not read them and the container exited at
+  once (the old image hid this behind a `chown` to the app user). `chmod -R a+rX /app` before
+  `USER` fixes it for any umask; keep it after the last `COPY`, which a test checks.
 - Every route is a read-only GET and there are no sessions, so there is no CSRF protection and no
   `SECRET_KEY`. `test_api.TestContract` fails if a route accepts anything else - that is the signal
   to revisit it. Never commit a secret; the old Flask app's hardcoded key is still in the history.
