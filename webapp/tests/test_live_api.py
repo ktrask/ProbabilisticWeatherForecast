@@ -161,3 +161,29 @@ def test_open_meteo_adapter_delivers_a_valid_forecast():
     assert len(forecast.steps) > 14 * 4, f"only {len(forecast.steps)} steps"
     assert forecast.location.timezone == "Europe/Paris"
     classify(forecast, load(), ["cloud-vsup", "precipitation-vsup", "wind-vsup"])
+
+
+def test_api_end_to_end():
+    """The new API with its real sources: geocode a place, then fetch its forecast."""
+    from api.app import create_app
+    from api.settings import Settings
+    from core.model import Forecast
+    from tests.test_api import get
+
+    app = create_app(Settings())
+
+    def ok(url):
+        response = get(app, url)
+        if response.status_code in (502, 504) and "could not be reached" in response.text:
+            skip_if_offline(RuntimeError(response.json()["detail"]))
+        assert response.status_code == 200, f"{url}: {response.status_code} {response.text[:300]}"
+        return response.json()
+
+    places = ok("/api/geocode?q=Paris&lang=en")["results"]
+    paris = next(p for p in places if p["country_code"] == "FR")
+    body = ok(f"/api/forecast?lat={paris['lat']}&lon={paris['lon']}&name=Paris")
+    forecast = Forecast.model_validate(body)
+    assert forecast.location.name == "Paris"
+    assert forecast.location.timezone == "Europe/Paris"
+    assert set(forecast.pictograms) == {"cloud_cover", "precipitation", "wind_speed_10m"}
+    assert ok("/api/health?deep=true")["upstream"] == {"ecmwf-ens": "ok"}
