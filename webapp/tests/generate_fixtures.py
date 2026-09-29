@@ -9,6 +9,11 @@ Each fixture is the verbatim ``allMeteogramData`` dict that downloadJsonData.get
 returns, so the offline tests exercise exactly the structure the live pipeline
 produces. Location metadata lives separately in fixtures/locations.json to keep the
 fixture files faithful to the real format.
+
+It also records one raw Open-Meteo response, exactly as the new
+sources.open_meteo adapter requests it, to fixtures/open_meteo/. The adapter
+tests replay those bytes, and so does the parity test that decodes them with
+both the adapter and the legacy getData.
 """
 import json
 import os
@@ -17,7 +22,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import httpx
+
+from core.model import Location
 from meteogram.downloadJsonData import getData
+from sources.open_meteo import OpenMeteoEnsemble
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 
@@ -67,6 +76,26 @@ LOCATIONS = {
 }
 
 
+# The raw response: short, so the file stays small, but long enough for a
+# couple of days of 6-hour steps.
+RAW_KEY = "reykjavik"
+RAW_DAYS = 3
+RAW_FILE = FIXTURE_DIR / "open_meteo" / f"{RAW_KEY}_{RAW_DAYS}d.fb"
+
+
+def record_raw_response():
+    loc = LOCATIONS[RAW_KEY]
+    source = OpenMeteoEnsemble(forecast_days=RAW_DAYS)
+    params = source.params(
+        Location(lat=loc["latitude"], lon=loc["longitude"], name=loc["name"]), source.variables
+    )
+    response = httpx.get(source.url, params=params, timeout=60)
+    response.raise_for_status()
+    RAW_FILE.parent.mkdir(exist_ok=True)
+    RAW_FILE.write_bytes(response.content)
+    print(f"wrote {RAW_FILE} ({len(response.content) / 1024:.0f} KiB)")
+
+
 def main():
     FIXTURE_DIR.mkdir(exist_ok=True)
     for key, loc in LOCATIONS.items():
@@ -86,6 +115,7 @@ def main():
     with open(FIXTURE_DIR / "locations.json", "w") as fp:
         json.dump(LOCATIONS, fp, indent=1, sort_keys=True)
     print(f"wrote {FIXTURE_DIR / 'locations.json'}")
+    record_raw_response()
 
 
 if __name__ == "__main__":
