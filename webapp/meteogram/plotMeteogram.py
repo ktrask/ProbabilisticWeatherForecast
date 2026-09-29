@@ -350,6 +350,8 @@ def getVSUPCloudCoordinate(qdata):
         return(2)#possibly strong clouds
     return(0)
 
+#Wind speed at 10 m in m/s, which downloadJsonData requests via
+#wind_speed_unit=ms (Open-Meteo's own default is km/h).
 def getHresWindCoordinate(qdata):
     if qdata['hres'] < 3:#no wind 0-3
         if(qdata['ninety'] < 3):
@@ -388,6 +390,8 @@ def getHresWindCoordinate(qdata):
         else:
             return 8
 
+#Wind speed at 10 m in m/s, which downloadJsonData requests via
+#wind_speed_unit=ms (Open-Meteo's own default is km/h).
 def getVSUPWindCoordinate(qdata):
     if qdata['ninety'] < 3:#m/s
         return(3)#no wind

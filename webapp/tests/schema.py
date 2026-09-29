@@ -11,13 +11,13 @@ whether the data came from disk or the network.
 # All four are instantaneous samples at the step, except tp, which is the rainfall
 # accumulated across the whole 6-hour step (see accumulate_over_steps).
 #
-# NOTE: ws is the one variable whose unit still does not match the thresholds in
-# plotMeteogram.py. See test_pictograms.py::TestUnitMismatch.
+# Every unit is the one the pictogram thresholds in plotMeteogram.py are written
+# in; getData refuses a response that does not deliver them (EXPECTED_UNITS).
 EXPECTED_VARIABLES = {
     "2t": {"unit": "degC", "low": -90.0, "high": 60.0},
     "tp": {"unit": "mm accumulated over the step", "low": 0.0, "high": 500.0},
     "tcc": {"unit": "percent", "low": 0.0, "high": 100.0},
-    "ws": {"unit": "km/h", "low": 0.0, "high": 400.0},
+    "ws": {"unit": "m/s", "low": 0.0, "high": 110.0},
 }
 
 # Ascending order matters: plotTemperature fills between these as nested bands.
