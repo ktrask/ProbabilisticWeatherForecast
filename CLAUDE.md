@@ -215,8 +215,11 @@ otherwise fail on some request fails at start-up, with file and line.
   requirement ships a CPython 3.12 manylinux wheel, checked with `pip download --only-binary`),
   runs as an unprivileged user on a read-only `/app`, and has a health check on `/api/health`.
   `test_deployment.py` pins it to what the app needs - including a `COPY` of wherever
-  `pictogram_root` points. Built and run on 2026-09-29: both workers boot and the container turns
-  healthy. Claude has no Docker access on the development machine; the user runs `docker`.
+  `pictogram_root` points. Built and run on 2026-09-29: both workers boot, the container turns
+  healthy, and over HTTP it served the page, hashed assets, pictograms (SVG and PNG), a live
+  forecast (0.33 s cold, 5 ms cached), geocoding and a deep health check, refused bad parameters
+  (422/409), POST (405) and path traversal (404), and rendered in a browser without a failed
+  request. Claude has no Docker access on the development machine; the user runs `docker`.
 - **`COPY` keeps the checkout's permissions.** This checkout has `startup.sh` and `pictograms/`
   unreadable for others, so the unprivileged user could not read them and the container exited at
   once (the old image hid this behind a `chown` to the app user). `chmod -R a+rX /app` before
