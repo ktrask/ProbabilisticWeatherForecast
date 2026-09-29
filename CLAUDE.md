@@ -39,6 +39,16 @@ python -m vsup schema -o config/vsup.schema.json        # after changing vsup/co
 python -m sources schema -o config/sources.schema.json  # after changing sources/config.py's models
 python -m api openapi -o api/openapi.json               # after changing a route or response model
 
+# The new frontend (webapp/frontend/, needs Node 22):
+cd frontend && npm ci
+npm run dev                        # Vite on :5173, proxies /api and /pictograms to 127.0.0.1:8000
+npm run build                      # tsc + vite build -> dist/
+npm test                           # Vitest unit/component tests (jsdom)
+npm run e2e                        # Playwright; starts the offline API and a preview build itself
+npm run e2e -- --update-snapshots  # after an intended visual change - review the PNG diff
+npm run gen:api                    # src/api/schema.d.ts from api/openapi.json; check:api verifies it
+npx playwright install chromium    # once, for the pinned browser the screenshots are taken with
+
 docker build -t meteogram . && docker run -p 5003:5003 -e SECRET_KEY="$(openssl rand -hex 32)" meteogram
 ```
 
@@ -137,7 +147,7 @@ canonical unit for the planned rework. Do not restate the wind thresholds in km/
 A new backend is being built next to the legacy one, which keeps serving until the Flask app is
 retired (the plan, in German, is `docs/neuentwicklung-plan.md`). The goal: the backend returns only
 JSON data, the browser draws the meteogram, and VSUP rules are configuration rather than code.
-Nothing in `app/` uses the new packages, and there is no frontend yet.
+Nothing in `app/` uses the new packages. The container still serves only the Flask app.
 
 - **`core/`** — no I/O. `variables.py` lists each variable with its one canonical unit (`degC`,
   `mm`, `percent`, `m/s`) and whether it is an `instant` or a `sum`; `units.py` converts to those
@@ -161,6 +171,11 @@ Nothing in `app/` uses the new packages, and there is no frontend yet.
   `/api/health`, and `/pictograms/<version>/…`. `create_app()` is a factory (`uvicorn
   api.app:create_app --factory`) so importing it has no side effects; it loads and cross-checks both
   configs, so a broken one stops the start. `api/openapi.json` is the checked-in contract.
+- **`frontend/`** — React 19 + TypeScript + Vite, TanStack Query, the chart as SVG with
+  d3-scale/d3-shape (no chart library). `src/api/schema.d.ts` is generated from
+  `api/openapi.json`, so an API change the frontend does not follow is a type error. `src/state/`
+  keeps place/product/variant/days in the URL only (links shareable, back/forward work);
+  `src/meteogram/layout.ts` + `time.ts` are the pure logic (window, local days, extremes).
 
 Rules worth knowing:
 
@@ -182,6 +197,20 @@ Rules worth knowing:
 - **Geocoding is Open-Meteo, not Nominatim.** Nominatim's usage policy forbids search-as-you-type
   and anything above 1 request/s; the planned location box searches while typing. The legacy app
   still uses Nominatim through geopy.
+- **The chart works in the forecast location's time zone, never the browser's** (`meteogram/time.ts`
+  via `Intl`, DST included). Playwright runs with the browser in America/New_York to keep it so.
+- **Instants sit at their step, totals in the middle of their window**: cloud/wind/temperature at
+  `t`, precipitation at `t + 3h`, between two instants. A total is drawn only if its whole window
+  fits on the chart, so there is one precipitation pictogram fewer than steps.
+- **The view starts at the step nearest to now** (the legacy `fromIndex` bug is gone). A forecast
+  that ended before now is shown from its start with a "stale" note - which is what the offline
+  fixtures look like once they age; the e2e tests freeze the clock inside the recording.
+- **Coordinates in the URL are never rounded on the way back out** (`formatState`): rounding moved
+  the place on the first adjustment and refetched the forecast. Whoever picks a place rounds it.
+- Screenshot baselines (`frontend/e2e/__screenshots__/`, platform-suffixed) are taken with
+  Playwright's pinned Chromium against `sources.fixtures.yaml`; they only mean something on that
+  browser and those fixtures - regenerating the fixtures means regenerating the baselines.
+- TypeScript is pinned to 5.9 because openapi-typescript 7 requires `typescript ^5`.
 - Starlette 1.7 deprecates `TestClient` on httpx. The API tests call the app through
   `httpx.ASGITransport` instead (`tests/test_api.get`); keep it that way.
 - **The `*-legacy` schemes are frozen.** `tests/test_vsup_golden.py` holds them to exactly the
@@ -225,6 +254,10 @@ function rather than adding ad-hoc assertions.
   `test_api.py` (routes, status codes, cache, read-only routes, OpenAPI contract). The API tests
   run on `config/sources.fixtures.yaml` and fake failing sources. The live suite also runs the new
   adapter and the API end to end.
+- Frontend: Vitest next to the code (`*.test.ts[x]`: layout and time zones incl. the 25-hour DST
+  day, URL state, API errors, i18n, legend, search debounce/keyboard/coordinates, meteogram
+  rendering and keyboard crosshair) and Playwright in `frontend/e2e/` (screenshots of all five
+  fixtures plus a phone, hover, days without refetch, search + back/forward, 404, legend).
 
 ## Known gaps
 
@@ -251,6 +284,9 @@ function rather than adding ad-hoc assertions.
   for it, but no adapter delivers one, the `anchored` mode for HRES schemes does not exist, and a
   product cannot name a deterministic source. `variant=hres` answers 409.
 - The new API has no rate limiting, and its cache is per worker process.
+- Frontend MVP gaps: no 12-hour aggregation for narrow screens (the plan's `step_hours` API
+  parameter; pictograms just shrink to 14 px), no SVG/PNG export, light theme only, and the
+  variant/product pickers only appear once there is more than one to choose.
 
 ## Serving
 

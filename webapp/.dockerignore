@@ -1,0 +1,13 @@
+# The build context is webapp/; none of this belongs in it. The Dockerfile
+# copies what the image needs explicitly - this only keeps `docker build`
+# from uploading virtualenvs, node_modules and caches first.
+.venv/
+**/__pycache__/
+.pytest_cache/
+.cache.sqlite
+output/
+allmeteogramdata.json
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
