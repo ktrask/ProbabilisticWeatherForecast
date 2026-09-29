@@ -6,11 +6,16 @@ from pathlib import Path
 from sources.config import DEFAULT_SOURCES
 from vsup.config import DEFAULT_CONFIG as DEFAULT_VSUP
 
+# The built frontend (npm run build). Served when present; without it the app
+# is API-only, which is what development with `npm run dev` wants.
+DEFAULT_FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
 
 @dataclass(frozen=True)
 class Settings:
     vsup_config: Path = DEFAULT_VSUP
     sources_config: Path = DEFAULT_SOURCES
+    frontend_dist: Path = DEFAULT_FRONTEND
     forecast_cache_ttl_s: float = 3600
     forecast_cache_size: int = 256
     geocode_cache_ttl_s: float = 86400

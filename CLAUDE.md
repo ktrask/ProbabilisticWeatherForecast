@@ -49,14 +49,17 @@ npm run e2e -- --update-snapshots  # after an intended visual change - review th
 npm run gen:api                    # src/api/schema.d.ts from api/openapi.json; check:api verifies it
 npx playwright install chromium    # once, for the pinned browser the screenshots are taken with
 
-docker build -t meteogram . && docker run -p 5003:5003 -e SECRET_KEY="$(openssl rand -hex 32)" meteogram
+docker build -t meteogram . && docker run -p 5003:5003 meteogram      # the new app, on :5003
+docker run -p 5003:5003 -e SOURCES_CONFIG=config/sources.fixtures.yaml meteogram   # offline demo
 ```
 
-The container serves with gunicorn (`startup.sh`), not `run.py`. Environment: `SECRET_KEY`,
-`HOST`/`PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT`, and `FLASK_DEBUG`/`ALLOW_PUBLIC_DEBUG` for
-`run.py` only. The new API reads `VSUP_CONFIG`, `SOURCES_CONFIG`, `FORECAST_CACHE_TTL_S`,
-`FORECAST_CACHE_SIZE`, `GEOCODE_CACHE_TTL_S`, `GEOCODE_CACHE_SIZE`, `GEOCODER_TIMEOUT_S` (see
-`api/settings.py`); nothing serves it in the container yet.
+The container runs the **new** app: `startup.sh` execs gunicorn with uvicorn workers on
+`api.app:create_app()`, which serves the API, the pictograms and the frontend built in the
+Dockerfile's Node stage. Environment: `HOST`/`PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT` for
+gunicorn; `VSUP_CONFIG`, `SOURCES_CONFIG`, `FRONTEND_DIST`, `FORECAST_CACHE_TTL_S`,
+`FORECAST_CACHE_SIZE`, `GEOCODE_CACHE_TTL_S`, `GEOCODE_CACHE_SIZE`, `GEOCODER_TIMEOUT_S` for the
+app (`api/settings.py`). The legacy Flask app is no longer in the image; `run.py` still runs it
+locally (`SECRET_KEY`, `FLASK_DEBUG`/`ALLOW_PUBLIC_DEBUG` apply to it only) until it is removed.
 
 All CLIs must be run with `-m`: they are package modules and import their siblings by package path.
 
@@ -147,7 +150,7 @@ canonical unit for the planned rework. Do not restate the wind thresholds in km/
 A new backend is being built next to the legacy one, which keeps serving until the Flask app is
 retired (the plan, in German, is `docs/neuentwicklung-plan.md`). The goal: the backend returns only
 JSON data, the browser draws the meteogram, and VSUP rules are configuration rather than code.
-Nothing in `app/` uses the new packages. The container still serves only the Flask app.
+Nothing in `app/` uses the new packages. Since phase 4 the container serves the new app only.
 
 - **`core/`** — no I/O. `variables.py` lists each variable with its one canonical unit (`degC`,
   `mm`, `percent`, `m/s`) and whether it is an `instant` or a `sum`; `units.py` converts to those
@@ -296,18 +299,27 @@ function rather than adding ad-hoc assertions.
 
 ## Serving
 
-- **`run.py` is development only** — Flask's built-in server. The container runs
-  `gunicorn app:app` from `startup.sh`, which `exec`s so gunicorn is PID 1 and `docker stop`
-  actually stops it (verified: exits on SIGTERM in ~1s). It replaced a `while :; do python3 run.py;
-  sleep 1; done` loop that restarted after every crash and swallowed the error.
+- **The container runs `gunicorn -k uvicorn_worker.UvicornWorker "api.app:create_app()"`** from
+  `startup.sh`, which `exec`s so gunicorn is PID 1 and `docker stop` actually stops it (verified
+  with the same command locally: exits on SIGTERM in ~0.3 s). `uvicorn.workers` is deprecated; the
+  `uvicorn-worker` package replaces it. Every worker loads both configs on boot, so a broken one
+  makes gunicorn exit (code 3, the `ConfigError` with file and line in the log) instead of serving
+  errors. `test_deployment.py::TestContainerServesTheNewApp` pins the Dockerfile to what the app
+  needs - including a `COPY` of wherever `pictogram_root` points. The image could not be built on
+  the development machine (no Docker access); the gunicorn command was run from the venv instead.
+- **The app serves the frontend** from `FRONTEND_DIST` (default `frontend/dist`) when it has an
+  `index.html`, mounted after every route: `index.html` with `no-cache`, `assets/*` (hashed names)
+  as immutable. Without a build the app is API-only, which is what `npm run dev` wants.
+- **`run.py` is development only** — Flask's built-in server, for the legacy app until it is
+  removed. It replaced a `while :; do python3 run.py; sleep 1; done` loop in the old container that
+  restarted after every crash and swallowed the error.
 - **Debug is opt-in and refuses a public bind.** `run.py` defaults to `127.0.0.1` with debug off;
   `FLASK_DEBUG=1` with a non-loopback `HOST` raises `SystemExit` unless `ALLOW_PUBLIC_DEBUG=1`.
   That combination exposes the Werkzeug debugger, which is remote code execution for anyone who can
-  reach the port and provoke a traceback. A public bind *without* debug is fine and is what the
-  container does.
-- **`SECRET_KEY` comes from the environment.** If unset, `config.py` generates a random per-process
-  key and warns — safe by default, but sessions will not survive a restart or be shared between
-  gunicorn workers, so set it before serving traffic. Never commit one; the previous hardcoded key
+  reach the port and provoke a traceback. A public bind *without* debug is fine.
+- **`SECRET_KEY` comes from the environment** (legacy Flask app only; the new app has no sessions and
+  needs none). If unset, `config.py` generates a random per-process key and warns — safe by
+  default, but sessions will not survive a restart. Never commit one; the previous hardcoded key
   is still in the git history.
 - **CSRF is off deliberately**, not by oversight: every route is a read-only GET, there is no
   session, login or state change, and enabling it would break `/search`, which binds the form to

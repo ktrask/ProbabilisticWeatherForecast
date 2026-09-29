@@ -6,6 +6,7 @@ it is being exploited.
 """
 import importlib
 import os
+from pathlib import Path
 
 import pytest
 
@@ -149,3 +150,62 @@ class TestContainerEntryPoint:
     def test_no_secret_is_baked_into_the_image(self):
         dockerfile = open("Dockerfile").read()
         assert "ENV SECRET_KEY" not in dockerfile
+
+
+class TestContainerServesTheNewApp:
+    """The switch-over: the container runs the FastAPI app, which also serves
+    the built frontend and the pictograms. The Flask app is no longer in it."""
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def dockerfile():
+        return "\n".join(
+            line for line in open("Dockerfile").read().splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def startup():
+        return "\n".join(
+            line for line in open("startup.sh").read().splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+
+    def test_gunicorn_runs_the_app_factory_on_uvicorn_workers(self, startup):
+        assert '"api.app:create_app()"' in startup
+        # uvicorn.workers is deprecated; the separate package replaces it.
+        assert "--worker-class uvicorn_worker.UvicornWorker" in startup
+        assert "uvicorn-worker" in open("requirements.txt").read()
+
+    def test_the_frontend_is_built_in_its_own_stage(self, dockerfile):
+        assert "FROM node:22-slim AS frontend" in dockerfile
+        assert "COPY --from=frontend /build/dist /app/frontend/dist" in dockerfile
+
+    def test_the_built_frontend_lands_where_the_app_looks(self, dockerfile):
+        from api.settings import DEFAULT_FRONTEND
+
+        assert DEFAULT_FRONTEND.relative_to(Path.cwd()).as_posix() == "frontend/dist"
+
+    @pytest.mark.parametrize("package", ["core", "sources", "vsup", "api", "config"])
+    def test_every_part_of_the_backend_is_copied(self, dockerfile, package):
+        assert f"COPY {package} /app/{package}" in dockerfile
+
+    def test_the_pictograms_are_copied_where_vsup_yaml_points(self, dockerfile):
+        """If the pictograms move, the image must follow, or every pictogram
+        is a 404 in production only."""
+        from vsup.config import load
+
+        root = load().pictogram_root.relative_to(Path.cwd()).as_posix()
+        assert f"COPY {root} /app/{root}" in dockerfile
+
+    def test_the_offline_fixtures_are_where_the_offline_config_points(self, dockerfile):
+        assert "COPY tests/fixtures /app/tests/fixtures" in dockerfile
+        assert "directory: ../tests/fixtures" in open("config/sources.fixtures.yaml").read()
+
+    def test_the_flask_app_is_not_in_the_image(self, dockerfile):
+        for legacy in ("COPY app ", "run.py", "config.py"):
+            assert legacy not in dockerfile, f"{legacy!r} is still copied"
+
+    def test_it_reports_its_health(self, dockerfile):
+        assert "HEALTHCHECK" in dockerfile and "/api/health" in dockerfile
