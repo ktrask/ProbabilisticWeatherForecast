@@ -92,7 +92,7 @@ symlink or a second copy to make an import work.
 ### The `allMeteogramData` format
 
 The contract between layers. Top-level keys are ECMWF-style variable names — `2t` (temperature),
-`tp` (precipitation), `tcc` (cloud cover), `ws` (wind speed) — each mapping to
+`tp` (precipitation), `tcc` (cloud cover), `ws` (wind speed at 10 m, in m/s) — each mapping to
 `{<varname>: {min, ten, twenty_five, median, seventy_five, ninety, max, steps}, date: "YYYYMMDD", time: "HHMM"}`.
 Note the doubled nesting: `allMeteogramData['tp']['tp']['median']`. Percentile lists are parallel to
 `steps` (hours offset from `date`/`time`, currently 6-hourly).
@@ -112,10 +112,14 @@ a fixed filename list under `pictogram/{rain,wind,cloud}/` (7 files, ensemble) o
 a pictogram means updating both the coordinate function's thresholds and the filename list in the
 matching `plot*VSUP` function — they are positionally coupled.
 
-Cloud cover thresholds are in percent (10 / 30 / 50 / 70 / 90) and precipitation in mm per 6-hour
-step (0.1 / 1 / 1.5 / 2), both matching what the pipeline delivers. Wind (m/s: 3 / 10 / 17.2) is
-still written in the old grib pipeline's units and does **not** match the API — see "Wind units"
-under Known gaps.
+Cloud cover thresholds are in percent (10 / 30 / 50 / 70 / 90), precipitation in mm per 6-hour
+step (0.1 / 1 / 1.5 / 2) and wind in m/s (3 / 10 / 17.2, the last being the bottom of Beaufort 8),
+all matching what the pipeline delivers. All three once disagreed with the data — fraction vs
+percent, metres vs mm, km/h vs m/s — and none of those mismatches failed; they just picked the
+wrong glyphs. Cloud and rain were fixed by restating the thresholds in the delivered unit. Wind
+went the other way: the thresholds stay in m/s and `FORECAST_PARAMS` asks Open-Meteo for
+`wind_speed_unit=ms` (its default is km/h), because m/s is the unit Beaufort is defined in and the
+canonical unit for the planned rework. Do not restate the wind thresholds in km/h.
 
 ## Tests
 
@@ -151,12 +155,6 @@ function rather than adding ad-hoc assertions.
 - A plotly rewrite of the renderer was started twice and dropped both times (commit `3e00557`, and an
   untracked `app/plotMeteogram_plotly.py` deleted on 2026-09-18). The repo-root `plotly.html` is a
   leftover sample output. Rendering is matplotlib-only; `plotly` is not in `requirements.txt`.
-- **Wind units do not match the thresholds.** Open-Meteo delivers wind in km/h, but
-  `getVSUPWindCoordinate` / `getHresWindCoordinate` still use the grib pipeline's m/s,
-  so every threshold fires 3.6× too early and a 4.8 m/s breeze is drawn as a storm.
-  Covered by `tests/test_pictograms.py::TestUnitMismatch` as an xfail. Cloud cover and
-  precipitation had the same defect and were fixed by restating their thresholds in the
-  delivered unit; fix wind the same way rather than converting the data.
 - `controller.py` ignores the computed `fromIndex` (hardcodes `0`), and `plotMeteogram()` overrides it
   to `1`, so meteograms always start at the forecast's second step rather than "now".
 
@@ -186,6 +184,12 @@ function rather than adding ad-hoc assertions.
   offers no way to set one, so `TimeoutCachedSession` injects `OPEN_METEO_TIMEOUT` into
   `session.request()` — `openmeteo_requests` never passes one itself. Keep that wrapper in place;
   without it a stalled forecast call blocks a worker indefinitely.
+- `getData()` checks the unit Open-Meteo reports for every member of every variable against
+  `EXPECTED_UNITS` and raises `UnexpectedUnit` on a mismatch — asking for a unit is not enough.
+  If the API ignored or renamed `wind_speed_unit` (it was `windspeed_unit` once), km/h would reach
+  the pictograms silently. A new variable needs an entry there and in the live test's
+  `EXPECTED_UNITS`, which checks the JSON API's spelling of the same units. Nothing in the web
+  layer catches `UnexpectedUnit`, so it surfaces as a 500 — loud on purpose.
 - Elevation is decoration on the plot title, so a failed lookup degrades to `UNKNOWN_ELEVATION`
   (-999) rather than failing the forecast. The web path takes elevation from `getData`'s `metadata`
   (what Open-Meteo reports for the grid cell it used); `getElevation`'s call to open-elevation.com

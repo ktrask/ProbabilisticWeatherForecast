@@ -172,6 +172,7 @@ import openmeteo_requests
 
 from openmeteo_sdk.Variable import Variable
 from openmeteo_sdk.Aggregation import Aggregation
+from openmeteo_sdk.Unit import Unit
 
 import pandas as pd
 import requests_cache
@@ -194,24 +195,61 @@ cache_session = TimeoutCachedSession('.cache', expire_after = 3600)
 retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
 openmeteo = openmeteo_requests.Client(session = retry_session)
 
-# Make sure all required weather variables are listed here
-# The order of variables in hourly or daily is important to assign them correctly below
 url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+
+# Everything getData asks for apart from the coordinates. Module-level so the
+# live test can make the very same request and check what comes back.
+FORECAST_PARAMS = {
+    "hourly": ["temperature_2m", "precipitation", "wind_speed_10m", "cloud_cover"],
+    "models": "ecmwf_ifs025",
+    "timezone": "auto",
+    "forecast_days": 14,
+    # Open-Meteo defaults to km/h. The wind thresholds in plotMeteogram.py are
+    # in m/s, the unit the Beaufort scale is defined in.
+    "wind_speed_unit": "ms",
+}
+
+# The unit each requested variable has to arrive in, because the pictogram
+# thresholds are written in these. A mismatch fails nothing by itself, it just
+# picks the wrong glyphs - which is how wind came to be drawn 3.6x too strong.
+EXPECTED_UNITS = {
+    "temperature_2m": Unit.celsius,
+    "precipitation": Unit.millimetre,
+    "wind_speed_10m": Unit.metre_per_second,
+    "cloud_cover": Unit.percentage,
+}
+UNIT_NAMES = {value: name for name, value in vars(Unit).items() if not name.startswith("_")}
+
+
+class UnexpectedUnit(RuntimeError):
+    """Open-Meteo delivered a variable in a unit other than EXPECTED_UNITS."""
+
+
+def checkUnit(name, variable):
+    """Refuse data in a unit the thresholds were not written for.
+
+    Asking for wind_speed_unit=ms is not enough on its own: if Open-Meteo ever
+    ignored or renamed the parameter (it was `windspeed_unit` once), km/h would
+    flow straight through to the pictograms again.
+    """
+    unit = variable.Unit()
+    if unit != EXPECTED_UNITS[name]:
+        raise UnexpectedUnit(
+            f"Open-Meteo sent {name} in {UNIT_NAMES.get(unit, unit)}, but the "
+            f"pictogram thresholds expect {UNIT_NAMES[EXPECTED_UNITS[name]]}"
+        )
+
+
 def getData(longitude, latitude, altitude, writeToFile = True, meteogram = "10days", metadata = None):
     """Fetch the ensemble and reduce it to the allMeteogramData dict.
 
     `metadata`, if given, is filled with what the response says about the grid
     cell that was actually used - elevation and timezone - which saves callers a
     separate elevation lookup.
+
+    Raises UnexpectedUnit if a variable does not arrive in EXPECTED_UNITS.
     """
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "hourly": ["temperature_2m", "precipitation", "wind_speed_10m", "cloud_cover"],
-        "models": "ecmwf_ifs025",
-        "timezone": "auto",
-        "forecast_days": 14
-    }
+    params = {"latitude": latitude, "longitude": longitude, **FORECAST_PARAMS}
     responses = openmeteo.weather_api(url, params=params)
 
     # Process first location. Add a for-loop for multiple locations or weather models
@@ -243,15 +281,19 @@ def getData(longitude, latitude, altitude, writeToFile = True, meteogram = "10da
 
     # Process all members
     for variable in hourly_temperature_2m:
+        checkUnit("temperature_2m", variable)
         member = variable.EnsembleMember()
         hourly_data[f"temperature_2m_member{member}"] = variable.ValuesAsNumpy()
     for variable in hourly_precipitation:
+        checkUnit("precipitation", variable)
         member = variable.EnsembleMember()
         hourly_data[f"precipitation_member{member}"] = variable.ValuesAsNumpy()
     for variable in hourly_wind_speed_10m:
+        checkUnit("wind_speed_10m", variable)
         member = variable.EnsembleMember()
         hourly_data[f"wind_speed_10m_member{member}"] = variable.ValuesAsNumpy()
     for variable in hourly_cloud_cover:
+        checkUnit("cloud_cover", variable)
         member = variable.EnsembleMember()
         hourly_data[f"cloud_cover_member{member}"] = variable.ValuesAsNumpy()
 

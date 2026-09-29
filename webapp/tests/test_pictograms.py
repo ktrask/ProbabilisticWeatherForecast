@@ -100,6 +100,14 @@ class TestThresholds:
              "seventy_five": 1.5, "ninety": 2.0, "max": 2.5}
         ) == 3
 
+    def test_confident_light_wind(self):
+        # 3 <= ninety < 10 m/s -> "light wind"; a 4.8 m/s breeze is Beaufort 3.
+        # It was the storm glyph while wind still arrived in km/h (17.3).
+        assert getVSUPWindCoordinate(
+            {"min": 3.5, "ten": 4.0, "twenty_five": 4.4, "median": 4.8,
+             "seventy_five": 5.2, "ninety": 5.6, "max": 6.5}
+        ) == 4
+
     def test_confident_storm(self):
         # ten > 17.2 m/s -> "storm"
         assert getVSUPWindCoordinate(
@@ -245,42 +253,29 @@ class TestPrecipitationUnits:
         )
 
 
-class TestUnitMismatch:
-    """Wind still carries the unit mismatch that cloud cover and rain had.
+class TestWindUnits:
+    """Regression cover for the km/h-vs-m/s fix.
 
-    downloadJsonData delivers wind in km/h while getVSUPWindCoordinate was
-    written for the grib pipeline's m/s, so every threshold fires 3.6x too
-    early. The xfail below will XPASS once the units are reconciled the same way.
+    Open-Meteo's default wind unit is km/h, but getVSUPWindCoordinate is written
+    in m/s, so every threshold used to fire 3.6x too early and a 4.8 m/s breeze
+    cleared the 17.2 storm line. getData now asks for m/s and refuses anything
+    else (test_downloader.py::TestUnits); this checks what it does to the glyphs.
     """
 
-    STORM_THRESHOLD_MS = 17.2
-    KMH_PER_MS = 3.6
-
-    @pytest.mark.xfail(
-        reason="ws arrives in km/h, so the 17.2 'storm' threshold is really a "
-        "4.8 m/s breeze and ordinary wind is reported as a storm",
-        strict=True,
-    )
-    def test_storm_glyph_only_appears_where_it_could_actually_storm(self):
-        """Self-calibrating against the fixtures: a location whose strongest
-        ensemble member never reaches 17.2 m/s cannot be having a storm, so the
-        storm glyph must never be selected there. Locations that genuinely could
-        storm (Reykjavik) are skipped, so this survives a fixture refresh."""
-        for key in LOCATION_KEYS:
-            data = load_fixture(key)
-            series = data["ws"]["ws"]
-            peak_ms = max(series["max"]) / self.KMH_PER_MS
-            if peak_ms >= self.STORM_THRESHOLD_MS:
-                continue
-            n = len(series["steps"])
-            indices = [
-                getVSUPWindCoordinate(percentiles_at(data, "ws", i))
-                for i in range(n)
-            ]
-            assert 6 not in indices, (
-                f"{key} peaks at {peak_ms:.1f} m/s but the storm glyph fires "
-                f"{indices.count(6)} times"
-            )
+    def test_a_temperate_location_is_not_mostly_undecided(self):
+        """Everyday winds of 2-5 m/s are 7-18 km/h, which straddles the 3 and 10
+        thresholds, so in km/h the ensemble looked hopelessly uncertain: on the
+        fixtures of 2026-09-28, 35 of Braunschweig's 56 steps got the vaguest
+        glyph. In m/s it gets none."""
+        data = load_fixture("braunschweig")
+        n = len(data["ws"]["ws"]["steps"])
+        indices = [
+            getVSUPWindCoordinate(percentiles_at(data, "ws", i)) for i in range(n)
+        ]
+        assert indices.count(0) < n / 2, (
+            f"vaguest wind glyph on {indices.count(0)} of {n} steps - is wind "
+            f"arriving in km/h again?"
+        )
 
 
 class TestPictogramCache:

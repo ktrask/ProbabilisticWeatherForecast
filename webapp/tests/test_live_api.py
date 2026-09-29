@@ -19,18 +19,18 @@ from tests.schema import ENSEMBLE_MEMBERS, assert_meteogram_schema
 pytestmark = pytest.mark.live
 
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
-MODEL = "ecmwf_ifs025"
 
 # Somewhere none of the offline fixtures use, so nothing can come from a warm cache.
 LIVE_LATITUDE = 48.8566
 LIVE_LONGITUDE = 2.3522
 LIVE_ALTITUDE = 35
 
-# The units downloadJsonData's thresholds and ranges are calibrated against today.
+# The units the pictogram thresholds are written in, as the JSON API spells them.
+# getData checks the same thing through the SDK (downloadJsonData.EXPECTED_UNITS).
 EXPECTED_UNITS = {
     "temperature_2m": "°C",
     "precipitation": "mm",
-    "wind_speed_10m": "km/h",
+    "wind_speed_10m": "m/s",
     "cloud_cover": "%",
 }
 
@@ -41,12 +41,16 @@ def skip_if_offline(exc):
 
 @pytest.fixture(scope="module")
 def raw_response():
-    """One uncached JSON call, shared by the tests that inspect the raw payload."""
+    """One uncached JSON call, shared by the tests that inspect the raw payload.
+
+    Built from getData's own FORECAST_PARAMS, so the units checked here are the
+    ones getData actually asks for - wind in m/s rather than the API's km/h
+    default - and not whatever a hand-copied request happens to say.
+    """
     params = {
+        **downloadJsonData.FORECAST_PARAMS,
         "latitude": LIVE_LATITUDE,
         "longitude": LIVE_LONGITUDE,
-        "models": MODEL,
-        "hourly": "temperature_2m,precipitation,wind_speed_10m,cloud_cover",
         "forecast_days": 2,
         "format": "json",
     }
