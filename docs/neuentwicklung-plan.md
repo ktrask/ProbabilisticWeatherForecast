@@ -26,8 +26,8 @@ Wo die Umsetzung vom ursprünglichen Plan abweicht (Begründung jeweils im Absch
   während des Tippens.
 - **Niederschlagsfenster eine Stunde später als im Altcode** (Abschnitt 4). Open-Meteo liefert pro
   Stunde die Summe der *vorangehenden* Stunde; der Altcode lag daneben.
-- **Schmale Bildschirme: Abschnitte untereinander** statt einer 12-h-Zusammenfassung über einen
-  `step_hours`-Parameter (Abschnitt 9).
+- **Schmale Bildschirme: eine scrollbare Zeile oder eine senkrechte Darstellung** statt einer
+  12-h-Zusammenfassung über einen `step_hours`-Parameter (Abschnitt 9).
 - **Upstream-Cache im Prozess** statt `hishel`, **TypeScript 5.9** statt 7 (Abschnitt 3).
 - **Legacy-Regeln als eingefrorene Testreferenz**; die Fixtures liegen inzwischen im
   `Forecast`-Format vor, eine alte Datei bleibt als Muster (Abschnitt 10, Phase 4).
@@ -59,7 +59,7 @@ Vorhersagen. Die Anwendung ist zustandslos.
 ┌──────────────────────── Browser (React + TypeScript) ────────────────────────┐
 │  Ortssuche ─► useForecast(lat, lon, product, variant) ─ TanStack Query ─┐    │
 │                                                                         │    │
-│  <Meteogram>  (bei Bedarf in Abschnitte untereinander geteilt)          │    │
+│  <Meteogram>  (Zeile, bei Bedarf seitlich scrollbar, oder senkrecht)    │    │
 │    Wolken-Piktogramme            ◄── pictograms{} aus der API           │    │
 │    Niederschlags-Piktogramme                                            │    │
 │    Temperatur-Quantilband        ◄── quantiles{} aus der API            │    │
@@ -421,10 +421,13 @@ webapp/frontend/src/
                 schema.d.ts (generiert aus api/openapi.json)
   state/        urlState.ts: URL-Parameter als einzige Quelle für Ort/Produkt/Variante/Tage
   meteogram/
-    Meteogram.tsx   Abschnitte, Zeitachse, Piktogramm-Reihen, Quantilband, Tagesextreme,
-                    Tagesschattierung, Crosshair
+    Meteogram.tsx   Wahl der Darstellung, Tastatur, gemeinsamer Zustand
+    RowChart.tsx    Zeile: Zeitachse, Piktogramm-Reihen, Quantilband, Tagesextreme,
+                    Tagesschattierung, Crosshair; scrollt seitlich, wenn nötig
+    ScrollIndicator.tsx  Tageskarte unter der scrollenden Zeile mit Rahmen um den sichtbaren Teil
+    ColumnChart.tsx dasselbe senkrecht: Zeit nach unten, Spalten statt Reihen
     Tooltip.tsx     alle Quantile, Klasse und Stufe des gewählten Schritts
-    layout.ts       reine Logik: sichtbarer Bereich, Tage in Ortszeit, Extreme, Abschnitte
+    layout.ts       reine Logik: sichtbarer Bereich, Tage in Ortszeit, Extreme
     time.ts         Ortszeit in beliebiger Zeitzone über Intl, inkl. Sommerzeit
   legend/       Legende aus /api/schemes
   search/       Ortssuche mit Debounce, Koordinaten-Eingabe, "Mein Standort"
@@ -441,13 +444,14 @@ webapp/frontend/src/
   veraltete Vorhersage wird ab ihrem Anfang mit Hinweis gezeigt.
 - **Momentanwerte am Zeitpunkt, Summen in der Mitte ihres Fensters:** Wolken, Wind und Temperatur
   stehen bei `t`, Niederschlag bei `t + 3 h`, zwischen zwei Momentanwerten.
-- **Schmale Bildschirme: Abschnitte untereinander** statt 12-h-Zusammenfassung (Abweichung vom
-  Plan, nach Test auf dem Handy). Würde ein Zeitschritt schmaler als 28 px, wird das Meteogramm in
-  Abschnitte geteilt, geschnitten an lokaler Mitternacht, möglichst gleichmäßig. Ein Abschnitt ist
-  aber **nie kürzer als 5 Tage**: Bis 5 Tage bleibt alles in einer Zeile, auch auf dem Handy, wo die
-  Symbole dann schrumpfen. Früheres Teilen wirkte zu zerstückelt. Alle Abschnitte teilen sich eine
-  Zeit- und eine Temperaturskala; benachbarte Abschnitte teilen sich den Schnittzeitpunkt, damit
-  jede 6-h-Summe genau einmal erscheint. Der `step_hours`-Parameter entfällt damit vorerst.
+- **Schmale Bildschirme: zwei umschaltbare Darstellungen** statt 12-h-Zusammenfassung (Abweichung
+  vom Plan, nach Test auf dem Handy; Wahl in der URL als `layout=vertical`).
+  **Waagerecht:** alles in einer Zeile. Würde ein Zeitschritt schmaler als 24 px, scrollt die Zeile
+  seitlich (Wischen, Trackpad), darunter eine Tageskarte mit Rahmen um den sichtbaren Teil, zum
+  Ziehen und mit ‹ ›-Knöpfen; die Temperaturbeschriftung bleibt stehen. **Senkrecht:** die Zeit
+  läuft nach unten, die Größen stehen als Spalten nebeneinander, die Spaltenköpfe bleiben oben.
+  Die frühere Lösung, lange Meteogramme in Abschnitte untereinander zu teilen, wirkte zerstückelt
+  und ist entfallen (30.09.2026). Der `step_hours`-Parameter entfällt damit vorerst.
 - **Export** als SVG/PNG: noch nicht umgesetzt.
 - **Barrierefreiheit:** Jedes Piktogramm hat einen `<title>` („kein Regen oder leichter Regen
   (wahrscheinlich)“); das Meteogramm ist per Tastatur bedienbar (Pfeiltasten, Pos1/Ende), der
@@ -479,7 +483,8 @@ Jede Phase endete mit etwas Lauffähigem.
 ### Phase 3 – Frontend-MVP · erledigt (`765b45a`, `d0503b4`)
 - Ortssuche, Meteogramm mit vier Reihen, Legende aus der Config, URL-Zustand, Hover und Tastatur.
 - Playwright-Screenshots der fünf Fixture-Orte und auf dem Handy (Adapter `fixture`, eingefrorene
-  Uhr, daher deterministisch); danach die Abschnitte für lange Zeiträume.
+  Uhr, daher deterministisch); danach die Abschnitte für lange Zeiträume, am 30.09.2026 ersetzt
+  durch eine seitlich scrollende Zeile und eine senkrechte Darstellung.
 
 ### Phase 4 – Umstellung · erledigt (`862f4c7`, `e1bf118`, `497e098`, `af90976`)
 - Ein Container liefert Frontend und API aus; Frontend in einer Node-Build-Stufe, gunicorn mit

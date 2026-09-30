@@ -198,7 +198,8 @@ main {
 
 .controls {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   align-items: center;
   font-size: 0.92rem;
 }
@@ -490,12 +491,198 @@ main {
   }
 }
 
-.section {
+/* The row layout: the temperature labels stay, the rest scrolls sideways. */
+.plot {
   position: relative;
 }
 
-.section-gap {
-  height: 18px;
-  border-bottom: 1px dashed var(--line);
-  margin-bottom: 14px;
+.meteogram .y-axis {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.y-axis text {
+  fill: var(--muted);
+}
+
+.scroller {
+  overflow: hidden;
+}
+
+.scroller.scrolls {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none; /* the indicator below takes its place */
+}
+
+.scroller.scrolls::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-content {
+  position: relative;
+}
+
+/* Shadows at an edge with more to see beyond it. */
+.fade {
+  position: absolute;
+  top: 0;
+  bottom: 44px;
+  width: 28px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.fade[data-shown="true"] {
+  opacity: 1;
+}
+
+.fade.start {
+  background: linear-gradient(to right, rgb(23 49 58 / 16%), transparent);
+}
+
+.fade.end {
+  background: linear-gradient(to left, rgb(23 49 58 / 16%), transparent);
+}
+
+.scroll-indicator {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.scroll-indicator .page {
+  flex: none;
+  width: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--accent);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.scroll-indicator .page:disabled {
+  color: var(--line);
+  cursor: default;
+}
+
+.scroll-indicator .track {
+  position: relative;
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.map-day {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 30px;
+  text-align: center;
+  white-space: nowrap;
+  border-left: 1px solid var(--line);
+}
+
+.map-day:first-child {
+  border-left: none;
+}
+
+.map-day.shaded {
+  background: var(--day);
+}
+
+.scroll-indicator .thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  background: rgb(0 78 94 / 12%);
+  pointer-events: none;
+}
+
+/* The column layout: time runs down the page. */
+.column-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.column-head .column-name {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+.column-head .tick {
+  fill: var(--muted);
+}
+
+.column-body {
+  position: relative;
+}
+
+.meteogram.column .axis .day-label {
+  font-size: 12px;
+}
+
+.meteogram.column .axis .day-date {
+  fill: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.meteogram.column .hover-target {
+  touch-action: pan-y;
+}
+
+/* Choosing the layout. */
+.layout-switch {
+  display: inline-flex;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.layout-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: none;
+  background: var(--paper);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.layout-switch button + button {
+  border-left: 1px solid var(--accent);
+}
+
+.layout-switch button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+.layout-switch svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }

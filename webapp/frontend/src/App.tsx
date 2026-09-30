@@ -7,7 +7,7 @@ import { Legend } from "./legend/Legend";
 import { daysAvailable, visibleWindow } from "./meteogram/layout";
 import { Meteogram } from "./meteogram/Meteogram";
 import { SearchBox } from "./search/SearchBox";
-import { type Navigate, type ViewState, useUrlState } from "./state/urlState";
+import { type Layout, type Navigate, type ViewState, useUrlState } from "./state/urlState";
 
 export function App() {
   const i18n = useI18n();
@@ -132,6 +132,7 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
               </select>
             </label>
           )}
+          <LayoutSwitch layout={state.layout} onChange={(layout) => navigate({ layout }, { replace: true })} />
           <label className="days">
             {i18n.t.days}{" "}
             <input
@@ -152,12 +153,40 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
       )}
       <div className="chart" ref={box}>
         {width > 0 && (
-          <Meteogram forecast={forecast} pictogramBase={schemes.pictogram_base} window={view} width={width} />
+          <Meteogram
+            forecast={forecast}
+            pictogramBase={schemes.pictogram_base}
+            window={view}
+            width={width}
+            orientation={state.layout}
+          />
         )}
       </div>
       <p className="source">{i18n.t.source(product?.label ?? forecast.run.source, forecast.run.members ?? null)}</p>
       <Legend schemes={legendSchemes} pictogramBase={schemes.pictogram_base} />
     </article>
+  );
+}
+
+/** Two buttons, one pressed: time to the right, or time down the page. */
+function LayoutSwitch({ layout, onChange }: { layout: Layout; onChange: (layout: Layout) => void }) {
+  const i18n = useI18n();
+  const options: [Layout, string, string][] = [
+    // Icons: three bars side by side over a time axis, or stacked beside one.
+    ["row", i18n.t.horizontal, "M2 3h12M2 7h12M2 11h12M2 14.5h12"],
+    ["column", i18n.t.vertical, "M3 2v12M7 2v12M11 2v12M14.5 2v12"],
+  ];
+  return (
+    <div className="layout-switch" role="group" aria-label={i18n.t.layout}>
+      {options.map(([value, label, icon]) => (
+        <button key={value} type="button" aria-pressed={layout === value} onClick={() => onChange(value)}>
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d={icon} />
+          </svg>
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 

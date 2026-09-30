@@ -5,28 +5,26 @@ import { useI18n } from "../i18n";
 import { digitsFor, unitLabel } from "./format";
 import { HOUR_MS } from "./time";
 
-const WIDTH = 230;
+export const TOOLTIP_WIDTH = 230;
 const ORDER = ["temperature_2m", "cloud_cover", "precipitation", "wind_speed_10m"];
 
 export interface TooltipProps {
   forecast: Forecast;
   steps: Date[];
   index: number | null;
-  x: number;
-  width: number;
+  // Where the box goes, in the chart's own pixels; each layout keeps it on screen.
+  place: { left: number; top: number };
 }
 
-export function Tooltip({ forecast, steps, index, x, width }: TooltipProps) {
+export function Tooltip({ forecast, steps, index, place }: TooltipProps) {
   const i18n = useI18n();
   if (index === null) return <div className="tooltip-region" role="status" aria-live="polite" />;
   const t = steps[index] as Date;
   const timeZone = forecast.location.timezone ?? "UTC";
-  // Keep the box on the chart: to the right of the line, or left near the edge.
-  const left = x + 14 + WIDTH > width ? x - 14 - WIDTH : x + 14;
 
   return (
     <div className="tooltip-region" role="status" aria-live="polite">
-      <div className="tooltip" style={{ left: Math.max(0, left), width: WIDTH }} data-testid="tooltip">
+      <div className="tooltip" style={{ left: place.left, top: place.top, width: TOOLTIP_WIDTH }} data-testid="tooltip">
         <div className="when">
           {i18n.weekday(t, timeZone, "long")} {i18n.dayMonth(t, timeZone)}, {i18n.time(t, timeZone)}
         </div>

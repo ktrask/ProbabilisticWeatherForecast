@@ -5,19 +5,20 @@ import { DEFAULT_DAYS, formatState, parseState, useUrlState } from "./urlState";
 
 describe("parseState", () => {
   it("reads a full view", () => {
-    expect(parseState("?lat=52.26&lon=10.52&name=Braunschweig&product=ecmwf&variant=hres&days=7")).toEqual({
+    expect(parseState("?lat=52.26&lon=10.52&name=Braunschweig&product=ecmwf&variant=hres&days=7&layout=vertical")).toEqual({
       lat: 52.26,
       lon: 10.52,
       name: "Braunschweig",
       product: "ecmwf",
       variant: "hres",
       days: 7,
+      layout: "column",
     });
   });
 
   it("falls back to defaults", () => {
     expect(parseState("")).toEqual({
-      lat: null, lon: null, name: null, product: null, variant: "ensemble", days: DEFAULT_DAYS,
+      lat: null, lon: null, name: null, product: null, variant: "ensemble", days: DEFAULT_DAYS, layout: "row",
     });
   });
 
@@ -36,10 +37,17 @@ describe("parseState", () => {
     expect(parseState("?days=99").days).toBe(DEFAULT_DAYS);
     expect(parseState("?days=3.6").days).toBe(4);
     expect(parseState("?variant=deterministic").variant).toBe("ensemble");
+    expect(parseState("?layout=sideways").layout).toBe("row");
   });
 });
 
 describe("formatState", () => {
+  it("writes the vertical layout, and nothing for the row", () => {
+    const state = parseState("?lat=52.26&lon=10.52");
+    expect(formatState({ ...state, layout: "column" })).toBe("?lat=52.26&lon=10.52&layout=vertical");
+    expect(formatState({ ...state, layout: "row" })).toBe("?lat=52.26&lon=10.52");
+  });
+
   it("leaves out defaults", () => {
     expect(formatState(parseState("?lat=52.26&lon=10.52&variant=ensemble&days=5"))).toBe("?lat=52.26&lon=10.52");
   });
