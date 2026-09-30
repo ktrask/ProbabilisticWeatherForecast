@@ -1,8 +1,10 @@
 // The URL is the only place the view's state lives - place, product, variant,
-// days - so every view is a link, and back/forward walk through places.
+// days, layout - so every view is a link, and back/forward walk through places.
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 export type Variant = "ensemble" | "hres";
+// "row": time to the right, scrolling sideways; "column": time down the page.
+export type Layout = "row" | "column";
 
 export interface ViewState {
   lat: number | null;
@@ -11,6 +13,7 @@ export interface ViewState {
   product: string | null; // null: the API's default
   variant: Variant;
   days: number;
+  layout: Layout;
 }
 
 export const DEFAULT_DAYS = 5;
@@ -35,6 +38,7 @@ export function parseState(search: string): ViewState {
     product: params.get("product") || null,
     variant: params.get("variant") === "hres" ? "hres" : "ensemble",
     days: days === null ? DEFAULT_DAYS : Math.round(days),
+    layout: params.get("layout") === "vertical" ? "column" : "row",
   };
 }
 
@@ -53,6 +57,7 @@ export function formatState(state: ViewState, extra: Record<string, string> = {}
   if (state.product) params.set("product", state.product);
   if (state.variant !== "ensemble") params.set("variant", state.variant);
   if (state.days !== DEFAULT_DAYS) params.set("days", String(state.days));
+  if (state.layout === "column") params.set("layout", "vertical");
   for (const [key, value] of Object.entries(extra)) params.set(key, value);
   const text = params.toString();
   return text ? `?${text}` : "";

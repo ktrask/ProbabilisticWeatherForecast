@@ -3,12 +3,19 @@ import { describe, expect, it } from "vitest";
 
 import { I18nContext, makeI18n } from "../i18n";
 import { forecast } from "../test/fixtures";
-import { Meteogram } from "./Meteogram";
+import { Meteogram, type Orientation } from "./Meteogram";
+import { MIN_CELL } from "./RowChart";
 
-function draw(from = 0, to = 12, lang: "de" | "en" = "en", width = 900, steps = 12) {
+function draw(from = 0, to = 12, lang: "de" | "en" = "en", width = 900, steps = 12, orientation: Orientation = "row") {
   return render(
     <I18nContext.Provider value={makeI18n(lang)}>
-      <Meteogram forecast={forecast(steps)} pictogramBase="/pictograms/v1/" window={{ from, to, stale: false }} width={width} />
+      <Meteogram
+        forecast={forecast(steps)}
+        pictogramBase="/pictograms/v1/"
+        window={{ from, to, stale: false }}
+        width={width}
+        orientation={orientation}
+      />
     </I18nContext.Provider>,
   );
 }
@@ -91,62 +98,84 @@ describe("Meteogram", () => {
     expect(screen.getByRole("group")).toHaveAccessibleName(/Meteogramm für Braunschweig/);
   });
 
-  describe("on a narrow screen", () => {
-    // 360 px is a phone: sections hold five days (21 steps). Eight days from
-    // local midnight - 32 steps - are cut at the midnight nearest the middle,
-    // step 16, into two sections sharing that step.
+  describe("in a row too long for the screen", () => {
+    // 360 px is a phone: eight days - 32 steps - need more than 300 px.
     const narrow = () => draw(0, 32, "en", 360, 32);
-    const sectionsOf = (container: HTMLElement) =>
-      Array.from(container.querySelectorAll(".section")).map((el) => [
-        Number(el.getAttribute("data-first")),
-        Number(el.getAttribute("data-last")),
+
+    it("stays in one row and scrolls sideways, instead of breaking into pieces", () => {
+      const { container } = narrow();
+      expect(container.querySelectorAll("svg:not(.y-axis)")).toHaveLength(1);
+      expect(images(container, "cloud_cover")).toHaveLength(32);
+      expect(images(container, "precipitation")).toHaveLength(31);
+      const content = container.querySelector(".scroll-content") as HTMLElement;
+      expect(content.style.width).toBe(`${32 * MIN_CELL}px`);
+      expect(screen.getByTestId("scroller")).toHaveClass("scrolls");
+    });
+
+    it("keeps the temperature labels out of the scrolling part", () => {
+      const { container } = narrow();
+      const labels = Array.from(container.querySelectorAll(".y-axis text")).map((t) => t.textContent);
+      expect(labels.length).toBeGreaterThan(1);
+      expect(screen.getByTestId("scroller").querySelector(".grid text")).toBeNull();
+    });
+
+    it("maps the days under it, with a frame for the part in view", () => {
+      narrow();
+      const indicator = screen.getByTestId("scroll-indicator");
+      // The first "day" is the three hours before the first step, at midnight.
+      expect(Array.from(indicator.querySelectorAll(".map-day")).map((d) => d.textContent)).toEqual([
+        "", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue",
       ]);
-
-    it("splits into sections, one below the other", () => {
-      const { container } = narrow();
-      expect(sectionsOf(container)).toEqual([
-        [0, 16],
-        [16, 31],
-      ]);
+      expect(screen.getByTestId("scroll-thumb")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Earlier" })).toBeDisabled();
     });
 
-    it("keeps five days in one row, even on a phone", () => {
-      const { container } = draw(0, 21, "en", 360, 32);
-      expect(container.querySelectorAll(".section")).toHaveLength(1);
+    it("needs no indicator when everything fits", () => {
+      draw();
+      expect(screen.queryByTestId("scroll-indicator")).toBeNull();
+      expect(screen.getByTestId("scroller")).not.toHaveClass("scrolls");
+    });
+  });
+
+  describe("in a column", () => {
+    const column = () => draw(0, 12, "en", 380, 12, "column");
+    const ys = (container: HTMLElement, variable: string) =>
+      images(container, variable).map((i) => Number(i.getAttribute("y")));
+
+    it("runs time down the page, one pictogram per step", () => {
+      const { container } = column();
+      expect(container.querySelector('[data-orientation="column"]')).not.toBeNull();
+      const cloud = ys(container, "cloud_cover");
+      expect(cloud).toHaveLength(12);
+      expect(cloud.every((y, i) => i === 0 || y > (cloud[i - 1] as number))).toBe(true);
+      expect(images(container, "precipitation")).toHaveLength(11);
     });
 
-    it("draws every total exactly once across the cut", () => {
-      const { container } = narrow();
-      const rain = images(container, "precipitation").map((i) => i.querySelector("title")?.textContent);
-      expect(rain).toHaveLength(31); // as in one row: the last step's window is beyond the end
-      // The shared step's instants appear at the end of one section and the start of the next.
-      expect(images(container, "cloud_cover")).toHaveLength(33);
+    it("puts a total between the instants that bound its window", () => {
+      const { container } = column();
+      const cloud = ys(container, "cloud_cover");
+      const rain = ys(container, "precipitation");
+      expect(rain[0]).toBeCloseTo(((cloud[0] as number) + (cloud[1] as number)) / 2, 5);
     });
 
-    it("uses one time scale and one temperature scale for all sections", () => {
-      const { container } = narrow();
-      const svgs = Array.from(container.querySelectorAll("svg"));
-      const perStep = svgs.map((svg) => {
-        const xs = Array.from(svg.querySelectorAll('g[data-variable="cloud_cover"] image')).map((i) =>
-          Number(i.getAttribute("x")),
-        );
-        return (xs[1] as number) - (xs[0] as number);
-      });
-      expect(perStep[0]).toBeCloseTo(perStep[1] as number, 6);
-      const ticks = svgs.map((svg) => Array.from(svg.querySelectorAll(".grid text")).map((t) => t.textContent));
-      expect(ticks[0]).toEqual(ticks[1]);
+    it("orders the columns as the row stacks them, under named heads", () => {
+      const { container } = column();
+      const x = (variable: string) => Number(images(container, variable)[0]?.getAttribute("x"));
+      expect(x("cloud_cover")).toBeLessThan(x("precipitation"));
+      expect(x("precipitation")).toBeLessThan(x("wind_speed_10m"));
+      const heads = Array.from(container.querySelectorAll(".column-name")).map((t) => t.textContent);
+      expect(heads).toEqual(["Clouds", "Rain", "Wind", "Temperature"]);
     });
 
-    it("walks through the cut with the keyboard", () => {
-      const { container } = narrow();
+    it("walks down the steps with the arrow keys", () => {
+      column();
       const chart = screen.getByRole("group");
-      fireEvent.keyDown(chart, { key: "Home" });
-      for (let i = 0; i < 16; i++) fireEvent.keyDown(chart, { key: "ArrowRight" });
-      // Step 16, shared by both sections, is shown in the later one.
-      const second = container.querySelectorAll(".section")[1] as HTMLElement;
-      expect(second.querySelector(".crosshair")).not.toBeNull();
-      expect(container.querySelectorAll(".crosshair")).toHaveLength(1);
-      expect(screen.getByTestId("tooltip")).toHaveTextContent("Saturday 03/10, 00:00");
+      fireEvent.keyDown(chart, { key: "ArrowDown" });
+      expect(screen.getByTestId("tooltip")).toHaveTextContent("Tuesday 29/09, 00:00");
+      fireEvent.keyDown(chart, { key: "ArrowDown" });
+      expect(screen.getByTestId("tooltip")).toHaveTextContent("06:00");
+      fireEvent.keyDown(chart, { key: "ArrowUp" });
+      expect(screen.getByTestId("tooltip")).toHaveTextContent("00:00");
     });
   });
 });

@@ -64,19 +64,43 @@ test("on a phone @phone", async ({ page }) => {
   await expect(page).toHaveScreenshot("reykjavik-phone.png", { fullPage: true });
 });
 
-test("up to five days stay in one row on a phone @phone", async ({ page }) => {
-  await freezeClock(page, "braunschweig");
-  const chart = await showMeteogram(page, url("braunschweig", "&days=5"));
-  await expect(chart.locator(".section")).toHaveCount(1);
-});
-
-test("a week on a phone comes in two sections @phone", async ({ page }) => {
+test("a week on a phone stays in one row and scrolls sideways @phone", async ({ page }) => {
   await freezeClock(page, "braunschweig");
   const chart = await showMeteogram(page, url("braunschweig", "&days=7"));
-  await expect(chart.locator(".section")).toHaveCount(2);
-  // Each 6-hour total once, however the week is cut: 28 steps, the last one's window beyond the end.
+  // Each 6-hour total once: 28 steps, the last one's window beyond the end.
   await expect(chart.locator('g[data-variable="precipitation"] image')).toHaveCount(27);
+  const scroller = page.getByTestId("scroller");
+  const overflow = await scroller.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeGreaterThan(100);
   await expect(chart).toHaveScreenshot("braunschweig-week-phone.png");
+
+  // A swipe to the left moves the view later, and the frame on the day map with it.
+  const thumb = page.getByTestId("scroll-thumb");
+  const before = (await thumb.boundingBox())?.x ?? 0;
+  const box = (await scroller.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.touchscreen.tap(box.x + 5, box.y + box.height - 20); // focus without a crosshair in the way
+  await scroller.evaluate((el) => el.scrollBy({ left: 300 }));
+  await expect.poll(async () => (await thumb.boundingBox())?.x ?? 0).toBeGreaterThan(before + 20);
+
+  // The arrow next to the map pages back.
+  await page.getByRole("button", { name: "Früher" }).click();
+  await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeLessThan(300);
+});
+
+test("the vertical layout runs time down the page @phone", async ({ page }) => {
+  await freezeClock(page, "braunschweig");
+  await showMeteogram(page, url("braunschweig", "&days=3"));
+  await page.getByRole("button", { name: "Senkrecht" }).click();
+  await expect(page).toHaveURL(/layout=vertical/);
+  const chart = page.getByTestId("meteogram");
+  await expect(chart).toHaveAttribute("data-orientation", "column");
+  await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(12);
+  await page.waitForLoadState("networkidle");
+  await expect(chart).toHaveScreenshot("braunschweig-vertical-phone.png");
+  // Back to the row, and the choice leaves the URL again.
+  await page.getByRole("button", { name: "Waagerecht" }).click();
+  await expect(chart).toHaveAttribute("data-orientation", "row");
+  await expect(page).not.toHaveURL(/layout=/);
 });
 
 test("starts at the step nearest to now, in the place's own time", async ({ page }) => {
@@ -90,7 +114,7 @@ test("starts at the step nearest to now, in the place's own time", async ({ page
 test("hovering lists the step's values", async ({ page }) => {
   await freezeClock(page);
   const chart = await showMeteogram(page, url("braunschweig"));
-  const box = (await chart.locator("svg").first().boundingBox()) as { x: number; y: number; width: number };
+  const box = (await chart.getByTestId("scroller").locator("svg").boundingBox()) as { x: number; y: number; width: number };
   await page.mouse.move(box.x + box.width / 2, box.y + 200);
   const tooltip = page.getByTestId("tooltip");
   await expect(tooltip).toBeVisible();

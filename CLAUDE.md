@@ -96,7 +96,7 @@ Everything lives under `webapp/`:
 - **`frontend/`** — React 19 + TypeScript + Vite, TanStack Query, the chart as SVG with
   d3-scale/d3-shape (no chart library). `src/api/schema.d.ts` is generated from `api/openapi.json`,
   so an API change the frontend does not follow is a type error. `src/state/` keeps place, product,
-  variant and days in the URL only; `src/meteogram/layout.ts` + `time.ts` are the pure logic.
+  variant, days and layout in the URL only; `src/meteogram/layout.ts` + `time.ts` are the pure logic.
 - **`pictograms/`** — the glyphs, where `vsup.yaml`'s `pictogram_root` points. Ensemble SVGs, the
   PNGs the legacy rules drew, and the 48 HRES PNGs in `*/enhanced_hres/` (unused until phase 5
   redraws them; kept as the design reference).
@@ -177,12 +177,21 @@ otherwise fail on some request fails at start-up, with file and line.
 - **Instants sit at their step, totals in the middle of their window**: cloud, wind and temperature
   at `t`, precipitation at `t + 3h`, between two instants. A total is drawn only if its whole window
   fits, so there is one precipitation pictogram fewer than steps.
-- **Long meteograms split into sections one below the other** (`layout.sections`) when a step would
-  get under 28 px (`MIN_CELL`), but never into sections shorter than 5 days (`MIN_SECTION_DAYS`,
-  the user's call - splitting sooner read as too fragmented; on a phone the pictograms shrink
-  instead up to 5 days). Cuts are at local midnight, as even as the days allow; neighbours share the
-  cut step so the line runs on and the total starting there is drawn once, in the later section.
-  All sections share one px-per-step and one temperature scale.
+- **Two layouts, switched by the user and kept in the URL** (`layout=vertical`; the row is the
+  default and leaves the parameter out). The user's call of 2026-09-30, after trying it on a phone:
+  splitting a long meteogram into sections one below the other (the earlier `layout.sections`)
+  read as chopped up, so it is gone.
+  - **Row** (`RowChart`): one row, time to the right. Where a step would get under 24 px
+    (`MIN_CELL` - three days still fit on a phone) the row scrolls sideways instead of shrinking:
+    swipe, trackpad, or the indicator below it - a map of the days with a frame over the part in
+    view, draggable, with ‹ › buttons for mice. The temperature labels sit outside the scroller and
+    stay put; edge shadows show there is more. The native scrollbar is hidden. On touch, a tap
+    selects a step and it stays until the next tap; a swipe scrolls (`touch-action: pan-x pan-y`),
+    while a row that fits lets a finger drag the crosshair (`pan-y`).
+  - **Column** (`ColumnChart`): time runs down the page at 40 px per step; columns left to right
+    are time, clouds, precipitation, the temperature band and wind - the row's top-to-bottom order.
+    The column heads with the temperature ticks are sticky. Arrow up/down walk the steps.
+  Both share `meteogram/shared.ts` (lanes, pictogram times, temperature domain).
 - **The view starts at the step nearest to now.** A forecast that ended before now is shown from its
   start with a "stale" note - which is what the offline fixtures look like once they age.
 - **Coordinates in the URL are never rounded on the way back out** (`formatState`): rounding moved
@@ -211,7 +220,7 @@ otherwise fail on some request fails at start-up, with file and line.
   `test_api.py` (routes, status codes, cache, frontend serving, read-only routes, OpenAPI
   contract), `test_data_format.py` (fixtures), `test_deployment.py` (container), `test_live_api.py`.
 - Frontend: Vitest next to the code (`*.test.ts[x]`) and Playwright in `frontend/e2e/` (screenshots
-  of all five fixtures and on a phone, hover, days without refetch, search with back/forward, 404,
+  of all five fixtures, and on a phone of the scrolling row and the vertical layout, hover, days without refetch, search with back/forward, 404,
   legend). Baselines are taken with Playwright's pinned Chromium against `sources.fixtures.yaml`.
 - Known bugs are recorded as `strict=True` xfails, so they flip to a loud XPASS once fixed (there
   are none at the moment).
@@ -258,7 +267,7 @@ otherwise fail on some request fails at start-up, with file and line.
   cannot name a deterministic source. `variant=hres` answers 409. (The old app's HRES view needed a
   grib pipeline that commit `cc18d28` removed.)
 - The API has no rate limiting, and its cache is per worker process.
-- Frontend MVP gaps: no 12-hour aggregation (the plan's `step_hours` parameter - sections took its
-  place for now), no SVG/PNG export, light theme only, and the variant/product pickers only appear
+- Frontend MVP gaps: no 12-hour aggregation (the plan's `step_hours` parameter - scrolling and
+  the column layout took its place for now), no SVG/PNG export, light theme only, and the variant/product pickers only appear
   once there is more than one to choose.
 - A plotly rewrite of the old renderer was started twice and dropped (commit `3e00557`).
