@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Probabilistische Meteogramme</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 20mm 20mm 20mm;
+    @bottom-center { content: counter(page); font: 8.5pt "Noto Sans", sans-serif; color: #8a9a9f; }
+  }
+  @page :first { @bottom-center { content: none; } }
+  :root { --ink: #17313a; --muted: #5b7078; --line: #d6e0e3; --accent: #004e5e; --tint: #f3f6f7; --warm: #e8740c; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; color: var(--ink); background: #fff; font: 9.6pt/1.5 "Noto Serif", Arimo, serif; hyphens: auto; }
+  p { margin: 0 0 0.7em; text-align: justify; }
+  h1, h2, h3, h4, .kicker, figcaption, table, .box-title, .toc, .source { font-family: "Noto Sans", Arimo, sans-serif; }
+  h1 { font-size: 21pt; line-height: 1.2; color: var(--accent); margin: 4mm 0 5mm; }
+  h2 { font-size: 13pt; color: var(--accent); margin: 7mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1px solid var(--line);
+       break-after: avoid; }
+  h3 { font-size: 10.5pt; color: var(--ink); margin: 5mm 0 2mm; break-after: avoid; }
+  h2 + h3 { margin-top: 3mm; }
+  .kicker { font-size: 7.5pt; letter-spacing: 0.22em; text-transform: uppercase; color: #3c8d99; margin-top: 2mm; }
+  .lead { font-size: 10.5pt; line-height: 1.55; text-align: left; }
+  em { font-style: italic; }
+  code { font: 7.8pt "DejaVu Sans Mono", monospace; background: var(--tint); padding: 0.5pt 2.5pt; border-radius: 2pt; }
+  pre { font: 7.6pt/1.45 "DejaVu Sans Mono", monospace; background: var(--tint); padding: 3mm 4mm; border-radius: 2pt;
+        margin: 0 0 4mm; break-inside: avoid; white-space: pre; }
+  figure { margin: 4mm 0 5mm; break-inside: avoid; }
+  figure img { width: 100%; display: block; }
+  figure.split { break-inside: auto; }
+  figure.split img { break-inside: avoid; }
+  figure.split img + img { margin-top: 3mm; }
+  figure.split figcaption { break-before: avoid; }
+  figure .phones { display: flex; gap: 6mm; justify-content: center; align-items: flex-start; margin-top: 4mm; break-inside: avoid; }
+  figure .phones img { width: 62mm; border: 1px solid var(--line); border-radius: 3pt; }
+  figure .frame { border: 1px solid var(--line); border-radius: 3pt; padding: 2mm; }
+  figcaption { font-size: 7.6pt; line-height: 1.45; color: var(--muted); margin-top: 2mm; text-align: justify; }
+  figcaption b { color: var(--ink); }
+  ol, ul { margin: 0 0 0.8em; padding-left: 5mm; }
+  li { margin-bottom: 0.25em; text-align: justify; }
+  table { border-collapse: collapse; width: 100%; font-size: 8pt; margin: 2mm 0 4mm; break-inside: avoid; }
+  th { text-align: left; font-weight: 600; color: var(--accent); border-bottom: 1.2px solid var(--accent); padding: 1.5mm 2mm; }
+  td { border-bottom: 1px solid var(--line); padding: 1.4mm 2mm; vertical-align: top; }
+  table.num td:not(:first-child), table.num th:not(:first-child) { text-align: right; white-space: nowrap; }
+  table.num tr.ens td { font-weight: 600; background: var(--tint); }
+  table.levels { font-size: 7.6pt; }
+  table.levels th { text-align: center !important; padding: 1mm 1.2mm; }
+  table.levels td { padding: 1.1mm 1.2mm; }
+  table.levels td.l3 { color: var(--accent); font-weight: 600; }
+  table.levels td.l1 { color: #3c8d99; }
+  table.hres { width: auto; margin: 0 auto; }
+  table.hres th, table.hres td { border: none; padding: 0.6mm 1mm; text-align: center; font-size: 7.4pt; }
+  table.hres thead tr:first-child th { border-bottom: 1px solid var(--line); }
+  table.hres tbody th { text-align: right; color: var(--ink); font-weight: 600; white-space: nowrap; padding-right: 3mm; }
+  table.hres tbody th small { display: block; font-weight: 400; color: var(--muted); font-size: 6.6pt; }
+  table.hres img { width: 9mm; height: 9mm; object-fit: contain; display: block; margin: 0 auto; }
+  .box { border-left: 3pt solid var(--accent); background: var(--tint); padding: 3mm 4.5mm; margin: 4mm 0 5mm; break-inside: avoid; }
+  .box.warm { border-color: var(--warm); background: #fdf3ea; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  .box-title { font-weight: 700; font-size: 9pt; margin-bottom: 1.5mm; color: var(--accent); }
+  .box.warm .box-title { color: #a14f06; }
+  .toc { columns: 2; column-gap: 8mm; font-size: 8.8pt; margin: 3mm 0 6mm; padding-left: 5mm; }
+  .toc li { margin-bottom: 1mm; text-align: left; }
+  .source { font-size: 7.6pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 3mm; text-align: justify; }
+  .page-break { break-before: page; }
+  dl.code { font-size: 8.4pt; margin: 0; }
+  dl.code dt { font-family: "DejaVu Sans Mono", monospace; font-size: 7.8pt; color: var(--accent); margin-top: 1.5mm; }
+  dl.code dd { margin: 0 0 0 5mm; font-family: "Noto Sans", sans-serif; }
+  .keep { break-inside: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  figure.table { margin: 3mm 0 4mm; }
+  figure.table table { margin: 1mm 0 0; }
+  figcaption.above { margin: 0 0 1mm; }
+</style>
+</head>
+<body>
+
+<div class="kicker">Bericht · ProbabilisticWeatherForecast</div>
+<h1>Wie sicher ist die Vorhersage?<br>Unsicherheit darstellen mit<br>wertunterdrückenden Piktogrammen</h1>
+<p class="lead">Dieser Bericht erklärt die Grundidee der Software: Statt eine einzige Wetterprognose zu zeichnen, zeigt
+das Meteogramm, wie stark sich 51 gleichwertige Modellläufe des ECMWF-Ensembles einig sind. Je größer die Uneinigkeit,
+desto <em>unspezifischer</em> wird das Symbol, das der Leser sieht. An konstruierten Einzelfällen und an echten
+Vorhersagen für fünf Klimazonen wird gezeigt, wie das funktioniert – in der 2026 neu entwickelten Web-App.</p>
+
+<figure>
+  <div class="frame"><img src="$legend" alt="Legende der App"></div>
+  <figcaption><b>Abb. 1 – Die Legende der App.</b> Links Bewölkung, Mitte Niederschlag, rechts Wind. Oben (Stufe 3,
+  „sicher“) steht je Wertklasse ein eigenes, dunkles Piktogramm; darunter (Stufe 2, „wahrscheinlich“) verschmelzen je
+  zwei Klassen zu einer Gruppe, bis zuletzt nur ein blasses, schraffiertes Symbol bleibt: „alles möglich“. Die App
+  erzeugt diese Legende aus derselben Konfiguration, nach der sie die Symbole wählt.</figcaption>
+</figure>
+
+<ol class="toc">
+  <li>Das Problem: eine Linie ist zu sicher</li>
+  <li>Vom Ensemble zu neun Zahlen</li>
+  <li>Aufbau des Meteogramms</li>
+  <li>Temperatur als Unsicherheitsband</li>
+  <li>Das VSUP-Prinzip</li>
+  <li>Entscheidungslogik mit Beispielen</li>
+  <li>Echte Vorhersagen aus fünf Klimazonen</li>
+  <li>Unsicherheit wächst mit der Zeit</li>
+  <li>HRES: geplant, noch nicht umgesetzt</li>
+  <li>Grenzen und bekannte Lücken</li>
+</ol>
+
+<p class="source">Grundlage: Quellcode im Repository <code>ProbabilisticWeatherForecast</code> (Branch <code>main</code>,
+Commit <code>084d7ee</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
+neu entwickelt. Die Meteogramme sind Bildschirmfotos der neuen App, gespeist aus den Test-Fixtures (ECMWF-IFS-Ensemble
+über Open-Meteo, aufgezeichnet am 29.09.2026); die Piktogramme der Beispiele in Abschnitt 6 hat der Klassifikator der
+App bestimmt. Abschnitt 10.1 beruht auf einem Live-Abruf vom 29.09.2026. Stand: 30.09.2026. Die frühere Fassung dieses
+Berichts (28.09.2026) beschrieb die alte Flask-/matplotlib-Anwendung, die heute auf dem Branch <code>old-webapp</code> liegt.</p>
+
+<h2 class="page-break">1&nbsp;&nbsp;Das Problem: eine Linie ist zu sicher</h2>
+<p>Die klassische Wetter-App zeigt für jede Stunde einen Wert: 17 °C, Sonne, 0 mm Regen. Diese Werte stammen aus einem
+einzelnen Modelllauf und wirken für morgen genauso verbindlich wie für übermorgen in einer Woche. Tatsächlich ist die
+Atmosphäre ein chaotisches System: winzige Unterschiede im Anfangszustand wachsen im Lauf der Tage zu völlig
+verschiedenen Wetterlagen an.</p>
+<p>Wetterdienste begegnen dem mit <b>Ensemble-Vorhersagen</b>. Das Europäische Zentrum für mittelfristige
+Wettervorhersage (ECMWF) rechnet sein Modell IFS nicht einmal, sondern 51-mal – mit leicht gestörten
+Anfangsbedingungen und Modellphysik. Liegen die 51 „Member“ nah beieinander, ist die Lage gut vorhersagbar; laufen sie
+auseinander, ist sie es nicht. Die Streuung des Ensembles ist damit ein direktes Maß für die Unsicherheit.</p>
+<p>Die Schwierigkeit liegt in der Darstellung. 51 Temperaturkurven übereinander sind unlesbar, und ein Wettersymbol
+„Regen“ kann man nicht einfach zu 40 % zeichnen. Diese Software löst das mit zwei Mitteln: <b>Perzentil-Bändern</b>
+für die Temperatur und einer <b>Value-Suppressing Uncertainty Palette (VSUP)</b> für Wolken, Niederschlag und Wind.</p>
+
+<h2>2&nbsp;&nbsp;Vom Ensemble zu neun Zahlen</h2>
+<p>Der Adapter <code>sources/open_meteo.py</code> lädt von der Open-Meteo-Ensemble-API die stündlichen Werte aller 51
+Member des Modells <code>ecmwf_ifs025</code> (0,25°-Gitter, rund 25 km; der Lauf reicht knapp 15 Tage) für vier
+Größen: 2-m-Temperatur, Niederschlag, Gesamtbewölkung und 10-m-Windgeschwindigkeit. Er fordert Temperatur,
+Niederschlag und Wind ausdrücklich in °C, mm und m/s an und liest trotzdem bei jeder Größe die Einheit, die Open-Meteo
+zurückmeldet: Bekannte Einheiten werden umgerechnet, unbekannte abgelehnt – eine Zahl in der falschen Einheit wird nie
+stillschweigend weiterverrechnet (warum, zeigt Abschnitt 10.2). Für jeden
+6-Stunden-Schritt wird die Verteilung der 51 Werte auf neun Quantile reduziert (<code>core/reduce.py</code>):</p>
+<figure class="table">
+<figcaption class="above"><b>Tabelle 1 – Die neun Quantile je Schritt.</b></figcaption>
+<table>
+  <thead><tr><th>Quantile</th><th>Bedeutung</th><th>Wofür die App sie braucht</th></tr></thead>
+  <tbody>
+    <tr><td><code>p0</code>, <code>p100</code></td><td>kleinster bzw. größter Wert aller 51 Member</td><td>äußeres Temperaturband</td></tr>
+    <tr><td><code>p10</code>, <code>p90</code></td><td>80 % der Member liegen dazwischen</td><td>mittleres Temperaturband, Tooltip</td></tr>
+    <tr><td><code>p17</code>, <code>p83</code></td><td>die mittleren zwei Drittel (rund 34 von 51 Membern)</td><td>Stufe 3 „sicher“</td></tr>
+    <tr><td><code>p25</code>, <code>p75</code></td><td>die mittlere Hälfte der Member</td><td>inneres Temperaturband, Stufe 2 „wahrscheinlich“</td></tr>
+    <tr><td><code>p50</code></td><td>der Median – die typische Einzelprognose</td><td>Temperaturlinie, Tageswerte, Tooltip</td></tr>
+  </tbody>
+</table>
+</figure>
+<p>Temperatur, Bewölkung und Wind sind Momentanwerte zum Zeitpunkt des Schritts. Niederschlag ist dagegen eine
+<em>Summe</em>: Für jeden Member werden zuerst die stündlichen Mengen zu 6-Stunden-Summen addiert, erst danach werden
+die Quantile gebildet. Die Reihenfolge ist wichtig – das 90. Perzentil der 6-Stunden-Summen ist nicht die Summe der
+stündlichen 90. Perzentile, weil nicht derselbe Member in jeder Stunde der nasseste ist. Der Schritt um <em>t</em> Uhr
+umfasst die sechs Stunden ab <em>t</em>; weil Open-Meteo jeder Stunde die Menge der <em>vorangegangenen</em> Stunde
+zuschreibt, sind das die Werte von <em>t</em>+1 bis <em>t</em>+6 Uhr. Der alte Code lag hier eine Stunde zu früh.</p>
+<p>Das Ergebnis ist ein <code>Forecast</code> (<code>core/model.py</code>), dessen Prüfungen der Vertrag der ganzen
+Anwendung sind: Ein <code>Forecast</code>, der existiert, hat feste Einheiten, gleichmäßige Schritte in UTC und
+geordnete, endliche Quantile. Das Backend liefert ihn als JSON unter <code>/api/forecast</code> aus, zusammen mit dem
+Piktogramm, das die VSUP-Regeln für jeden Schritt gewählt haben. Der Browser zeichnet daraus das Meteogramm. Er kennt
+die 51 Einzelläufe also nie, sondern nur diese neun Zahlen pro Schritt – alle Darstellungsentscheidungen bauen darauf auf.</p>
+
+<h2>3&nbsp;&nbsp;Aufbau des Meteogramms</h2>
+<p>Das Meteogramm wird im Browser als SVG gezeichnet (React, d3) und besteht aus vier übereinanderliegenden Streifen mit
+gemeinsamer Zeitachse, ein Symbol bzw. Stützpunkt pro 6-Stunden-Schritt:</p>
+<ol>
+  <li><b>Bewölkung</b> – eine Reihe VSUP-Piktogramme.</li>
+  <li><b>Niederschlag</b> – VSUP-Piktogramme; jedes steht für die Summe der sechs Stunden ab einem Schritt und sitzt
+  deshalb in der Mitte seines Fensters, zwischen zwei Zeitpunkten. Ein Fenster, das über das Ende hinausragt, wird
+  nicht gezeichnet.</li>
+  <li><b>Temperatur</b> – Perzentil-Bänder mit Medianlinie; Tageshöchst- und -tiefstwerte des Medians als orange bzw.
+  petrolfarbene Kreise mit gerundetem Wert.</li>
+  <li><b>Wind</b> – eine weitere Reihe VSUP-Piktogramme.</li>
+</ol>
+<p>Die Zeitachse zeigt die Ortszeit des <em>Vorhersageorts</em>, nicht die des Browsers, einschließlich Sommerzeit; jeder
+zweite Tag ist grau hinterlegt. Die Ansicht beginnt beim Schritt, der jetzt am nächsten liegt; ein Schieberegler wählt,
+wie viele Tage zu sehen sind. Für schmale Bildschirme gibt es zwei Darstellungen zur Wahl. <b>Waagerecht</b> bleibt alles
+in einer Zeile: Würde ein Schritt schmaler als 24 Pixel, scrollt die Zeile seitlich, per Wischgeste oder über eine
+Tageskarte darunter, die mit einem Rahmen anzeigt, welcher Teil gerade zu sehen ist. <b>Senkrecht</b> läuft die Zeit nach
+unten, und die vier Größen stehen als Spalten nebeneinander. Beim Überfahren mit der Maus nennt ein Tooltip
+für den Schritt Median und 10.–90.-Perzentil jeder Größe samt Klasse und Stufe des Symbols. Unter dem Meteogramm steht
+die Legende aus Abb. 1. Ort und Tageszahl stehen in der Adresse, jede Ansicht ist also ein Link.</p>
+
+<figure class="split">
+  <img src="img/braunschweig.png" alt="Meteogramm Braunschweig, eine Woche">
+  <div class="phones">
+    <img src="img/braunschweig-phone-row.png" alt="Dieselbe Woche auf dem Handy, waagerecht">
+    <img src="img/braunschweig-phone-column.png" alt="Die ersten Tage auf dem Handy, senkrecht">
+  </div>
+  <figcaption><b>Abb. 2 – Meteogramm Braunschweig, eine Woche ab 29.09.2026.</b> Oben am Desktop, unten auf dem
+  Handy: links waagerecht – die Woche passt nicht in die Breite, die Zeile scrollt, und die Tageskarte darunter rahmt
+  die sichtbaren Tage ein –, rechts senkrecht. Die ersten beiden Tage sind fast durchweg sicher: trocken, schwacher
+  Wind, schmales Temperaturband. Schon am 30.09. wird die Bewölkung aber „alles möglich“ (warum, erklärt Abschnitt
+  10.1). Am Nachmittag und in der Nacht zum 2.10. ist der Regen unsicher – der Median liegt bei 1,5 mm, einzelne
+  Member bringen über 10 mm. Gegen Ende der Woche öffnet sich das Temperaturband, Regen und Wind sind nur noch
+  „wahrscheinlich“ (eher trocken, eher schwach).</figcaption>
+</figure>
+
+<h2>4&nbsp;&nbsp;Temperatur als Unsicherheitsband</h2>
+<p>Für eine stetige Größe wie die Temperatur ist ein Band die natürliche Darstellung. Drei ineinanderliegende Flächen
+zeigen Minimum–Maximum, 10.–90. und 25.–75. Perzentil; darüber liegt dunkel der Median. Je dunkler eine Stelle, desto
+mehr Member liegen dort. Ein schmaler, fast dunkler Strich heißt „alle Läufe sagen dasselbe“; ein breiter, heller
+Fächer heißt „die Temperatur kann um mehrere Grad abweichen“.</p>
+<figure>
+  $fig_band
+  <figcaption><b>Abb. 3 – Aufbau des Temperaturbands am Beispiel Zermatt.</b> Am ersten Tag ist das Band kaum breiter
+  als die Linie. Nach zehn Tagen liegen 80 % der Member am Nachmittag zwischen etwa 2 und 16 °C, obwohl der Median nur
+  einen Wert von rund 12 °C nennt.</figcaption>
+</figure>
+<p>Die Tagesextremwerte in den Kreisen beziehen sich immer auf den Median. Sie sind bewusst als einzelne, gut lesbare
+Zahl gehalten, werden aber stets im Kontext des Bandes gezeigt: Eine „12“ in einem breiten Fächer ist erkennbar weniger
+verlässlich als eine „12“ auf einer schmalen Linie. Die Temperaturachse gilt für den ganzen gewählten Zeitraum, auch
+für den Teil, der gerade aus dem Bild gescrollt ist, damit fünf Grad überall gleich hoch aussehen.</p>
+
+<h2>5&nbsp;&nbsp;Das VSUP-Prinzip</h2>
+<p>Für Wolken, Regen und Wind funktioniert ein Band nicht gut – der Leser will wissen: Brauche ich einen Schirm? Dafür
+braucht es Symbole. Ein Symbol kodiert aber normalerweise nur einen Wert. Die Value-Suppressing Uncertainty Palette
+(nach Correll, Moritz &amp; Heer, CHI 2018) kodiert Wert und Unsicherheit gleichzeitig, und zwar mit einer bewussten
+Asymmetrie:</p>
+<div class="box">
+  <div class="box-title">Kernidee</div>
+  <p>Je unsicherer die Vorhersage, desto weniger Wertklassen darf der Leser unterscheiden. Bei hoher Sicherheit gibt es
+  vier verschiedene Symbole (z. B. kein / leichter / mäßiger / starker Regen), bei mittlerer Sicherheit nur noch zwei
+  („kein oder leichter“ / „mäßiger oder starker Regen“), bei geringer Sicherheit genau eines („alles möglich“). Die
+  Unsicherheit unterdrückt also die Wertinformation, statt sie nur mit einem Fragezeichen zu versehen.</p>
+</div>
+<p>Dieses Prinzip verhindert einen typischen Fehler: Wer ein Regensymbol mit „30 %“ daneben sieht, liest trotzdem
+zuerst „Regen“. Bei VSUP gibt es in der unsicheren Situation gar kein spezifisches Regensymbol, das man überlesen
+könnte. Zusätzlich trägt die Farbe die Sicherheit: Sichere Symbole sind satt dunkel-petrol (Stufe 3), wahrscheinliche
+mittel-petrol (Stufe 2), das unsichere Symbol hellblau und schraffiert (Stufe 1). Schon aus der Entfernung sieht man,
+welche Tage belastbar sind.</p>
+<p>In Abb. 1 entspricht das den drei Zeilen jeder Spalte: vier Felder für Stufe 3, zwei für Stufe 2, eines für Stufe 1.
+Jede der drei Größen hat damit genau 4 + 2 + 1 = 7 Piktogramme. Die Neuentwicklung zeichnet sie als Vektorgrafiken
+(SVG); die alten PNG-Symbole, deren Regenschirme einen weißen, nicht transparenten Hintergrund hatten, benutzt sie nicht
+mehr.</p>
+
+<h2>6&nbsp;&nbsp;Entscheidungslogik mit Beispielen</h2>
+<p>Welches der sieben Symbole gezeichnet wird, steht nicht mehr im Programmcode, sondern in der Konfigurationsdatei
+<code>config/vsup.yaml</code>. Für die Bewölkung lautet der Eintrag:</p>
+<pre>$yaml</pre>
+<p>Jede Größe hat vier <b>Wertklassen</b> mit festen Grenzen (Bewölkung 10 / 50 / 90 %, Niederschlag 0,1 / 1 / 2 mm in
+6 Stunden, Wind 3 / 10 / 17,2 m/s). Die Stufen werden von oben nach unten geprüft; die erste, die zutrifft, gewinnt:</p>
+<ul>
+  <li><b>Stufe 3 (sicher):</b> Das 17. und das 83. Perzentil liegen in derselben Klasse – mindestens zwei Drittel der
+  Member sind sich über die Klasse einig. Gezeichnet wird das Symbol dieser Klasse.</li>
+  <li><b>Stufe 2 (wahrscheinlich):</b> Das 25. und das 75. Perzentil liegen in derselben <em>Gruppe</em> – den beiden
+  unteren oder den beiden oberen Klassen. Mindestens die Hälfte der Member ist sich über die Tendenz einig.</li>
+  <li><b>Stufe 1 (unsicher):</b> sonst. Das Symbol sagt „alles möglich“.</li>
+</ul>
+<p>Die Schwelle „zwei Drittel“ wurde am 29.09.2026 an Live-Daten der fünf Beispielorte festgelegt. Mit 80 % (10.–90.
+Perzentil, wie im alten Code) waren fast nur die Randklassen je „sicher“ – bei Wolken 9 %, bei Regen 18 % der
+Schritte; 50 % war als Aussage „sicher“ zu schwach. Mit zwei Dritteln sind es 13 % bzw. 26 %, beim Wind 60 %.</p>
+<p>Die Datei wird beim Start vollständig geprüft; jedes Problem wird mit Zeilennummer gemeldet, und eine fehlerhafte
+Konfiguration verhindert den Start, statt falsche Symbole zu liefern. Jedes Schema nennt seine Einheit; Schwellen in
+einer anderen Einheit werden beim Laden einmal umgerechnet. Die alten Regeln – eine Prüfkette mit 10./90. Perzentil,
+Median und Sonderfällen wie „75. Perzentil &lt; 1,5 mm“ – gibt es weiterhin, als eingefrorene
+<code>*-legacy</code>-Schemata. Tests prüfen sie Schritt für Schritt gegen den Originalcode; die App zeichnet sie
+nicht mehr.</p>
+<p>Die folgenden Beispiele sind konstruierte Einzelschritte; das Piktogramm hat jeweils der Klassifikator der App mit der
+ausgelieferten Konfiguration bestimmt. Die dünne Linie reicht von Minimum bis Maximum, der helle Balken zeigt die
+mittleren zwei Drittel (p17–p83, entscheidet über Stufe 3), der dunkle die mittlere Hälfte (p25–p75, Stufe 2), der
+Strich den Median. Gestrichelte Linien markieren die Klassengrenzen.</p>
+
+<figure>
+  <h3>6.1&nbsp;&nbsp;Niederschlag (mm in 6 Stunden)</h3>
+  $fig_rain
+  <figcaption><b>Abb. 4 – Sieben Niederschlagsszenarien.</b> Für „sicher mäßiger Regen“ (C) müssen die mittleren zwei
+  Drittel in das schmale Fenster von 1 bis 2 mm passen; in den fünf aufgezeichneten Vorhersagen kam das kein einziges
+  Mal vor. In E sind sich die Member einig, dass es nass wird, nicht aber, ob mäßig oder stark – Stufe 2. In G ist der
+  Median klein (0,3 mm), doch das obere Viertel liefert mehr als 1,8 mm: Die mittlere Hälfte reicht von „kein Regen“
+  bis „mäßig“, und die Software weigert sich, eine Intensität zu nennen.</figcaption>
+</figure>
+
+<figure>
+  <h3>6.2&nbsp;&nbsp;Bewölkung (Prozent Himmelsbedeckung)</h3>
+  $fig_cloud
+  <figcaption><b>Abb. 5 – Sieben Bewölkungsszenarien.</b> E, F und G sind Werte einer echten Vorhersage für Döteberg bei
+  Hannover (29./30.09.2026, Abschnitt 10.1). In E sind sich die Member einig, dass es stark bewölkt ist (76–95 %), doch
+  die Klassengrenze bei 90 % teilt sie – deshalb nur „wahrscheinlich“. In G liegt die mittlere Hälfte bei 37–72 %: eine
+  recht bestimmte Aussage („teils bewölkt“), aber die Grenze zwischen den beiden Gruppen bei 50 % geht mitten hindurch,
+  und das Symbol wird „alles möglich“.</figcaption>
+</figure>
+
+<figure>
+  <h3>6.3&nbsp;&nbsp;Wind (m/s)</h3>
+  $fig_wind
+  <figcaption><b>Abb. 6 – Sieben Windszenarien.</b> Die Grenze 17,2 m/s ist die Untergrenze von Beaufort 8
+  (stürmischer Wind). E hat einen Median von 14 m/s, doch die mittleren zwei Drittel reichen von 10,5 bis 18 m/s, über
+  die Sturmgrenze hinweg. Die mittlere Hälfte liegt ganz im oberen Bereich – also „starker Wind oder Sturm“ (Stufe 2).
+  In G streut das Ensemble von der Flaute bis zum Sturm.</figcaption>
+</figure>
+
+<h2>7&nbsp;&nbsp;Echte Vorhersagen aus fünf Klimazonen</h2>
+<p>Die Test-Suite des Projekts enthält echte Ensemble-Vorhersagen für fünf bewusst unterschiedliche Orte, aufgezeichnet
+am 29.09.2026, je 59 Schritte. Sie zeigen, dass Unsicherheit nicht nur von der Vorhersagezeit abhängt, sondern stark
+von Ort, Wetterlage und Größe. Die Tabelle zählt, wie oft jede Stufe vorkommt; Braunschweig (gemäßigt, Abb. 2) wurde
+bereits gezeigt, die übrigen Meteogramme zeigen je zehn Tage.</p>
+<figure class="table">
+  <figcaption class="above"><b>Tabelle 2 – Anteil der 59 Schritte je Stufe</b>, nach Ort und Größe.</figcaption>
+  $table_levels
+</figure>
+
+<figure>
+  <h3>7.1&nbsp;&nbsp;Alice Springs – wüstenhaft, mit einer Störung</h3>
+  <img src="img/alice_springs.png" alt="Meteogramm Alice Springs">
+  <figcaption><b>Abb. 7 – Alice Springs, Australien.</b> Die ersten zweieinhalb Tage sind fast vollständig sicher:
+  klar, trocken, leichter Wind, und das Temperaturband bleibt bei einem Tagesgang von rund 19 auf 34 °C schmaler als
+  1,5 K. Ab dem Abend des 1.10. kündigt sich eine Störung an: Die Bewölkung wird unsicher, der Regen nur noch
+  „wahrscheinlich kein oder leichter“, und am Mittag des 3.10. liegen 80 % der Member zwischen 21 und 32 °C. Ab dem
+  6.10. wird es wieder heiter, am 7.10. sicher klar.</figcaption>
+</figure>
+
+<figure>
+  <h3>7.2&nbsp;&nbsp;Singapur – sichere Temperatur, unsicherer Regen</h3>
+  <img src="img/singapore.png" alt="Meteogramm Singapur">
+  <figcaption><b>Abb. 8 – Singapur.</b> Die Temperatur schwankt Tag für Tag nahezu gleich zwischen 24 und 30 °C; das
+  Band bleibt über zwei Wochen bei 1–3 K. Der Niederschlag folgt dem Tagesgang tropischer Schauer: Für den Nachmittag
+  (12–18 Uhr) meldet das Ensemble an den ersten beiden Tagen sicher starken Regen, nachts eher trockenes Wetter; danach
+  wechselt es zwischen „wahrscheinlich“ und „alles möglich“ – Schauer sind sicher zu erwarten, aber nicht Zeitpunkt und
+  Menge. Wind ist in 97 % der Schritte sicher windstill.</figcaption>
+</figure>
+
+<figure>
+  <h3>7.3&nbsp;&nbsp;Reykjavík – nass, mit uneinigen Regenmengen</h3>
+  <img src="img/reykjavik.png" alt="Meteogramm Reykjavík">
+  <figcaption><b>Abb. 9 – Reykjavík, Island.</b> Die ersten Tage bringen bei bedecktem Himmel mehrfach sicher starken
+  Regen (mehr als 2 mm in 6 Stunden, Mediane bis 9 mm). Danach ist sich das Ensemble über die Menge fast nie einig: In
+  drei Vierteln aller Schritte zeigt das Regensymbol „alles möglich“, weil manche Member kaum etwas, andere über 10 mm
+  liefern. Der Wind ist meist leicht; die Temperatur bleibt lange eng, erst in der zweiten Woche öffnet sich das Band
+  auf 6–9 K.</figcaption>
+</figure>
+
+<figure>
+  <h3>7.4&nbsp;&nbsp;Zermatt – Hochgebirge</h3>
+  <img src="img/zermatt.png" alt="Meteogramm Zermatt">
+  <figcaption><b>Abb. 10 – Zermatt, Schweiz (1608 m).</b> Das Ensemble hält Zermatt in allen 59 Schritten für sicher
+  windstill – eine Aussage über die Einigkeit des Modells, das Täler und Talwinde auf seinem 25-km-Gitter nicht auflöst
+  (Abschnitt 10.3). Die Bewölkung ist meist nur „wahrscheinlich bewölkt“ oder unsicher, der Regen an einzelnen
+  Nachmittagen unsicher. Das Temperaturband öffnet sich in der zweiten Woche so schnell wie nirgends sonst: Am 8.10.
+  liegen 80 % der Member am Abend zwischen 4 und 17 °C.</figcaption>
+</figure>
+
+<h2>8&nbsp;&nbsp;Unsicherheit wächst mit der Vorhersagezeit – aber unterschiedlich schnell</h2>
+<p>Fasst man die Breite des Temperaturbands (10.–90. Perzentil) für alle fünf Orte zusammen, wird sichtbar, was die
+Meteogramme einzeln andeuten: Die Vorhersagbarkeit nimmt zwar überall mit der Zeit ab, aber nicht gleich schnell und
+nicht gleichmäßig.</p>
+<figure>
+  $fig_spread
+  <figcaption><b>Abb. 11 – Breite des 10.–90.-Perzentil-Bands der Temperatur über der Vorhersagezeit</b> (gleitendes
+  Tagesmittel, um den Tagesgang zu glätten). Singapur bleibt bei 1–3 K, weil tropische Temperaturen kaum von der
+  großräumigen Wetterlage abhängen. Alice Springs springt zwischen dem vierten und sechsten Tag auf bis zu 10 K – die
+  Störung aus Abb. 7 –, wird danach wieder enger und öffnet sich zum Ende erneut. Braunschweig und Reykjavík wachsen
+  stetig auf 7–8 K, Zermatt am stärksten auf bis zu 12 K.</figcaption>
+</figure>
+<p>Genau diese Information geht bei einer einzelnen Prognoselinie verloren. Eine Aussage „Freitag, 9.10., mittags 13 °C“
+ist in Braunschweig mit einer Spanne von rund 8 K verbunden (80 % der Member zwischen 10 und 18 °C), die entsprechende
+Aussage für Singapur mit etwa 2 K.</p>
+
+<h2>9&nbsp;&nbsp;HRES: geplant, noch nicht umgesetzt</h2>
+<p>Das alte Projekt enthielt eine zweite Darstellungsart, <code>enhanced-hres</code>. Sie verbindet die hochaufgelöste
+deterministische Vorhersage des ECMWF (HRES) mit dem Ensemble: Der <b>HRES-Wert bestimmt die Intensitätsklasse</b>, das
+<b>Ensemble bestimmt, wie deutlich</b> sie gezeichnet wird. Dazu gibt es für jede Größe ein 4 × 4-Raster von
+Piktogrammen.</p>
+<figure>
+  $hres_grid
+  <figcaption><b>Abb. 12 – Die 48 Piktogramme der HRES-Variante.</b> Die Spalte (Intensität) folgt aus dem HRES-Wert,
+  die Zeile im alten Code daraus, wie viele Ensemble-Member auf derselben Seite der Klassengrenze liegen: Stufe 4 bei
+  mindestens 90 %, Stufe 3 bei mindestens 50 % (Median), Stufe 2 bei mindestens 25 %, sonst Stufe 1.</figcaption>
+</figure>
+<p>Anders als bei der VSUP-Variante bleibt die Form des Symbols hier immer spezifisch; nur die Farbe verblasst. Die
+Darstellung ist damit näher an gewohnten Wetter-Apps, verzichtet aber auf das eigentliche Prinzip der
+Wertunterdrückung. Beispiel: Sagt HRES 0,5 mm voraus (Klasse „leicht“) und liegen 90 % der Member unter 1 mm, erscheint
+ein schwarzer Schirm mit einem Tropfen (Stufe 4). Liegt dagegen schon das 25. Perzentil über 1 mm, erscheint derselbe
+Schirm hellblau (Stufe 1): Die Hauptvorhersage sagt „leicht“, das Ensemble widerspricht.</p>
+<div class="box warm">
+  <div class="box-title">Derzeit nicht verfügbar</div>
+  <p>Keine Datenquelle der App liefert bisher einen deterministischen Lauf. Die API kennt die Variante
+  (<code>variant=hres</code>), antwortet aber mit HTTP 409 „nicht angeboten“; die Regelsprache kann einen HRES-Wert
+  schon lesen, und das Datenmodell hat einen Platz dafür. Geplant ist ein Adapter für die deterministische
+  Open-Meteo-Vorhersage, ein Schema-Modus <code>anchored</code>, in dem der HRES-Wert die Klasse und das Ensemble die
+  Deutlichkeit bestimmt, und eine Neuzeichnung der 48 Piktogramme als SVG. Bis dahin liegen die PNGs als Designvorlage
+  im Repository.</p>
+</div>
+
+<h2>10&nbsp;&nbsp;Grenzen und bekannte Lücken</h2>
+<h3>10.1&nbsp;&nbsp;Warum ist die Bewölkung schon morgen unsicher?</h3>
+<p>Am Abend des 29.09.2026 zeigte die App für Döteberg bei Hannover (Gitterpunkt 52,25° N, 9,5° O) für die Nacht und
+den folgenden Tag fast nur das Bewölkungssymbol „alles möglich“, obwohl die Vorhersage keine 24 Stunden in die Zukunft
+reicht. Das wirkt wie ein Fehler, ist aber keiner. Abb. 13 zeigt die 51 Member des Laufs vom 29.09., 06 UTC: Nach einem
+bedeckten Dienstag verteilen sie sich in der Nacht und am Mittwoch über alle vier Klassen. Es geht um mittelhohe und
+hohe Wolken – die tiefe Bewölkung liegt im Median bei 0 % –, und wie viel davon den Himmel bedeckt, hängt empfindlich
+von der Feuchte in einigen Kilometern Höhe ab. Andere Modelle sind sich ebenso uneinig (Tabelle): Für Mittwoch 6 Uhr
+reichen die deterministischen Läufe von 26 % (ECMWF) bis 100 % (GFS, Météo-France), am Nachmittag von 0 bis 88 %.</p>
+<figure>
+  $fig_members
+  <figcaption><b>Abb. 13 – Döteberg, Lauf 29.09.2026 06 UTC (Live-Abruf).</b> Oben die Zahl der Member je Wolkenklasse
+  alle drei Stunden, unten das Symbol, das die App für den 6-Stunden-Schritt zeichnet. Dieselbe Lage zeigt die
+  aufgezeichnete Vorhersage für Braunschweig (Abb. 2, 30.09.).</figcaption>
+</figure>
+<figure class="table">
+  <figcaption class="above"><b>Tabelle 3 – Gesamtbewölkung in Döteberg nach Modell</b> (deterministische Läufe, abgerufen
+  am 29.09.2026 gegen 19 UTC; darunter die Spanne p17–p83 des Ensembles, wie sie die App bekam).</figcaption>
+  $table_models
+</figure>
+<p>Hinzu kommt ein Effekt der Darstellung: die <b>festen Gruppengrenzen</b>. Um Mitternacht liegt die mittlere Hälfte
+der Member bei 37–72 % – eigentlich eine recht bestimmte Aussage („teils bewölkt“), aber sie überspannt die Grenze
+zwischen „klar oder leicht bewölkt“ und „bewölkt oder bedeckt“, und so bleibt nur Stufe 1 (Abb. 5, G). Umgekehrt am
+Dienstagmittag: Die Member sind sich einig, dass es stark bewölkt ist (76–95 %), doch die Klassengrenze bei 90 % teilt
+sie, und es reicht nur für „wahrscheinlich“ (Abb. 5, E). Die mittleren Klassen sind zudem schmal – „leicht bewölkt“
+umfasst 40 Prozentpunkte, „mäßiger Regen“ 1 mm –, deshalb werden sie fast nie „sicher“. Das liegt an den Klassen, nicht
+an der Schwelle von zwei Dritteln; ändern ließe es sich etwa durch eine überlappende Gruppe „wechselnd bewölkt“ für die
+Mitte oder durch eine Unschärfezone an den Grenzen.</p>
+
+<h3>10.2&nbsp;&nbsp;Windeinheiten – behoben</h3>
+<p>Die Windschwellen (3 / 10 / 17,2) sind in m/s formuliert, Open-Meteo liefert Wind aber standardmäßig in km/h. Die
+alte App verglich deshalb km/h-Werte mit m/s-Grenzen und zeichnete Wind um den Faktor 3,6 zu stark: Eine Brise von
+17 km/h (4,8 m/s) erschien als Sturm. Der frühere Bericht musste die Windwerte vor dem Zeichnen umrechnen, damit das
+Konzept sichtbar wurde. Behoben ist das seit Commit <code>dc7984f</code>: Der Adapter verlangt m/s ausdrücklich und liest
+die zurückgemeldete Einheit trotzdem, um sie umzurechnen oder abzulehnen – Open-Meteo übergeht einen unbekannten
+Parameter stillschweigend, die Anfrage allein beweist also nichts. Denselben Fehlertyp gab es vorher schon bei der Bewölkung
+(Anteil statt Prozent) und beim Niederschlag (Meter statt Millimeter). Keiner davon ließ das Programm abstürzen – alle
+zeichneten nur falsche Symbole. Tests halten deshalb heute genau das fest, etwa dass 17,28 km/h als 4,8 m/s ankommen.</p>
+
+<h3>10.3&nbsp;&nbsp;Weitere Einschränkungen</h3>
+<ul>
+  <li><b>Harte Schwellen.</b> Die Klassengrenzen sind fest und scharf. Ein 83. Perzentil von 0,09 mm ergibt „sicher
+  kein Regen“, eines von 0,11 mm nicht mehr. Kleine Änderungen können daher zu sichtbaren Symbolwechseln führen
+  (siehe 10.1).</li>
+  <li><b>Einigkeit statt Wahrscheinlichkeit.</b> „Sicher“ bedeutet hier „mindestens zwei Drittel der Member stimmen
+  überein“. Das ist eine Aussage über die Einigkeit des Modells, keine kalibrierte Eintrittswahrscheinlichkeit.
+  Systematische Modellfehler – etwa im Gebirge, wo das 25-km-Gitter das Relief glättet (Zermatt, Abb. 10) – sieht das
+  Ensemble nicht.</li>
+  <li><b>Welcher Lauf?</b> Die Antwort von Open-Meteo nennt den Modelllauf nicht, die App zeigt also nicht, von wann die
+  Daten stammen. Die Läufe erscheinen mit einigen Stunden Verzögerung – der vom 29.09., 06 UTC, war um 16:44 UTC
+  verfügbar. Die App speichert jede Vorhersage eine Stunde zwischen.</li>
+  <li><b>Behoben seit dem letzten Bericht:</b> Das Meteogramm beginnt nicht mehr fest beim zweiten Zeitschritt des
+  Laufs, sondern beim Schritt, der jetzt am nächsten liegt; eine veraltete Vorhersage wird mit einem Hinweis ab ihrem
+  Anfang gezeigt. Die ganzen knapp 15 Tage des Laufs sind erreichbar. Die Legende steht neben dem Meteogramm und
+  benennt das schraffierte Symbol ausdrücklich als „alles möglich“, damit es niemand für Nebel hält.</li>
+  <li><b>Noch offen:</b> die HRES-Variante (Abschnitt 9), ein zweites Produkt wie das DWD-Ensemble ICON-EPS, eine
+  12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
+  Nutzer.</li>
+</ul>
+
+<h2>Fazit</h2>
+<p>Die Software beantwortet eine Frage, die klassische Wetter-Apps übergehen: Wie sehr kann ich mich auf diese Prognose
+verlassen? Sie tut das nicht mit zusätzlichen Zahlen, sondern indem sie die Darstellung selbst von der Sicherheit
+abhängig macht. Bei der Temperatur wird die Unsicherheit als Band sichtbar; bei Wolken, Regen und Wind verlieren die
+Symbole mit wachsender Uneinigkeit des Ensembles an Detail und Farbe, bis nur noch ein ehrliches „alles möglich“
+bleibt. Die Beispiele zeigen, dass das in der Praxis gut lesbare, ortsspezifische Muster erzeugt: eine verlässliche
+Wüstenprognose mit einer klar markierten Störung, tropische Schauer mit sicherer Temperatur, aber unsicherem Regen, und
+die typisch wachsende Unschärfe der mittleren Breiten. Mit der Neuentwicklung sind die Regeln Konfiguration statt
+Code: Sie werden beim Start geprüft, die Legende folgt ihnen von selbst, und wer eine Grenze verschieben will, ändert
+eine Zahl in einer Datei.</p>
+
+<div class="box keep">
+  <div class="box-title">Wo im Code?</div>
+  <dl class="code">
+    <dt>webapp/sources/open_meteo.py</dt><dd>Abruf der 51 Member in festen Einheiten</dd>
+    <dt>webapp/core/reduce.py, core/pipeline.py</dt><dd>Quantile, 6-Stunden-Summen pro Member</dd>
+    <dt>webapp/core/model.py</dt><dd>das Datenmodell <code>Forecast</code> und seine Prüfungen</dd>
+    <dt>webapp/config/vsup.yaml, webapp/vsup/</dt><dd>die Piktogrammregeln und ihr Klassifikator</dd>
+    <dt>webapp/api/</dt><dd>das Backend (FastAPI): <code>/api/forecast</code>, <code>/api/schemes</code>, <code>/api/geocode</code> …</dd>
+    <dt>webapp/frontend/src/meteogram/</dt><dd>das Meteogramm im Browser</dd>
+    <dt>webapp/pictograms/</dt><dd>die 7 SVG-Piktogramme je Größe; <code>…/enhanced_hres/</code> die 48 HRES-PNGs</dd>
+    <dt>webapp/tests/fixtures/</dt><dd>die fünf aufgezeichneten Vorhersagen dieses Berichts</dd>
+    <dt>docs/neuentwicklung-plan.md</dt><dd>Plan und Stand der Neuentwicklung</dd>
+    <dt>docs/bericht/</dt><dd>die Quelle dieses Berichts (<code>build.py</code>, <code>render.mjs</code>)</dd>
+  </dl>
+</div>
+
+</body>
+</html>

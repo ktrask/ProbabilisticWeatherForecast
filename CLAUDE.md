@@ -101,6 +101,13 @@ Everything lives under `webapp/`:
   PNGs the legacy rules drew, and the 48 HRES PNGs in `*/enhanced_hres/` (unused until phase 5
   redraws them; kept as the design reference).
 
+The German report `Bericht_Probabilistische_Meteogramme.pdf` at the repository root is built from
+`docs/bericht/`: `node docs/bericht/render.mjs shots` photographs the offline app (fixtures API on
+port 8766), `webapp/.venv/bin/python docs/bericht/build.py` draws its charts - the scenario
+pictograms by the app's own classifier - and `node docs/bericht/render.mjs pdf` prints it with
+Playwright's Chromium. Rebuild it after a visual change; `data/` holds the live Döteberg download
+of 2026-09-29 that section 10.1 is about.
+
 Layering: `core` <- `sources`, `vsup` <- `api`. `sources.config.load()` checks products against a
 loaded VSUP config handed to it; only the `python -m sources` CLI imports `vsup` itself.
 

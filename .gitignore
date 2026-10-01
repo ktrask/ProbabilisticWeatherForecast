@@ -7,3 +7,6 @@ venv/
 
 # pytest
 .pytest_cache/
+
+# The report's HTML is built by docs/bericht/build.py, with absolute file:// paths
+docs/bericht/bericht.html
