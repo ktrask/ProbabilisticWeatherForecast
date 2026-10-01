@@ -178,8 +178,8 @@ test("another model can be chosen, and the link keeps it", async ({ page }) => {
   await expect(page).toHaveURL(/product=icon/);
   await expect(page.locator(".source")).toContainText("DWD ICON ensemble (recorded), 40 Ensemble-Mitglieder");
   await expect(page.locator(".source")).not.toContainText("ECMWF");
-  // ICON reaches about a week: the days follow what the model has.
-  await expect(page.getByRole("slider")).toHaveAttribute("max", "7");
+  // ICON reaches 7.25 days: the days follow what the model has, a begun one included.
+  await expect(page.getByRole("slider")).toHaveAttribute("max", "8");
   await expect(chart.locator("image").first()).toBeAttached();
   await page.goBack();
   await expect(page.locator(".source")).toContainText("ECMWF ensemble (recorded), 51 Ensemble-Mitglieder");

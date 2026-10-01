@@ -2,9 +2,10 @@
 // in which order, the temperature scale, and when a pictogram belongs in time.
 //
 // Instant variables (clouds, wind, temperature) belong to their step's time.
-// Precipitation is the total over [t, t + window), so its pictogram sits in
-// the middle of that window - between two instants, like the precipitation
-// bars of a classic meteogram.
+// Precipitation is the total over [t, t + window); its pictogram stands at t,
+// the start of that window, in one column with the step's other pictograms -
+// the user's call of 2026-10-01: in the middle of the window, between two
+// instants, the rain row looked misaligned. The crosshair shows the window.
 import type { Forecast, PictogramSeries, VariableSeries } from "../api/client";
 import { extent } from "./layout";
 import { HOUR_MS } from "./time";
@@ -38,13 +39,11 @@ export function lanes(forecast: Forecast, variables: string[]): Lane[] {
   return result;
 }
 
-/** Where on the time axis a pictogram goes: its step for an instant, the middle
- * of its window for a total - or null for a total whose window runs past `end`,
- * which is not drawn at all. */
+/** Where on the time axis a pictogram goes: its step - or null for a total
+ * whose window runs past `end`, which is not drawn at all. */
 export function pictogramTime(t: Date, windowMs: number | null, end: Date): Date | null {
-  if (windowMs === null) return t;
-  if (t.getTime() + windowMs > end.getTime()) return null;
-  return new Date(t.getTime() + windowMs / 2);
+  if (windowMs !== null && t.getTime() + windowMs > end.getTime()) return null;
+  return t;
 }
 
 /** The temperature axis for the whole window, so that 5 degrees look like 5

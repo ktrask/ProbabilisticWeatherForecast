@@ -63,10 +63,22 @@ describe("where the view starts", () => {
     expect(visibleWindow(s, 6, utc("2026-10-10T00:00:00"), 7)).toMatchObject({ to: 56 });
   });
 
-  it("counts the whole days left", () => {
+  it("counts the days left, a begun one included", () => {
     expect(daysAvailable(56, 0, 6)).toBe(14);
-    expect(daysAvailable(56, 2, 6)).toBe(13);
+    expect(daysAvailable(56, 2, 6)).toBe(14);
     expect(daysAvailable(56, 55, 6)).toBe(1);
+    // ICON-D2: 9 steps from midnight are exactly 2 days; from noon 1.5 - offered as 2.
+    expect(daysAvailable(9, 0, 6)).toBe(2);
+    expect(daysAvailable(9, 2, 6)).toBe(2);
+    // ECMWF: 59 steps reach 14.5 days - offered as 15.
+    expect(daysAvailable(59, 0, 6)).toBe(15);
+  });
+
+  it("shows a begun last day as far as the forecast goes", () => {
+    const d2 = steps("2026-09-30T22:00:00", 9);
+    expect(visibleWindow(d2, 6, utc("2026-10-01T10:00:00"), 2)).toMatchObject({ from: 2, to: 9 });
+    // Two days from midnight end on the third midnight, the last step.
+    expect(visibleWindow(d2, 6, utc("2026-09-30T22:00:00"), 2)).toMatchObject({ from: 0, to: 9 });
   });
 });
 

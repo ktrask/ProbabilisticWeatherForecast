@@ -20,15 +20,19 @@ export function startIndex(steps: Date[], stepHours: number, now: Date): { index
   return { index: Math.round((now.getTime() - first.getTime()) / stepMs), stale: false };
 }
 
-/** Whole days the forecast still covers from step `from`. */
+/** Days the forecast still covers from step `from` to its last step, a begun
+ * one counted: a model that reaches 1.5 more days offers 2, the last one shown
+ * as far as it goes. */
 export function daysAvailable(stepCount: number, from: number, stepHours: number): number {
-  return Math.max(1, Math.floor(((stepCount - from) * stepHours) / 24));
+  return Math.max(1, Math.ceil(((stepCount - 1 - from) * stepHours) / 24));
 }
 
 export function visibleWindow(steps: Date[], stepHours: number, now: Date, days: number): Window {
   const { index, stale } = startIndex(steps, stepHours, now);
   const span = Math.max(2, Math.round((days * 24) / stepHours));
-  const to = Math.min(steps.length, index + span);
+  let to = Math.min(steps.length, index + span);
+  // The forecast's very last step closes its last day; never leave it out alone.
+  if (steps.length - to === 1) to = steps.length;
   return { from: Math.max(0, Math.min(index, to - 2)), to, stale };
 }
 
