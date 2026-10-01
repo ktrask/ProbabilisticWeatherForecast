@@ -1,12 +1,12 @@
 # Plan: weitere Ensemble-Modelle und stündliche Vorhersage
 
-Stand: 01.10.2026 · Stufe 1 umgesetzt, Stufen 2–5 offen. Baut auf dem Stand von `main` auf (Commit
+Stand: 01.10.2026 · Stufen 1 und 2 umgesetzt, Stufen 3–5 offen. Baut auf dem Stand von `main` auf (Commit
 `83bd6bd`) und ergänzt Phase 5 aus `neuentwicklung-plan.md` („Zweites Produkt nur über `sources.yaml`“).
 
 | Stufe | Stand |
 |---|---|
 | 1 Zweites globales Modell | erledigt (01.10.2026) |
-| 2 Regionale Modelle | offen |
+| 2 Regionale Modelle | erledigt (01.10.2026) |
 | 3 Automatische Vorauswahl | offen |
 | 4 Stündliche Schritte | offen |
 | 5 Weitere globale Modelle | offen |
@@ -114,7 +114,41 @@ machen soll. Sie liest sich aber nicht wie ein Fehler der App, sondern wie ein M
 **Zum Testen:** Zwischen ECMWF und ICON umschalten, für eigene Orte. Wie verteilen sich die Stufen bei
 40 statt 51 Membern?
 
-### Stufe 2 – Regionale Modelle mit Abdeckung, von Hand wählbar
+### Stufe 2 – Regionale Modelle mit Abdeckung, von Hand wählbar · erledigt
+
+**Umgesetzt (01.10.2026):** Produkte `icon-eu` (40 Member, 13 km, 5 Tage), `icon-d2` (20 Member, 2 km,
+2 Tage) und `meteoswiss` (ICON-CH2, 21 Member, 2 km, 4,5 Tage). Abweichungen und Befunde:
+
+- Die Gebiete stehen an der **Quelle** (`area`), nicht am Produkt. Sie stammen aus Open-Meteos
+  Metadaten (`/data/<domain>/static/meta.json`, `BBOX`). ICON-EU und -D2 füllen ihr Rechteck. Das
+  gedrehte MeteoSwiss-Gitter tut es nicht: Bei 42,7° N / 16,7° O liegt der Punkt im Rechteck, die
+  Antwort ist aber „No data“.
+- Statt `/api/products?lat=…&lon=…` liefert `/api/products` das Rechteck mit, und das Frontend filtert
+  selbst. So bleibt die Antwort für alle Orte gleich und cachebar.
+- Hat das gewählte Modell für den Ort keine Vorhersage (Rand eines gedrehten Gitters, oder ein Link
+  mit fremdem Ort), bietet die Fehlermeldung „Standardmodell verwenden“ an. Ein neuer Ort außerhalb
+  des Gebiets wechselt gleich zum Standard.
+- Der Health-Check fragt jede Quelle in ihrem Gebiet: am Prüfort, sonst in der Mitte des Rechtecks.
+  Die Fixture-Quelle fragt die erste Aufzeichnung.
+- Mindestens 10 Member, geprüft beim Laden. Das UK-Modell (3) ist damit draußen.
+
+**Vergleich der ersten zwei Tage** (Live-Läufe 01.10.2026; sicher/wahrscheinlich/unsicher in 8
+Schritten; Temperaturband p10–p90 im Mittel):
+
+| | Bewölkung | Niederschlag | Wind | T-Band |
+|---|---|---|---|---|
+| Braunschweig ECMWF | 5/2/1 | 5/0/3 | 5/3/0 | 2,1 K |
+| Braunschweig ICON-EU | 5/2/1 | 5/1/2 | 7/1/0 | 1,3 K |
+| Braunschweig ICON-D2 | 5/2/1 | 5/1/2 | 8/0/0 | 1,1 K |
+| Zermatt ECMWF | 3/5/0 | 0/6/2 | 8/0/0 | 1,9 K |
+| Zermatt ICON-D2 | 4/3/1 | 5/2/1 | 8/0/0 | 1,1 K |
+| Zermatt MeteoSwiss | 5/1/2 | 5/3/0 | 8/0/0 | 1,0 K |
+
+Die feinen Modelle sind sich enger einig (halb so breites Temperaturband). In den Alpen wird der
+Regen erst mit ihnen überhaupt einmal „sicher“. Ob das Einigkeit ist oder nur geringere Streuung der
+kleineren Ensembles, zeigt erst ein Vergleich mit dem, was dann tatsächlich eintritt.
+
+**Ursprünglicher Plan:**
 
 - Quellen und Produkte für `icon_eu_eps`, `icon_d2_eps` und `meteoswiss_icon_ch2`.
 - **Abdeckung je Produkt:** ein grobes Rechteck in `sources.yaml` als Vorfilter, dazu die Antwort von

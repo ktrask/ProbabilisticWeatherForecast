@@ -94,15 +94,29 @@ def offline_products():
     return load(DEFAULT_SOURCES.parent / "sources.fixtures.yaml", load_vsup()).products
 
 
-@pytest.mark.parametrize("product", ["ecmwf", "icon"])
+@pytest.mark.parametrize("product", ["ecmwf", "icon", "icon-eu", "icon-d2", "meteoswiss"])
 def test_each_products_recordings_are_what_it_claims(product):
-    """Every product's recordings: one per location, valid, from as many
-    members as the product states, reaching about as far as it says."""
+    """Every product's recordings: valid, from as many members as the product
+    states, reaching about as far as it says - and for a regional model, of
+    the places it covers and only those."""
     spec = offline_products()[product]
     source = spec.source
-    assert source.keys() == sorted(LOCATION_KEYS)
+    assert source.keys(), f"{product}: no recordings"
+    assert set(source.keys()) <= set(LOCATION_KEYS)
     for key in source.keys():
         recorded = Forecast.model_validate(json.loads((source.directory / f"{key}.json").read_text()))
         assert recorded.run.members == spec.members, f"{product}/{key}"
         span_days = (recorded.steps[-1] - recorded.steps[0]).total_seconds() / 86400
         assert spec.horizon_days - 1.5 <= span_days <= spec.horizon_days, f"{product}/{key}: {span_days:.1f} days"
+        place = source.location(key)
+        if spec.area is not None:
+            assert spec.area.contains(place.lat, place.lon), f"{product}/{key} lies outside its area"
+
+
+@pytest.mark.parametrize("product, covered", [
+    ("icon-eu", {"braunschweig", "reykjavik", "zermatt"}),
+    ("icon-d2", {"braunschweig", "zermatt"}),
+    ("meteoswiss", {"zermatt"}),
+])
+def test_regional_recordings_are_the_covered_places(product, covered):
+    assert set(offline_products()[product].source.keys()) == covered

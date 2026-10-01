@@ -12,15 +12,19 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.configfile import ConfigFile
 from core.model import DETERMINISTIC, quantile_name
 from core.pipeline import STEP_HOURS
 from core.variables import VARIABLES
+from sources.base import Area
 from sources.fixture import DEFAULT_DIRECTORY as DEFAULT_FIXTURES
 from sources.fixture import FixtureSource
 from sources.open_meteo import DEFAULT_TIMEOUT_S, OpenMeteoEnsemble
+
+# Fewer members than this, and "two thirds agree" rests on a handful of runs.
+MIN_MEMBERS = 10
 
 DEFAULT_SOURCES = Path(__file__).resolve().parent.parent / "config" / "sources.yaml"
 
@@ -29,16 +33,39 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class AreaSpec(_Strict):
+    """A box around a regional model's domain, in degrees. Inside it the model's
+    own answer decides; outside it the source is not asked."""
+
+    south: float = Field(ge=-90, le=90)
+    north: float = Field(ge=-90, le=90)
+    west: float = Field(ge=-180, le=180)
+    east: float = Field(ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def _ordered(self):
+        if self.south >= self.north:
+            raise ValueError("south must be below north")
+        if self.west >= self.east:
+            raise ValueError("west must be west of east")
+        return self
+
+
+AREA_DESCRIPTION = "For a regional model: the box around its domain. Default: the whole globe."
+
+
 class OpenMeteoEnsembleSpec(_Strict):
     adapter: Literal["open_meteo_ensemble"]
     model: str = Field("ecmwf_ifs025", description="Open-Meteo's name for the ensemble model.")
     forecast_days: int = Field(15, ge=1, le=35, description="How far ahead to ask; NaN past the run's end is dropped.")
     timeout_s: float = Field(DEFAULT_TIMEOUT_S, gt=0, le=120)
+    area: AreaSpec | None = Field(None, description=AREA_DESCRIPTION)
 
 
 class FixtureSpec(_Strict):
     adapter: Literal["fixture"]
     directory: str | None = Field(None, description="Recorded forecasts, relative to this file. Default: tests/fixtures.")
+    area: AreaSpec | None = Field(None, description="As the live source it stands in for.")
 
 
 class ProductSpec(_Strict):
@@ -50,7 +77,7 @@ class ProductSpec(_Strict):
     )
     # What the reader is told when choosing - and, later, what an automatic
     # choice weighs. The live tests hold members and horizon to the real thing.
-    members: int = Field(ge=1, description="Ensemble members the model runs.")
+    members: int = Field(ge=MIN_MEMBERS, description="Ensemble members the model runs.")
     grid_km: float = Field(gt=0, description="Grid spacing of the model, in km.")
     horizon_days: float = Field(gt=0, description="About how far ahead a run reaches, in days.")
 
@@ -81,6 +108,10 @@ class Product:
     members: int
     grid_km: float
     horizon_days: float
+
+    @property
+    def area(self):
+        return self.source.area if self.source is not None else None
 
     # "hres" joins once a product can have a deterministic source.
     variants = ("ensemble",)
@@ -119,11 +150,12 @@ def load(path, vsup_config):
 
 
 def _adapter(file, key, spec):
+    area = Area(spec.area.south, spec.area.north, spec.area.west, spec.area.east) if spec.area else None
     if spec.adapter == "open_meteo_ensemble":
-        return OpenMeteoEnsemble(spec.model, forecast_days=spec.forecast_days, timeout_s=spec.timeout_s)
+        return OpenMeteoEnsemble(spec.model, forecast_days=spec.forecast_days, timeout_s=spec.timeout_s, area=area)
     directory = (file.path.parent / spec.directory).resolve() if spec.directory else DEFAULT_FIXTURES
     try:
-        return FixtureSource(directory)
+        return FixtureSource(directory, area=area)
     except OSError as exc:
         file.report(("sources", key, "directory"), f"cannot read recorded forecasts from {directory}: {exc.strerror}")
         return None

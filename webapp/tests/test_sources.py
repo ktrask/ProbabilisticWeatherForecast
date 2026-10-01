@@ -17,7 +17,7 @@ from core import legacy
 from core.model import Location
 from core.pipeline import build_forecast
 from sources import open_meteo
-from sources.base import SourceError, SourceTimeout
+from sources.base import Area, NotCovered, SourceError, SourceTimeout
 from sources.fixture import FixtureNotFound, FixtureSource, is_forecast
 from sources.open_meteo import OpenMeteoEnsemble, decode, messages
 from tests.conftest import FIXTURE_DIR, LOCATION_KEYS, load_fixture
@@ -114,6 +114,12 @@ class TestFixtureSource:
         with pytest.raises(FixtureNotFound):
             run(FixtureSource().fetch(Location(lat=0.0, lon=0.0), {"precipitation"}))
 
+    def test_an_area_refuses_like_the_live_source(self):
+        alps = FixtureSource(area=Area(42.58, 49.79, 1.23, 16.85))
+        with pytest.raises(NotCovered):
+            run(alps.fetch(Location(lat=52.3, lon=10.6), {"precipitation"}))
+        assert run(alps.fetch(Location(lat=46.0, lon=7.7), {"precipitation"})).source == "fixture:zermatt"
+
     def test_unknown_key(self):
         with pytest.raises(FixtureNotFound, match="there are alice_springs"):
             FixtureSource().load("atlantis")
@@ -159,6 +165,25 @@ class TestOpenMeteoFailures:
         client = serving(content=b'{"error": true, "reason": "Latitude must be in range"}', status=400)
         with pytest.raises(SourceError, match="400: Latitude must be in range"):
             run(OpenMeteoEnsemble(client=client).fetch(REYKJAVIK, VARIABLES))
+
+    def test_a_place_outside_a_regional_grid_is_not_covered(self):
+        """Open-Meteo's answer for a point its regional model has no grid for."""
+        reason = b'{"error": true, "reason": "No data is available for this location"}'
+        with pytest.raises(NotCovered, match="does not cover 64.1466, -21.9426"):
+            run(OpenMeteoEnsemble("icon_d2_eps", client=serving(content=reason, status=400)).fetch(REYKJAVIK, VARIABLES))
+
+    def test_outside_the_area_nothing_is_asked(self):
+        seen = []
+        d2 = OpenMeteoEnsemble("icon_d2_eps", area=Area(43.18, 58.06, -3.94, 20.32), client=serving(seen=seen))
+        with pytest.raises(NotCovered):
+            run(d2.fetch(REYKJAVIK, VARIABLES))
+        assert seen == []
+
+    def test_a_health_check_asks_inside_the_area(self):
+        d2 = OpenMeteoEnsemble("icon_d2_eps", area=Area(43.18, 58.06, -3.94, 20.32))
+        inside = Location(lat=52.26, lon=10.52)
+        assert d2.probe(inside) == inside
+        assert (d2.probe(REYKJAVIK).lat, d2.probe(REYKJAVIK).lon) == pytest.approx((50.62, 8.19))
 
     def test_truncated_response(self):
         with pytest.raises(SourceError, match="truncated"):

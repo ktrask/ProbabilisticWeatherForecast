@@ -43,8 +43,11 @@ class Recorded:
         self.delay = delay
         self.raises = raises
         self.calls = 0
-        for name in ("id", "kind", "variables", "quantile_levels", "native_step", "max_lead"):
+        for name in ("id", "kind", "variables", "quantile_levels", "native_step", "max_lead", "area"):
             setattr(self, name, getattr(self.inner, name))
+
+    def probe(self, location):
+        return self.inner.probe(location)
 
     async def fetch(self, location, variables):
         self.calls += 1
@@ -102,8 +105,10 @@ class TestProducts:
     def test_lists_the_products_default_first(self, app):
         response = get(app, "/api/products")
         assert response.status_code == 200
-        ecmwf, icon = response.json()["products"]
-        assert (ecmwf["id"], ecmwf["default"], icon["id"], icon["default"]) == ("ecmwf", True, "icon", False)
+        products = response.json()["products"]
+        assert [p["id"] for p in products] == ["ecmwf", "icon", "icon-eu", "icon-d2", "meteoswiss"]
+        assert [p["default"] for p in products] == [True, False, False, False, False]
+        ecmwf = products[0]
         assert ecmwf["variants"] == ["ensemble"]
         assert ecmwf["schemes"] == ["cloud-vsup", "precipitation-vsup", "wind-vsup"]
         assert response.headers["cache-control"] == "public, max-age=300"
@@ -112,6 +117,24 @@ class TestProducts:
         products = {p["id"]: p for p in get(app, "/api/products").json()["products"]}
         assert (products["ecmwf"]["members"], products["ecmwf"]["grid_km"], products["ecmwf"]["horizon_days"]) == (51, 25, 15)
         assert (products["icon"]["members"], products["icon"]["grid_km"], products["icon"]["horizon_days"]) == (40, 26, 7.5)
+
+    def test_regional_products_name_their_area(self, app):
+        products = {p["id"]: p for p in get(app, "/api/products").json()["products"]}
+        assert products["ecmwf"]["area"] is None
+        assert products["icon-d2"]["area"] == {"south": 43.18, "north": 58.06, "west": -3.94, "east": 20.32}
+        assert (products["icon-d2"]["members"], products["icon-d2"]["grid_km"]) == (20, 2)
+
+    @pytest.mark.parametrize("product, place, status", [
+        ("icon-d2", BRAUNSCHWEIG, 200),
+        ("meteoswiss", "lat=46.02&lon=7.75", 200),  # Zermatt
+        ("meteoswiss", BRAUNSCHWEIG, 404),  # outside its area: not even asked
+        ("icon-eu", "lat=1.35&lon=103.82", 404),  # Singapore
+    ])
+    def test_a_regional_product_only_where_it_covers(self, app, product, place, status):
+        response = get(app, f"/api/forecast?{place}&product={product}")
+        assert response.status_code == status
+        if status == 404:
+            assert "does not cover" in response.json()["detail"]
 
     def test_another_product_is_another_forecast(self, app):
         ecmwf = get(app, f"/api/forecast?{BRAUNSCHWEIG}").json()
@@ -328,6 +351,12 @@ class TestHealth:
         assert response.status_code == 200
         assert response.json()["upstream"] == {"recorded": "ok"}
         assert source.calls == 1
+
+    def test_deep_asks_each_source_where_it_has_data(self, app):
+        """Braunschweig is the probe, but MeteoSwiss's area ends south of it."""
+        response = get(app, "/api/health?deep=true")
+        assert response.status_code == 200
+        assert set(response.json()["upstream"].values()) == {"ok"}
 
     def test_deep_with_a_failing_source_is_503(self):
         response = get(app_with(Recorded(raises=SourceError("answered 500"))), "/api/health?deep=true")

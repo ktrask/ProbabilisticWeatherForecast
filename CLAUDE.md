@@ -85,11 +85,18 @@ Everything lives under `webapp/`:
   `open_meteo.OpenMeteoEnsemble` (async httpx, flatbuffers), `fixture.FixtureSource` (the recorded
   forecasts), `geocode.OpenMeteoGeocoder`. `config.py` + **`config/sources.yaml`** define sources
   and the *products* the UI offers (a source plus the schemes drawn from it; the first is the
-  default) - today `ecmwf` (`ecmwf_ifs025`) and `icon` (DWD's `icon_global_eps`, 40 members,
-  about 7 days). Each product states `members`, `grid_km` and `horizon_days` for the reader;
-  `test_live_api` holds members and range to a live run. `config/sources.fixtures.yaml` is its
-  offline twin with the same product names, one fixture directory per product. The plan for
-  further models and hourly steps is `docs/modelle-plan.md` (stage 1 of 5 done).
+  default) - today the global `ecmwf` (`ecmwf_ifs025`) and `icon` (DWD's `icon_global_eps`,
+  40 members, about 7 days), and the regional `icon-eu` (13 km, 5 days), `icon-d2` (2 km, 2 days)
+  and `meteoswiss` (ICON-CH2, 2 km, Alps). Each product states `members` (at least 10, or "two
+  thirds agree" means nothing), `grid_km` and `horizon_days` for the reader; `test_live_api`
+  holds members and range to a live run. A regional *source* has an `area` - the box from
+  Open-Meteo's domain metadata. Outside it the adapter refuses without asking (`NotCovered`, a
+  `NoData`, so 404); inside it Open-Meteo's "No data is available for this location" (400) decides,
+  which happens at the edges of MeteoSwiss's rotated grid. `/api/products` sends the area so the
+  frontend offers only covering models; a new place outside the chosen one's area drops back to
+  the default. `config/sources.fixtures.yaml` is its offline twin with the same product names and
+  areas, one fixture directory per product, a regional one holding only the places it covers.
+  The plan for further models and hourly steps is `docs/modelle-plan.md` (stages 1-2 of 5 done).
 - **`vsup/`** + **`config/vsup.yaml`** — the pictogram rules. `rules` mode is an ordered list of
   `when:` expressions (own parser in `expr.py`, never `eval`); `tree` mode is intensity classes
   merging into groups as certainty drops. `config.load()` collects *every* problem with its line
@@ -173,7 +180,8 @@ otherwise fail on some request fails at start-up, with file and line.
 ### API behaviour
 
 - **Errors:** 422 invalid parameter (an unknown `product` too, in FastAPI's error shape), 404
-  `NoData` (no data for the place, e.g. no fixture near it), 409 variant not offered (`hres`
+  `NoData` (no data for the place: no fixture near it, or a regional model's `NotCovered`; the
+  page then offers the default model), 409 variant not offered (`hres`
   everywhere for now), 502 `SourceError`/`DataGap`, 504 `SourceTimeout`. Bodies are `{"detail": ...}`.
 - **Cache:** `api/cache.TTLCache`, in process, per worker. Forecasts 1 h keyed by source, variables
   and coordinates rounded to 2 decimals (the grid is 25 km); geocoding 1 day by normalised query.

@@ -19,10 +19,12 @@ from core.model import Location
 from core.pipeline import SourceResult
 from core.units import UnitError, to_canonical
 from sources import http
-from sources.base import SourceError
+from sources.base import NotCovered, SourceError, UpstreamStatus
 
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
 DEFAULT_TIMEOUT_S = 30.0
+# Open-Meteo's reason, with status 400, when a regional model has no grid point there.
+NOT_COVERED = "No data is available for this location"
 
 # (SDK variable, altitude in metres) -> variable name
 SDK_VARIABLES = {
@@ -60,10 +62,13 @@ class OpenMeteoEnsemble:
     quantile_levels = None  # members, so any level can be computed
 
     def __init__(self, model="ecmwf_ifs025", *, forecast_days=15, timeout_s=DEFAULT_TIMEOUT_S,
-                 client=None, url=ENSEMBLE_URL):
+                 area=None, client=None, url=ENSEMBLE_URL):
         """forecast_days: ask for this much. Open-Meteo pads whatever lies past
         the end of the model run with NaN, and the pipeline drops it, so asking
         for the model's full nominal range is safe (ecmwf_ifs025: 15 days).
+
+        area: for a regional model, a box around its domain (sources.base.Area);
+        a location outside it is refused without asking.
 
         client: an httpx.AsyncClient to share connections; this adapter's own
         timeout is applied to each request regardless of the client's.
@@ -74,6 +79,7 @@ class OpenMeteoEnsemble:
         self.forecast_days = forecast_days
         self.timeout = httpx.Timeout(timeout_s)
         self.url = url
+        self.area = area
         self._client = client
 
     def params(self, location, variables):
@@ -90,13 +96,29 @@ class OpenMeteoEnsemble:
             "format": "flatbuffers",
         }
 
+    def probe(self, location):
+        """Where a health check asks: `location`, or the middle of the area
+        when it lies outside."""
+        if self.area is None or self.area.contains(location.lat, location.lon):
+            return location
+        lat, lon = self.area.center
+        return Location(lat=lat, lon=lon)
+
     async def fetch(self, location, variables):
         variables = set(variables)
         unknown = variables - self.variables
         if unknown:
             raise ValueError(f"{self.id} cannot deliver {', '.join(sorted(unknown))}")
-        response = await http.get(self.url, self.params(location, variables), timeout=self.timeout,
-                                  what=self.id, client=self._client)
+        if self.area is not None and not self.area.contains(location.lat, location.lon):
+            raise NotCovered(f"{self.id} does not cover {location.lat}, {location.lon}")
+        try:
+            response = await http.get(self.url, self.params(location, variables), timeout=self.timeout,
+                                      what=self.id, client=self._client)
+        except UpstreamStatus as exc:
+            # A regional model's answer for a place outside its (rotated) grid.
+            if exc.status == 400 and NOT_COVERED in exc.reason:
+                raise NotCovered(f"{self.id} does not cover {location.lat}, {location.lon}") from exc
+            raise
         return decode(response.content, self.id, variables, name=location.name)
 
 

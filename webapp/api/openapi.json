@@ -1,6 +1,34 @@
 {
   "components": {
     "schemas": {
+      "AreaOut": {
+        "properties": {
+          "east": {
+            "title": "East",
+            "type": "number"
+          },
+          "north": {
+            "title": "North",
+            "type": "number"
+          },
+          "south": {
+            "title": "South",
+            "type": "number"
+          },
+          "west": {
+            "title": "West",
+            "type": "number"
+          }
+        },
+        "required": [
+          "south",
+          "north",
+          "west",
+          "east"
+        ],
+        "title": "AreaOut",
+        "type": "object"
+      },
       "CacheStats": {
         "properties": {
           "entries": {
@@ -446,6 +474,17 @@
       },
       "ProductOut": {
         "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AreaOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a regional model, the box around its domain: outside it there is no forecast, inside it there usually is (rotated grids fill it only partly). null: the whole globe."
+          },
           "default": {
             "title": "Default",
             "type": "boolean"
@@ -506,7 +545,8 @@
           "schemes",
           "members",
           "grid_km",
-          "horizon_days"
+          "horizon_days",
+          "area"
         ],
         "title": "ProductOut",
         "type": "object"

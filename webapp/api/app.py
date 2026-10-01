@@ -10,6 +10,7 @@ Status codes, all with {"detail": ...}:
     502  the upstream source failed or sent unusable data
     504  the upstream source did not answer in time
 """
+import dataclasses
 import logging
 from typing import Literal
 
@@ -20,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.cache import TTLCache
 from api.models import (
+    AreaOut,
     ClassOut,
     ErrorOut,
     GeocodeOut,
@@ -141,6 +143,7 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
                 id=p.id, label=p.label, default=p is catalog.default, variants=list(p.variants),
                 variables=sorted(p.variables), schemes=list(p.schemes),
                 members=p.members, grid_km=p.grid_km, horizon_days=p.horizon_days,
+                area=AreaOut(**dataclasses.asdict(p.area)) if p.area else None,
             )
             for p in catalog.products.values()
         ])
@@ -213,7 +216,7 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
             probe = Location(lat=settings.probe_lat, lon=settings.probe_lon)
             for key, source in catalog.sources.items():
                 try:
-                    await source.fetch(probe, {min(source.variables)})
+                    await source.fetch(source.probe(probe), {min(source.variables)})
                     upstream[key] = "ok"
                 except SourceError as exc:
                     upstream[key] = f"failing: {exc}"

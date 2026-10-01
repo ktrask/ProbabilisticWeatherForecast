@@ -20,7 +20,7 @@ import numpy as np
 from core import legacy
 from core.model import Forecast, Location, quantile_level
 from core.pipeline import SourceResult
-from sources.base import NoData
+from sources.base import NoData, NotCovered
 
 DEFAULT_DIRECTORY = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
 
@@ -39,8 +39,11 @@ class FixtureSource:
     native_step = timedelta(hours=6)
     max_lead = timedelta(days=15)
 
-    def __init__(self, directory=DEFAULT_DIRECTORY):
+    def __init__(self, directory=DEFAULT_DIRECTORY, area=None):
+        """area: as the live source it stands in for (sources.base.Area), so a
+        place outside it is refused the same way."""
         self.directory = Path(directory)
+        self.area = area
         with open(self.directory / "locations.json") as fp:
             self._locations = json.load(fp)
         # The quantile levels every recording offers - what a configuration
@@ -97,7 +100,18 @@ class FixtureSource:
             )
         return key
 
+    def probe(self, location):
+        """Where a health check asks: `location` if a recording is near it,
+        otherwise the first recording."""
+        try:
+            self.nearest(location)
+            return location
+        except FixtureNotFound:
+            return self.location(self.keys()[0])
+
     async def fetch(self, location, variables):
+        if self.area is not None and not self.area.contains(location.lat, location.lon):
+            raise NotCovered(f"{self.id} does not cover {location.lat}, {location.lon}")
         return self.load(self.nearest(location), variables)
 
 

@@ -6,6 +6,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from sources.geocode import Place
 
 
+class AreaOut(BaseModel):
+    south: float
+    north: float
+    west: float
+    east: float
+
+
 class ProductOut(BaseModel):
     id: str
     label: str
@@ -16,6 +23,11 @@ class ProductOut(BaseModel):
     members: int = Field(description="Ensemble members the model runs.")
     grid_km: float = Field(description="Grid spacing of the model, in km.")
     horizon_days: float = Field(description="About how far ahead a run reaches, in days.")
+    area: AreaOut | None = Field(
+        description="For a regional model, the box around its domain: outside it there is no "
+                    "forecast, inside it there usually is (rotated grids fill it only partly). "
+                    "null: the whole globe."
+    )
 
 
 class ProductsOut(BaseModel):

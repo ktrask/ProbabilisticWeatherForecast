@@ -167,9 +167,12 @@ test("another model can be chosen, and the link keeps it", async ({ page }) => {
   await freezeClock(page);
   const chart = await showMeteogram(page, url("braunschweig", "&days=10"));
   const picker = page.getByLabel("Modell");
+  // Braunschweig: the global models and the two DWD regional ones - not MeteoSwiss.
   await expect(picker.locator("option")).toHaveText([
     "ECMWF ensemble (recorded) (51 Mitglieder, 25 km, bis 15 Tage)",
     "DWD ICON ensemble (recorded) (40 Mitglieder, 26 km, bis 7,5 Tage)",
+    "DWD ICON-EU ensemble (recorded) (40 Mitglieder, 13 km, bis 5 Tage)",
+    "DWD ICON-D2 ensemble (recorded) (20 Mitglieder, 2 km, bis 2 Tage)",
   ]);
   await picker.selectOption("icon");
   await expect(page).toHaveURL(/product=icon/);
@@ -180,6 +183,45 @@ test("another model can be chosen, and the link keeps it", async ({ page }) => {
   await expect(chart.locator("image").first()).toBeAttached();
   await page.goBack();
   await expect(page.locator(".source")).toContainText("ECMWF ensemble (recorded), 51 Ensemble-Mitglieder");
+});
+
+test("a regional model is offered where it covers the place", async ({ page }) => {
+  await freezeClock(page, "zermatt");
+  await showMeteogram(page, url("zermatt"));
+  const picker = page.getByLabel("Modell");
+  await expect(picker.locator("option")).toHaveCount(5);
+  await picker.selectOption("meteoswiss");
+  await expect(page.locator(".source")).toContainText("MeteoSwiss ICON-CH2 ensemble (recorded), 21 Ensemble-Mitglieder");
+  await expect(page.getByTestId("meteogram").locator("image").first()).toBeAttached();
+});
+
+test("a new place the chosen model does not reach goes back to the default", async ({ page }) => {
+  await freezeClock(page);
+  await page.route("**/api/geocode?**", async (route) => {
+    const q = new URL(route.request().url()).searchParams.get("q") ?? "";
+    await route.fulfill({ json: { query: q, results: [
+      { name: "Reykjavík", lat: 64.1355, lon: -21.8954, admin1: "Hauptstadtregion", country: "Island", country_code: "IS" },
+    ] } });
+  });
+  await showMeteogram(page, url("braunschweig", "&product=icon-d2"));
+  await expect(page.getByRole("slider")).toHaveAttribute("max", "2");
+  const search = page.getByRole("combobox", { name: "Ort suchen" });
+  await search.fill("Reykj");
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveText(/Reykjavík/);
+  await search.press("Enter");
+  await expect(page.getByTestId("place")).toHaveText("Reykjavík, Island");
+  await expect(page).not.toHaveURL(/product=/);
+  await expect(page.locator(".source")).toContainText("ECMWF");
+});
+
+test("a model without a forecast for the place offers the default one", async ({ page }) => {
+  await freezeClock(page);
+  // A link to MeteoSwiss for Braunschweig - outside its area.
+  await page.goto(url("braunschweig", "&product=meteoswiss"));
+  await expect(page.getByRole("alert")).toContainText("Das gewählte Modell hat für diesen Ort keine Vorhersage.");
+  await page.getByRole("button", { name: "Standardmodell verwenden" }).click();
+  await expect(page).not.toHaveURL(/product=/);
+  await expect(page.getByTestId("meteogram").locator("image").first()).toBeAttached();
 });
 
 test("a place without data says so", async ({ page }) => {

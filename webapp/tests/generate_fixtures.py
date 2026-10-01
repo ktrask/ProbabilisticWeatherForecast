@@ -35,6 +35,7 @@ import httpx
 
 from core.model import Location
 from core.pipeline import build_forecast
+from sources.base import NotCovered
 from sources.open_meteo import OpenMeteoEnsemble
 from vsup.config import load as load_vsup
 
@@ -45,6 +46,9 @@ DEFAULT_MODEL = "ecmwf_ifs025"
 MODELS = {
     DEFAULT_MODEL: (FIXTURE_DIR, 15),
     "icon_global_eps": (FIXTURE_DIR / "icon_eps", 8),
+    "icon_eu_eps": (FIXTURE_DIR / "icon_eu_eps", 6),
+    "icon_d2_eps": (FIXTURE_DIR / "icon_d2_eps", 3),
+    "meteoswiss_icon_ch2": (FIXTURE_DIR / "meteoswiss_ch2", 6),
 }
 
 # Deliberately diverse regimes so the pictogram thresholds (calm/storm, dry/wet,
@@ -105,12 +109,18 @@ def location(key):
 
 
 async def record(key, directory=FIXTURE_DIR, model=DEFAULT_MODEL):
+    """Record one location; False if the model does not cover it."""
     source = OpenMeteoEnsemble(model, forecast_days=MODELS[model][1])
-    result = await source.fetch(location(key), source.variables)
+    try:
+        result = await source.fetch(location(key), source.variables)
+    except NotCovered:
+        print(f"skipped {key}: {model} does not cover it")
+        return False
     forecast = build_forecast(result, quantile_levels=load_vsup().quantiles)
     target = Path(directory) / f"{key}.json"
     target.write_text(json.dumps(forecast.model_dump(mode="json"), indent=1) + "\n")
     print(f"wrote {target} ({len(forecast.steps)} steps from {forecast.steps[0].isoformat()})")
+    return True
 
 
 def record_raw_response(directory=FIXTURE_DIR):
@@ -129,10 +139,13 @@ def main(keys, directory=None, model=DEFAULT_MODEL):
     unknown = set(keys) - set(LOCATIONS)
     if unknown:
         sys.exit(f"unknown location(s): {', '.join(sorted(unknown))}; there are {', '.join(LOCATIONS)}")
-    for key in keys or LOCATIONS:
-        asyncio.run(record(key, directory, model))
-    with open(directory / "locations.json", "w") as fp:
-        json.dump(LOCATIONS, fp, indent=1, sort_keys=True)
+    recorded = [key for key in keys or LOCATIONS if asyncio.run(record(key, directory, model))]
+    # A regional model's directory lists only the places it covers. With keys,
+    # the ones recorded before stay listed.
+    index = directory / "locations.json"
+    listed = set(json.loads(index.read_text())) if keys and index.exists() else set()
+    with open(index, "w") as fp:
+        json.dump({k: LOCATIONS[k] for k in LOCATIONS if k in listed | set(recorded)}, fp, indent=1, sort_keys=True)
     print(f"wrote {directory / 'locations.json'}")
     if not keys and model == DEFAULT_MODEL:
         record_raw_response(directory)

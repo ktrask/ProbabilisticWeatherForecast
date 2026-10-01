@@ -25,6 +25,27 @@ sources:
     model: icon_global_eps
     forecast_days: 8
     timeout_s: 30
+  # Regional models: each covers only its area. The boxes are Open-Meteo's
+  # own (its domain metadata); ICON-EU and -D2 fill them, MeteoSwiss's rotated
+  # grid does not, and there the model's answer decides.
+  icon-eu-eps:
+    adapter: open_meteo_ensemble
+    model: icon_eu_eps
+    forecast_days: 6
+    timeout_s: 30
+    area: {south: 29.5, north: 70.5, west: -23.5, east: 62.5}
+  icon-d2-eps:
+    adapter: open_meteo_ensemble
+    model: icon_d2_eps
+    forecast_days: 3
+    timeout_s: 30
+    area: {south: 43.18, north: 58.06, west: -3.94, east: 20.32}
+  meteoswiss-ch2:
+    adapter: open_meteo_ensemble
+    model: meteoswiss_icon_ch2
+    forecast_days: 6
+    timeout_s: 30
+    area: {south: 42.58, north: 49.79, west: 1.23, east: 16.85}
 
 products:
   ecmwf:
@@ -41,3 +62,24 @@ products:
     members: 40
     grid_km: 26
     horizon_days: 7.5
+  icon-eu:
+    label: DWD ICON-EU ensemble
+    ensemble: icon-eu-eps
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 40
+    grid_km: 13
+    horizon_days: 5
+  icon-d2:
+    label: DWD ICON-D2 ensemble
+    ensemble: icon-d2-eps
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 20
+    grid_km: 2
+    horizon_days: 2
+  meteoswiss:
+    label: MeteoSwiss ICON-CH2 ensemble
+    ensemble: meteoswiss-ch2
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 21
+    grid_km: 2
+    horizon_days: 5

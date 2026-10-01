@@ -64,7 +64,10 @@ def one(issues, fragment):
 class TestShippedConfigs:
     def test_sources_yaml(self, schemes):
         catalog = load(DEFAULT_SOURCES, schemes)
-        assert list(catalog.products) == ["ecmwf", "icon"]
+        assert list(catalog.products) == ["ecmwf", "icon", "icon-eu", "icon-d2", "meteoswiss"]
+        assert catalog.products["ecmwf"].area is None
+        assert catalog.products["icon-d2"].area.contains(52.26, 10.52)
+        assert not catalog.products["meteoswiss"].area.contains(52.26, 10.52)
         assert catalog.default.id == "ecmwf"
         assert isinstance(catalog.default.source, OpenMeteoEnsemble)
         assert catalog.products["icon"].source.model == "icon_global_eps"
@@ -77,7 +80,7 @@ class TestShippedConfigs:
         assert isinstance(offline.default.source, FixtureSource)
         for key in live.products:
             assert offline.products[key].schemes == live.products[key].schemes
-            for detail in ("members", "grid_km", "horizon_days"):
+            for detail in ("members", "grid_km", "horizon_days", "area"):
                 assert getattr(offline.products[key], detail) == getattr(live.products[key], detail)
 
     def test_json_schema_is_up_to_date(self):
@@ -104,6 +107,9 @@ class TestProducts:
         assert (product.members, product.grid_km, product.horizon_days) == (51, 25, 15)
         one(broken(tmp_path, schemes, "    members: 51\n", ""), "members")
         one(broken(tmp_path, schemes, "grid_km: 25", "grid_km: 0"), "greater than 0")
+
+    def test_too_few_members_to_say_two_thirds(self, tmp_path, schemes):
+        one(broken(tmp_path, schemes, "members: 51", "members: 3"), "greater than or equal to 10")
 
     def test_unknown_source(self, tmp_path, schemes):
         one(broken(tmp_path, schemes, "ensemble: recorded", "ensemble: nowhere"), "no source 'nowhere'")
@@ -141,6 +147,16 @@ class TestProducts:
 
 
 class TestSources:
+    def test_a_regional_area(self, tmp_path, schemes):
+        area = "    model: ecmwf_ifs025\n    area: {south: 43.18, north: 58.06, west: -3.94, east: 20.32}\n"
+        catalog = load(write(tmp_path, BASE.replace("    model: ecmwf_ifs025\n", area)), schemes)
+        assert catalog.sources["live"].area.contains(52.26, 10.52)
+        assert catalog.sources["recorded"].area is None
+
+    def test_an_area_must_be_a_box(self, tmp_path, schemes):
+        area = "    model: ecmwf_ifs025\n    area: {south: 58, north: 43, west: -3.94, east: 20.32}\n"
+        one(broken(tmp_path, schemes, "    model: ecmwf_ifs025\n", area), "south must be below north")
+
     def test_recorded_quantiles_must_cover_the_computed_ones(self, tmp_path, schemes):
         text = vsup.DEFAULT_CONFIG.read_text().replace("83, 90, 100]", "83, 90, 95, 100]")
         text = text.replace("pictogram_root: ../pictograms", f"pictogram_root: {schemes.pictogram_root}")

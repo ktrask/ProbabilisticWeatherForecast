@@ -27,6 +27,8 @@ const de = {
   retry: "Erneut versuchen",
   errorTitle: "Die Vorhersage konnte nicht geladen werden.",
   noData: "Für diesen Ort gibt es keine Vorhersage.",
+  modelNoData: "Das gewählte Modell hat für diesen Ort keine Vorhersage.",
+  useDefault: "Standardmodell verwenden",
   days: "Tage",
   product: "Modell",
   productDetails: (members: number, gridKm: string, days: string) =>
@@ -90,6 +92,8 @@ const en: Strings = {
   retry: "Try again",
   errorTitle: "The forecast could not be loaded.",
   noData: "There is no forecast for this place.",
+  modelNoData: "The chosen model has no forecast for this place.",
+  useDefault: "Use the default model",
   days: "Days",
   product: "Model",
   productDetails: (members, gridKm, days) => `${members} members, ${gridKm} km, up to ${days} days`,
