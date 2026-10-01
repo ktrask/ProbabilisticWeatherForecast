@@ -12,8 +12,8 @@ function series(n: number, base: number, spread: number) {
   );
 }
 
-export function forecast(n = 12): Forecast {
-  const steps = Array.from({ length: n }, (_, k) => new Date(START.getTime() + k * 6 * H).toISOString());
+export function forecast(n = 12, stepHours = 6): Forecast {
+  const steps = Array.from({ length: n }, (_, k) => new Date(START.getTime() + k * stepHours * H).toISOString());
   const items = (pictogram: string, cls: string, level: number) =>
     Array.from({ length: n }, () => ({ pictogram, level, class: cls }));
   return {
@@ -23,10 +23,10 @@ export function forecast(n = 12): Forecast {
     automatic: false,
     deterministic_run: null,
     steps,
-    step_hours: 6,
+    step_hours: stepHours,
     variables: {
       temperature_2m: { unit: "degC", kind: "instant", window_hours: null, quantiles: series(n, 10, 2), deterministic: null },
-      precipitation: { unit: "mm", kind: "sum", window_hours: 6, quantiles: series(n, 3, 1), deterministic: null },
+      precipitation: { unit: "mm", kind: "sum", window_hours: stepHours, quantiles: series(n, 3, 1), deterministic: null },
       cloud_cover: { unit: "percent", kind: "instant", window_hours: null, quantiles: series(n, 50, 10), deterministic: null },
       wind_speed_10m: { unit: "m/s", kind: "instant", window_hours: null, quantiles: series(n, 4, 1), deterministic: null },
     },

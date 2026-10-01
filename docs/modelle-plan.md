@@ -1,6 +1,6 @@
 # Plan: weitere Ensemble-Modelle und stündliche Vorhersage
 
-Stand: 01.10.2026 · Stufen 1 bis 3 umgesetzt, Stufen 4 und 5 offen. Baut auf dem Stand von `main` auf (Commit
+Stand: 01.10.2026 · Stufen 1 bis 4 umgesetzt, Stufe 5 offen. Baut auf dem Stand von `main` auf (Commit
 `83bd6bd`) und ergänzt Phase 5 aus `neuentwicklung-plan.md` („Zweites Produkt nur über `sources.yaml`“).
 
 | Stufe | Stand |
@@ -8,7 +8,7 @@ Stand: 01.10.2026 · Stufen 1 bis 3 umgesetzt, Stufen 4 und 5 offen. Baut auf de
 | 1 Zweites globales Modell | erledigt (01.10.2026) |
 | 2 Regionale Modelle | erledigt (01.10.2026) |
 | 3 Automatische Vorauswahl | erledigt (01.10.2026) |
-| 4 Stündliche Schritte | offen |
+| 4 Stündliche Schritte | erledigt (01.10.2026) |
 | 5 Weitere globale Modelle | offen |
 
 ## 1. Ziel
@@ -201,7 +201,34 @@ in `sources.yaml`, von Hand weiter wählbar).
 **Zum Testen:** Fühlt sich der Modellwechsel beim Verschieben der Tage richtig an, oder lieber ein
 fester Standard pro Ort?
 
-### Stufe 4 – Stündliche Schritte
+### Stufe 4 – Stündliche Schritte · erledigt
+
+**Umgesetzt (01.10.2026).** Vorab gemessen, welche Modelle wirklich stündlich rechnen. Open-Meteo
+verteilt eine 3-Stunden-Summe gleichmäßig auf die Stunden. Der Anteil nasser Stunden, die genau der
+Stunde davor gleichen, verrät das:
+
+| Modell | gleiche nasse Stunden pro Tag |
+|---|---|
+| ICON-D2 | 0–11 % über den ganzen Lauf |
+| MeteoSwiss ICON-CH2 | 0–14 % über 5 Tage |
+| ICON-EU | 12–15 % an Tag 1–2, danach 63–86 % |
+| ICON global | 9–20 % an Tag 1–2, danach 67–93 % |
+| ECMWF | 69–86 % ab dem ersten Tag |
+
+(Ein Test über die Temperatur schlug fehl: Open-Meteo füllt sie nicht linear, sondern glatt auf.)
+
+- Stündlich daher nur ICON-D2 (`steps: [1, 6]`, stündlich als Standard) und MeteoSwiss (`[6, 1]`).
+  ICON-EU stündlich für die ersten 48 Stunden wäre eine mögliche Erweiterung, braucht aber eine
+  eigene Reichweite je Schrittweite.
+- `precipitation-1h-vsup` mit 0,1 / 1 / 3 mm pro Stunde. Jede angebotene Schrittweite braucht ein
+  passendes Niederschlagsschema, sonst startet die App nicht.
+- ICON-D2 ist jetzt automatisch wählbar: Braunschweig bekommt für 1–2 Tage stündlich ICON-D2.
+- API-Parameter `step_hours`, URL-Parameter `step`, Umschalter „stündlich | 6 h“. In der
+  Automatik gilt ein Modell ohne die gewünschte Schrittweite in seiner eigenen.
+- Die stündliche Zeitachse hat einen Strich je Stunde und beschriftet jede dritte. Die Tageskarte
+  unter der scrollenden Zeile benennt einen Tag ab 5 % ihrer Breite, also auch einen angebrochenen.
+
+**Ursprünglicher Plan:**
 
 Nur für Modelle, die intern wirklich stündlich rechnen (ICON-D2/EU-EPS, MeteoSwiss, UKMO).
 Bei 3- oder 6-stündlichen Modellen füllt Open-Meteo die Stunden dazwischen auf. Ein stündliches

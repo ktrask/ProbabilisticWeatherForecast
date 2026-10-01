@@ -537,6 +537,14 @@
             "title": "Schemes",
             "type": "array"
           },
+          "steps": {
+            "description": "The step widths in hours it can be drawn in, the first the default.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
           "variables": {
             "items": {
               "type": "string"
@@ -564,6 +572,7 @@
           "grid_km",
           "horizon_days",
           "automatic",
+          "steps",
           "area"
         ],
         "title": "ProductOut",
@@ -938,6 +947,26 @@
               ],
               "description": "Only for the automatic choice: how many days the reader wants. Default: as far as the default product reaches.",
               "title": "Days"
+            }
+          },
+          {
+            "description": "Step width, one of the product's `steps`; default: its first. Under the automatic choice a product that does not offer it is drawn in its default (the answer's `step_hours` says).",
+            "in": "query",
+            "name": "step_hours",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 24,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Step width, one of the product's `steps`; default: its first. Under the automatic choice a product that does not offer it is drawn in its default (the answer's `step_hours` says).",
+              "title": "Step Hours"
             }
           },
           {

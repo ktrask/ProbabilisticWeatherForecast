@@ -120,3 +120,15 @@ def test_each_products_recordings_are_what_it_claims(product):
 ])
 def test_regional_recordings_are_the_covered_places(product, covered):
     assert set(offline_products()[product].source.keys()) == covered
+
+
+@pytest.mark.parametrize("product, covered", [("icon-d2", {"braunschweig", "zermatt"}), ("meteoswiss", {"zermatt"})])
+def test_hourly_recordings_of_the_hourly_products(product, covered):
+    """Recorded in hourly steps too, for every place the 6-hour ones cover."""
+    source = offline_products()[product].source
+    assert 1 in source.steps and 6 in source.steps
+    for key in covered:
+        hourly = build_forecast(source.load(key, step_hours=1), step_hours=1)
+        assert hourly.step_hours == 1
+        assert hourly.variables["precipitation"].window_hours == 1
+        assert all((b - a).total_seconds() == 3600 for a, b in zip(hourly.steps, hourly.steps[1:]))

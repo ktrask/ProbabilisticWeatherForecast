@@ -55,18 +55,21 @@ products:
     horizon_days: 5
   icon-d2:
     label: DWD ICON-D2 ensemble (recorded)
-    # Not chosen automatically before it is shown in hourly steps (stage 4 of
-    # docs/modelle-plan.md): two days in 6-hour steps are too few to read.
-    automatic: false
+    # Hourly by default: two days in 6-hour steps are too few to read. ICON-D2
+    # and ICON-CH2 compute every hour over their whole run; ICON-EU and the
+    # global ICON only for about two days, ECMWF every 3 hours - checked on
+    # 2026-10-01 (docs/modelle-plan.md, stage 4), so they stay at 6 hours.
+    steps: [1, 6]
     ensemble: recorded-icon-d2
-    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    schemes: [cloud-vsup, precipitation-vsup, precipitation-1h-vsup, wind-vsup]
     members: 20
     grid_km: 2
     horizon_days: 2
   meteoswiss:
     label: MeteoSwiss ICON-CH2 ensemble (recorded)
     ensemble: recorded-meteoswiss
-    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    schemes: [cloud-vsup, precipitation-vsup, precipitation-1h-vsup, wind-vsup]
     members: 21
     grid_km: 2
     horizon_days: 5
+    steps: [6, 1]

@@ -193,6 +193,18 @@
           "description": "Whether the automatic choice may take it (sources/choice.py); it stays selectable by hand.",
           "title": "Automatic",
           "type": "boolean"
+        },
+        "steps": {
+          "default": [
+            6
+          ],
+          "description": "Step widths in hours it can be drawn in, the first the default. Each must divide a day; offer 1 only for a model that really computes every hour.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
         }
       },
       "required": [

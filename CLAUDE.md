@@ -100,12 +100,22 @@ Everything lives under `webapp/`:
   2026-10-01): the finest grid among products marked `automatic` that cover the place and reach
   the `days` asked for (without `days`: as far as the default), file order on a tie, the default
   last; at the edge of a rotated grid it steps on to the next. The answer (`ForecastOut`) says
-  `product` and `automatic`. So Braunschweig gets ICON-EU up to 5 days and ECMWF beyond, Zermatt
-  MeteoSwiss, Singapore ECMWF. `icon-d2` has `automatic: false` until it is drawn in hourly steps.
+  `product` and `automatic`. So Braunschweig gets ICON-D2 (hourly) for 1-2 days, ICON-EU
+  up to 5 and ECMWF beyond; Zermatt ICON-D2, then MeteoSwiss; Singapore ECMWF.
   `frontend/src/state/products.automaticChoice` applies the same rule (same test cases as
   `tests/test_choice.py`) only to key the request: moving the days fetches again only when the
   model changes, and the previous chart stays, dimmed, until the next one is there.
-  The plan for further models and hourly steps is `docs/modelle-plan.md` (stages 1-3 of 5 done).
+  **Step widths per product** (`steps`, the first the default; the API's `step_hours`, the URL's
+  `step`, the frontend's "stündlich | 6 h" switch where a model offers both): `icon-d2` `[1, 6]`,
+  `meteoswiss` `[6, 1]`, the rest `[6]`. Only models that compute every hour over their whole run
+  offer 1 - measured on 2026-10-01 by how often a wet hour repeats the hour before (Open-Meteo
+  spreads a 3-hour total evenly): ICON-D2 and ICON-CH2 throughout, ICON-EU and the global ICON
+  only for about 48 hours, ECMWF never. Every offered step needs a scheme for each total
+  (`precipitation-1h-vsup` for hours); `Product.schemes_for(step)` picks them, and the start-up
+  check refuses a step without one. Under the automatic choice a product that lacks the asked
+  step is drawn in its default; asked for by name it is a 422. Recordings in other steps sit
+  beside the 6-hour ones as `<key>.<n>h.json`. Hourly axes tick every hour, label every third.
+  The plan for further models and hourly steps is `docs/modelle-plan.md` (stages 1-4 of 5 done).
 - **`vsup/`** + **`config/vsup.yaml`** — the pictogram rules. `rules` mode is an ordered list of
   `when:` expressions (own parser in `expr.py`, never `eval`); `tree` mode is intensity classes
   merging into groups as certainty drops. `config.load()` collects *every* problem with its line
@@ -178,8 +188,8 @@ pictograms. Do not restate the wind thresholds in km/h.
   `quantiles` has nine levels and why the legacy-format fixtures could not serve it.
 - **Rain classes are 0.1 / 2 / 5 mm per 6 hours** (the user's call of 2026-10-01; the 1 / 2 mm
   inherited from 2018 had no stated reason and made 2 mm in six hours - 0.33 mm/h on average -
-  "heavy rain"). 0.1 mm is the usual gauge threshold. An hourly scheme (stage 4 of
-  `docs/modelle-plan.md`) is to use 0.1 / 1 / 3 mm per hour.
+  "heavy rain"). 0.1 mm is the usual gauge threshold. The hourly scheme
+  (`precipitation-1h-vsup`) uses 0.1 / 1 / 3 mm per hour.
 - The legacy rules reference the old PNGs, whose rain glyphs have a white, non-transparent
   background that shows on shaded days. Only the legacy schemes use them.
 

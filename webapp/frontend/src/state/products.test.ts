@@ -5,13 +5,13 @@ import { automaticChoice, covers, offered } from "./products";
 
 const product = (id: string, area: Product["area"], grid_km = 2, horizon_days = 2, automatic = true): Product => ({
   id, label: id, default: id === "ecmwf", variants: ["ensemble"], variables: [], schemes: [],
-  members: 20, grid_km, horizon_days, automatic, area,
+  members: 20, grid_km, horizon_days, automatic, area, steps: [6],
 });
 // As in config/sources.yaml.
 const ecmwf = product("ecmwf", null, 25, 15);
 const icon = product("icon", null, 26, 7.5);
 const eu = product("icon-eu", { south: 29.5, north: 70.5, west: -23.5, east: 62.5 }, 13, 5);
-const d2 = product("icon-d2", { south: 43.18, north: 58.06, west: -3.94, east: 20.32 }, 2, 2, false);
+const d2 = product("icon-d2", { south: 43.18, north: 58.06, west: -3.94, east: 20.32 }, 2, 2);
 const alps = product("meteoswiss", { south: 42.58, north: 49.79, west: 1.23, east: 16.85 }, 2, 5);
 const shipped = [ecmwf, icon, eu, d2, alps];
 
@@ -35,7 +35,10 @@ describe("products for a place", () => {
 describe("the automatic choice", () => {
   // The same cases as the API's tests/test_choice.py.
   it.each([
-    [52.26, 10.52, 1, "icon-eu"], // ICON-D2 is finer, but not automatic before hourly steps
+    [52.26, 10.52, 1, "icon-d2"], // 2 km, hourly
+    [52.26, 10.52, 2, "icon-d2"],
+    [52.26, 10.52, 3, "icon-eu"],
+    [46.02, 7.75, 2, "icon-d2"], // as fine as MeteoSwiss, and first in the file
     [52.26, 10.52, 5, "icon-eu"],
     [52.26, 10.52, 6, "ecmwf"],
     [52.26, 10.52, undefined, "ecmwf"],

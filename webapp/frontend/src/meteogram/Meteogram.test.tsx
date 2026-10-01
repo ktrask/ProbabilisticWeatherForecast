@@ -97,6 +97,18 @@ describe("Meteogram", () => {
     expect(screen.getByRole("group")).toHaveAccessibleName(/Meteogramm für Braunschweig/);
   });
 
+  it("labels every third hour of hourly steps, and ticks every hour", () => {
+    const { container } = render(
+      <I18nContext.Provider value={makeI18n("en")}>
+        <Meteogram forecast={forecast(48, 1)} pictogramBase="/p/" window={{ from: 0, to: 48, stale: false }} width={1300} />
+      </I18nContext.Provider>,
+    );
+    const hours = Array.from(container.querySelectorAll(".axis .hour")).map((t) => t.textContent);
+    expect(hours.slice(0, 4)).toEqual(["00", "03", "06", "09"]);
+    expect(hours).toHaveLength(16);
+    expect(container.querySelectorAll(".axis line")).toHaveLength(48);
+  });
+
   describe("in a row too long for the screen", () => {
     // 360 px is a phone: eight days - 32 steps - need more than 300 px.
     const narrow = () => draw(0, 32, "en", 360, 32);

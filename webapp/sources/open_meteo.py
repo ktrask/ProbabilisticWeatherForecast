@@ -104,7 +104,9 @@ class OpenMeteoEnsemble:
         lat, lon = self.area.center
         return Location(lat=lat, lon=lon)
 
-    async def fetch(self, location, variables):
+    async def fetch(self, location, variables, step_hours=None):
+        """step_hours is for quantile sources; members come hourly and the
+        pipeline builds any step from them."""
         variables = set(variables)
         unknown = variables - self.variables
         if unknown:

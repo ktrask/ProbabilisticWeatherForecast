@@ -26,6 +26,7 @@ class ProductOut(BaseModel):
     grid_km: float = Field(description="Grid spacing of the model, in km.")
     horizon_days: float = Field(description="About how far ahead a run reaches, in days.")
     automatic: bool = Field(description="Whether the automatic choice may take it.")
+    steps: list[int] = Field(description="The step widths in hours it can be drawn in, the first the default.")
     area: AreaOut | None = Field(
         description="For a regional model, the box around its domain: outside it there is no "
                     "forecast, inside it there usually is (rotated grids fill it only partly). "
