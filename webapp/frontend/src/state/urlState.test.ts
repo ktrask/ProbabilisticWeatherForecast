@@ -12,13 +12,14 @@ describe("parseState", () => {
       product: "ecmwf",
       variant: "hres",
       days: 7,
+      step: null,
       layout: "column",
     });
   });
 
   it("falls back to defaults", () => {
     expect(parseState("")).toEqual({
-      lat: null, lon: null, name: null, product: null, variant: "ensemble", days: DEFAULT_DAYS, layout: "row",
+      lat: null, lon: null, name: null, product: null, variant: "ensemble", days: DEFAULT_DAYS, step: null, layout: "row",
     });
   });
 
@@ -42,6 +43,14 @@ describe("parseState", () => {
 });
 
 describe("formatState", () => {
+  it("keeps a chosen step, and nothing for the product's default", () => {
+    const state = parseState("?lat=52.26&lon=10.52&step=1");
+    expect(state.step).toBe(1);
+    expect(formatState(state)).toBe("?lat=52.26&lon=10.52&step=1");
+    expect(formatState({ ...state, step: null })).toBe("?lat=52.26&lon=10.52");
+    expect(parseState("?step=30").step).toBeNull();
+  });
+
   it("writes the vertical layout, and nothing for the row", () => {
     const state = parseState("?lat=52.26&lon=10.52");
     expect(formatState({ ...state, layout: "column" })).toBe("?lat=52.26&lon=10.52&layout=vertical");

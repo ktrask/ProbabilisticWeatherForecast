@@ -12,7 +12,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.configfile import ConfigFile
 from core.model import DETERMINISTIC, quantile_name
@@ -83,6 +83,21 @@ class ProductSpec(_Strict):
     automatic: bool = Field(
         True, description="Whether the automatic choice may take it (sources/choice.py); it stays selectable by hand."
     )
+    steps: list[int] = Field(
+        [STEP_HOURS], min_length=1,
+        description="Step widths in hours it can be drawn in, the first the default. Each must divide a day; "
+                    "offer 1 only for a model that really computes every hour.",
+    )
+
+    @field_validator("steps")
+    @classmethod
+    def _steps_divide_a_day(cls, steps):
+        for step in steps:
+            if step < 1 or 24 % step:
+                raise ValueError(f"a step of {step} hours does not divide a day")
+        if len(set(steps)) != len(steps):
+            raise ValueError("a step is listed twice")
+        return steps
 
 
 class SourcesFile(_Strict):
@@ -112,10 +127,17 @@ class Product:
     grid_km: float
     horizon_days: float
     automatic: bool
+    steps: tuple  # hours, the first the default
+    windows: tuple = ()  # (scheme name, window_hours or None), as in `schemes`
 
     @property
     def area(self):
         return self.source.area if self.source is not None else None
+
+    def schemes_for(self, step_hours):
+        """The schemes that draw a forecast in `step_hours` steps: every instant
+        scheme, and the totals written for exactly that window."""
+        return [name for name, window in self.windows if window in (None, step_hours)]
 
     # "hres" joins once a product can have a deterministic source.
     variants = ("ensemble",)
@@ -172,9 +194,6 @@ def _check_source(file, key, source, vsup_config):
     if missing:
         file.report(("sources", key), f"offers only the quantiles {list(source.quantile_levels)}, but "
                                       f"{vsup_config.path.name} computes {', '.join(map(quantile_name, missing))} too")
-    if source.native_step != timedelta(hours=STEP_HOURS):
-        file.report(("sources", key), f"delivers {source.native_step} steps; quantiles cannot be re-gridded "
-                                      f"to the {STEP_HOURS}-hour steps forecasts are built in")
 
 
 def _product(file, key, spec, sources, vsup_config):
@@ -188,22 +207,46 @@ def _product(file, key, spec, sources, vsup_config):
     if unavailable:
         file.report(at + ("variables",), f"{spec.ensemble} does not deliver {', '.join(unavailable)}")
 
-    drawn = {}
+    for i, step in enumerate(spec.steps):
+        if source is not None and not _can_build(source, step):
+            file.report(at + ("steps", i), f"{spec.ensemble} cannot deliver {step}-hour steps")
+
+    drawn = {}  # (variable, window) -> scheme name
+    windows = []
     for i, name in enumerate(spec.schemes):
         loc = at + ("schemes", i)
         scheme = vsup_config.schemes.get(name)
         if scheme is None:
             file.report(loc, f"no scheme {name!r} in {vsup_config.path.name}")
             continue
+        windows.append((name, scheme.window_hours))
         if scheme.variable not in variables:
             file.report(loc, f"{name} draws {scheme.variable}, which this product does not fetch")
-        if scheme.variable in drawn:
-            file.report(loc, f"{name} and {drawn[scheme.variable]} both draw {scheme.variable}")
-        drawn[scheme.variable] = name
-        if scheme.window_hours is not None and scheme.window_hours != STEP_HOURS:
-            file.report(loc, f"{name} is written for {scheme.window_hours}-hour totals, but forecasts "
-                             f"are built in {STEP_HOURS}-hour steps")
+        at_window = (scheme.variable, scheme.window_hours)
+        if at_window in drawn:
+            file.report(loc, f"{name} and {drawn[at_window]} both draw {scheme.variable}")
+        drawn[at_window] = name
+        if scheme.window_hours is not None and scheme.window_hours not in spec.steps:
+            steps = " or ".join(map(str, spec.steps))
+            file.report(loc, f"{name} is written for {scheme.window_hours}-hour totals, but this product "
+                             f"is drawn in {steps}-hour steps")
         if DETERMINISTIC in scheme.reads:
             file.report(loc, f"{name} reads the deterministic run, which an ensemble product does not have")
+    # A total drawn in one step width has to be drawn in every one the product offers.
+    totals = {variable for variable, window in drawn if window is not None}
+    for variable in sorted(totals):
+        for step in spec.steps:
+            if (variable, step) not in drawn:
+                file.report(at + ("schemes",), f"no scheme draws {variable} in {step}-hour steps, which this "
+                                               f"product offers")
     return Product(key, spec.label, spec.ensemble, source, tuple(spec.schemes), variables,
-                   spec.members, spec.grid_km, spec.horizon_days, spec.automatic)
+                   spec.members, spec.grid_km, spec.horizon_days, spec.automatic, tuple(spec.steps), tuple(windows))
+
+
+def _can_build(source, step_hours):
+    """Recorded quantiles only in the steps they were recorded in; members in
+    any multiple of their own rows."""
+    recorded = getattr(source, "steps", None)
+    if recorded is not None:
+        return step_hours in recorded
+    return timedelta(hours=step_hours) % source.native_step == timedelta(0)

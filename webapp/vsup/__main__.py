@@ -13,7 +13,7 @@ from pathlib import Path
 
 from core.pipeline import build_forecast
 from sources.fixture import DEFAULT_DIRECTORY, FixtureSource
-from vsup.classify import check_applicable, classify_series
+from vsup.classify import SchemeMismatch, check_applicable, classify_series
 from vsup.config import DEFAULT_CONFIG, ConfigError, json_schema, load
 
 
@@ -27,7 +27,10 @@ def coverage(config, fixtures):
     for name, scheme in config.schemes.items():
         table[name] = {}
         for key, forecast in forecasts.items():
-            series = check_applicable(scheme, forecast)
+            try:
+                series = check_applicable(scheme, forecast)
+            except SchemeMismatch:
+                continue  # written for another window than these recordings
             table[name][key] = Counter(choice.outcome for choice in classify_series(scheme, series))
     return table
 
@@ -37,6 +40,9 @@ def print_coverage(config, table, out):
     for name, scheme in config.schemes.items():
         keys = list(table[name])
         out.write(f"\n{name}  ({scheme.mode}, {scheme.variable})\n")
+        if not keys:
+            out.write(f"  no recordings in {scheme.window_hours}-hour steps here\n")
+            continue
         rows = []
         for choice, text in scheme.outcomes():
             counts = [table[name][key][choice.outcome] for key in keys]

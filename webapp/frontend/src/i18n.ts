@@ -36,6 +36,8 @@ const de = {
   productDetails: (members: number, gridKm: string, days: string) =>
     `${members} Mitglieder, ${gridKm} km, bis ${days} Tage`,
   layout: "Darstellung",
+  stepLabel: "Schritte",
+  stepName: (hours: number) => (hours === 1 ? "stündlich" : `${hours} h`),
   horizontal: "Waagerecht",
   vertical: "Senkrecht",
   earlier: "Früher",
@@ -102,6 +104,8 @@ const en: Strings = {
   chosenAutomatically: (label) => `${label}, chosen automatically`,
   productDetails: (members, gridKm, days) => `${members} members, ${gridKm} km, up to ${days} days`,
   layout: "Layout",
+  stepLabel: "Steps",
+  stepName: (hours) => (hours === 1 ? "hourly" : `${hours} h`),
   horizontal: "Horizontal",
   vertical: "Vertical",
   earlier: "Earlier",

@@ -136,7 +136,8 @@ class TestProducts:
         text = text.replace("pictogram_root: ../pictograms", f"pictogram_root: {schemes.pictogram_root}")
         twelve = vsup.load(write(tmp_path, text, "vsup.yaml"))
         issues = broken(tmp_path, twelve, "", "")
-        one(issues, "precipitation-vsup is written for 12-hour totals, but forecasts are built in 6-hour steps")
+        one(issues, "precipitation-vsup is written for 12-hour totals, but this product is drawn in 6-hour steps")
+        one(issues, "no scheme draws precipitation in 6-hour steps")
 
     def test_deterministic_schemes_need_a_deterministic_source(self, tmp_path, schemes):
         text = vsup.DEFAULT_CONFIG.read_text().replace('when: "p90 < 3"', 'when: "deterministic < 3"')
@@ -144,6 +145,40 @@ class TestProducts:
         needs_hres = vsup.load(write(tmp_path, text, "vsup.yaml"))
         issues = broken(tmp_path, needs_hres, "wind-vsup]", "wind-legacy]")
         one(issues, "wind-legacy reads the deterministic run")
+
+
+class TestSteps:
+    def test_defaults_to_six_hours(self, tmp_path, schemes):
+        assert load(write(tmp_path, BASE), schemes).default.steps == (6,)
+
+    def test_a_step_has_to_divide_a_day(self, tmp_path, schemes):
+        one(broken(tmp_path, schemes, "    members: 51\n", "    members: 51\n    steps: [6, 5]\n"),
+            "a step of 5 hours does not divide a day")
+
+    def test_every_step_needs_its_rain_scheme(self, tmp_path, schemes):
+        issues = broken(tmp_path, schemes, "    members: 51\n", "    members: 51\n    steps: [6, 1]\n")
+        one(issues, "no scheme draws precipitation in 1-hour steps")
+
+    def test_an_hourly_product_with_its_rain_scheme(self, tmp_path, schemes):
+        text = BASE.replace("    ensemble: recorded\n", "    ensemble: live\n")
+        text = text.replace("precipitation-vsup, wind-vsup]", "precipitation-vsup, precipitation-1h-vsup, wind-vsup]")
+        text = text.replace("    members: 51\n", "    members: 51\n    steps: [1, 6]\n")
+        product = load(write(tmp_path, text), schemes).default
+        assert product.steps == (1, 6)
+        assert product.schemes_for(1) == ["cloud-vsup", "precipitation-1h-vsup", "wind-vsup"]
+        assert product.schemes_for(6) == ["cloud-vsup", "precipitation-vsup", "wind-vsup"]
+
+    def test_recordings_only_in_their_steps(self, tmp_path, schemes):
+        """The ECMWF recordings are in 6-hour steps only."""
+        text = BASE.replace("precipitation-vsup, wind-vsup]", "precipitation-vsup, precipitation-1h-vsup, wind-vsup]")
+        issues = broken(tmp_path, schemes, "    members: 51\n", "    members: 51\n    steps: [6, 1]\n", text)
+        one(issues, "recorded cannot deliver 1-hour steps")
+
+    def test_the_shipped_hourly_products(self, schemes):
+        catalog = load(DEFAULT_SOURCES, schemes)
+        assert {p.id: p.steps for p in catalog.products.values()} == {
+            "ecmwf": (6,), "icon": (6,), "icon-eu": (6,), "icon-d2": (1, 6), "meteoswiss": (6, 1),
+        }
 
 
 class TestSources:

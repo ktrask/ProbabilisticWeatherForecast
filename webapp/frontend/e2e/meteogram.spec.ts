@@ -127,13 +127,13 @@ test("hovering lists the step's values", async ({ page }) => {
 
 test("changing the days fetches again only when the model changes", async ({ page }) => {
   await freezeClock(page);
-  // Two days in Braunschweig: chosen automatically, ICON-EU.
-  const chart = await showMeteogram(page, url("braunschweig", "&days=2"));
+  // Three days in Braunschweig: chosen automatically, ICON-EU.
+  const chart = await showMeteogram(page, url("braunschweig", "&days=3"));
   let requests = 0;
   page.on("request", (request) => {
     if (request.url().includes("/api/forecast")) requests++;
   });
-  await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(8);
+  await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(12);
   await page.getByRole("slider").fill("4");
   await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(16);
   await expect(page).toHaveURL(/days=4/);
@@ -224,7 +224,8 @@ test("a new place the chosen model does not reach goes back to the automatic cho
     ] } });
   });
   await showMeteogram(page, url("braunschweig", "&product=icon-d2"));
-  await expect(page.getByRole("slider")).toHaveAttribute("max", "2");
+  // Hourly, the run reaches 58 hours: a begun third day is offered.
+  await expect(page.getByRole("slider")).toHaveAttribute("max", "3");
   const search = page.getByRole("combobox", { name: "Ort suchen" });
   await search.fill("Reykj");
   await expect(page.getByRole("listbox").getByRole("option")).toHaveText(/Reykjavík/);
@@ -242,6 +243,32 @@ test("a model without a forecast for the place offers the automatic choice", asy
   await page.getByRole("button", { name: "Automatisch wählen" }).click();
   await expect(page).not.toHaveURL(/product=/);
   await expect(page.getByTestId("meteogram").locator("image").first()).toBeAttached();
+});
+
+test("a model that computes every hour is drawn hourly, and 6-hourly on request", async ({ page }) => {
+  await freezeClock(page);
+  // Two days in Braunschweig: ICON-D2, 2 km, hourly by its default.
+  const chart = await showMeteogram(page, url("braunschweig", "&days=2"));
+  await expect(page.locator(".source")).toContainText("DWD ICON-D2 ensemble (recorded), automatisch gewählt");
+  const steps = page.getByRole("group", { name: "Schritte", exact: true });
+  await expect(steps.getByRole("button", { name: "stündlich" })).toHaveAttribute("aria-pressed", "true");
+  await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(48);
+  await expect(chart.locator(".axis .hour").first()).toHaveText("00");
+  await expect(chart.locator(".axis .hour").nth(1)).toHaveText("03");
+  // The legend shows the hourly rain classes.
+  await expect(page.getByRole("region", { name: "Legende" })).toContainText("(mm / 1 h)");
+
+  await steps.getByRole("button", { name: "6 h" }).click();
+  await expect(page).toHaveURL(/step=6/);
+  // Two days of 6-hour steps, and the run's last one that closes them.
+  await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(9);
+  await expect(page.getByRole("region", { name: "Legende" })).toContainText("(mm / 6 h)");
+});
+
+test("a model with only 6-hour steps offers no choice of steps", async ({ page }) => {
+  await freezeClock(page);
+  await showMeteogram(page, url("braunschweig", "&product=ecmwf"));
+  await expect(page.getByRole("group", { name: "Schritte", exact: true })).toHaveCount(0);
 });
 
 test("a place without data says so", async ({ page }) => {

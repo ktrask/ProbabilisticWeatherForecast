@@ -135,6 +135,32 @@ schemes:
       "2:medium+heavy": rain/step2_mostly_rainy.svg
       "1:none+light+medium+heavy": rain/step1_v2.svg
 
+  precipitation-1h-vsup:
+    description: Hourly precipitation by the VSUP tree, for models that compute every hour
+    variable: precipitation
+    unit: mm
+    window_hours: 1
+    mode: tree
+    # The user's call of 2026-10-01: below 1 mm an hour is light rain, from
+    # 3 mm on heavy - a little above the usual 2.5 mm/h for "moderate".
+    classes:
+      - { id: none, below: 0.1 }
+      - { id: light, below: 1.0 }
+      - { id: medium, below: 3.0 }
+      - { id: heavy }
+    levels:
+      - { level: 3, interval: [p17, p83], groups: [[none], [light], [medium], [heavy]] }
+      - { level: 2, interval: [p25, p75], groups: [[none, light], [medium, heavy]] }
+      - { level: 1, groups: [[none, light, medium, heavy]] }
+    pictograms:
+      "3:none": rain/step3_dry.svg
+      "3:light": rain/step3_light_rain_v2.svg
+      "3:medium": rain/step3_medium_rain.svg
+      "3:heavy": rain/step3_heavy_rain.svg
+      "2:none+light": rain/step2_mostly_dry.svg
+      "2:medium+heavy": rain/step2_mostly_rainy.svg
+      "1:none+light+medium+heavy": rain/step1_v2.svg
+
   wind-vsup:
     description: Wind speed by the VSUP tree; 17.2 m/s is the bottom of Beaufort 8
     variable: wind_speed_10m

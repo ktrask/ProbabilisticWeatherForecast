@@ -64,4 +64,5 @@ class ForecastSource(Protocol):
 
     def probe(self, location: Location) -> Location: ...  # where a health check asks
 
-    async def fetch(self, location: Location, variables: set[str]) -> SourceResult: ...
+    # step_hours: what quantile sources need to pick a recording; member sources ignore it.
+    async def fetch(self, location: Location, variables: set[str], step_hours: int | None = None) -> SourceResult: ...

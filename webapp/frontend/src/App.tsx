@@ -32,12 +32,13 @@ export function App() {
             lon: state.lon,
             product: state.product,
             days: auto ? state.days : null,
+            step_hours: state.step,
             variant: state.variant,
             name: state.name,
           }
         : null,
     // The days matter only through the expected model; see the key below.
-    [state.lat, state.lon, state.product, auto ? expected : null, state.variant, state.name, list !== undefined],
+    [state.lat, state.lon, state.product, auto ? expected : null, state.step, state.variant, state.name, list !== undefined],
   );
   const key = query && auto ? { ...query, days: null, expected } : query;
   const forecast = useForecast(query, key);
@@ -184,6 +185,13 @@ function ForecastView({ forecast, updating, schemes, products, state, navigate }
               </select>
             </label>
           )}
+          {product && product.steps.length > 1 && (
+            <StepSwitch
+              steps={product.steps}
+              step={forecast.step_hours}
+              onChange={(step) => navigate({ step }, { replace: true })}
+            />
+          )}
           <LayoutSwitch layout={state.layout} onChange={(layout) => navigate({ layout }, { replace: true })} />
           <label className="days">
             {i18n.t.days}{" "}
@@ -223,6 +231,20 @@ function ForecastView({ forecast, updating, schemes, products, state, navigate }
       </p>
       <Legend schemes={legendSchemes} pictogramBase={schemes.pictogram_base} />
     </article>
+  );
+}
+
+/** The step widths a model offers, the one drawn pressed: hourly or 6-hourly. */
+function StepSwitch({ steps, step, onChange }: { steps: number[]; step: number; onChange: (step: number) => void }) {
+  const i18n = useI18n();
+  return (
+    <div className="layout-switch step-switch" role="group" aria-label={i18n.t.stepLabel}>
+      {[...steps].sort((a, b) => a - b).map((hours) => (
+        <button key={hours} type="button" aria-pressed={hours === step} onClick={() => onChange(hours)}>
+          {i18n.t.stepName(hours)}
+        </button>
+      ))}
+    </div>
   );
 }
 

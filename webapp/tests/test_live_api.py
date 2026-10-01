@@ -117,7 +117,9 @@ def test_each_product_is_what_it_claims(product):
     # comes from an older run (13.2 days on 2026-10-01, 09 UTC; 14.5 right
     # after a 00 UTC run).
     assert product.horizon_days - 2 <= span_days <= product.horizon_days + 1, f"{span_days:.1f} days"
-    classify(forecast, load(), list(product.schemes))
+    for step in product.steps:
+        drawn = classify(build_forecast(result, step_hours=step), load(), product.schemes_for(step))
+        assert drawn.step_hours == step
 
 
 def test_a_regional_model_says_where_it_has_no_grid():

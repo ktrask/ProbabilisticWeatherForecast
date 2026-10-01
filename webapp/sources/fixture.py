@@ -46,14 +46,27 @@ class FixtureSource:
         self.area = area
         with open(self.directory / "locations.json") as fp:
             self._locations = json.load(fp)
-        # The quantile levels every recording offers - what a configuration
-        # may ask of this source. Legacy files have the seven fixed ones.
+        # Each place is recorded in 6-hour steps (<key>.json) and may be in
+        # others too (<key>.1h.json). What every place has in every recording -
+        # step widths and quantile levels - is what a configuration may ask for.
+        # Legacy files have the seven fixed levels.
         levels = None
+        steps = None
+        self._files = {}  # (key, step_hours) -> path
         for key in self.keys():
-            with open(self.directory / f"{key}.json") as fp:
-                offered = set(read(json.load(fp))[2]["temperature_2m"])
-            levels = offered if levels is None else levels & offered
+            here = set()
+            for path in sorted(self.directory.glob(f"{key}.*json")):
+                if path.name != f"{key}.json" and not path.name.endswith("h.json"):
+                    continue
+                with open(path) as fp:
+                    _, step_hours, quantiles = read(json.load(fp))
+                self._files[(key, step_hours)] = path
+                here.add(step_hours)
+                offered = set(quantiles["temperature_2m"])
+                levels = offered if levels is None else levels & offered
+            steps = here if steps is None else steps & here
         self.quantile_levels = tuple(sorted(quantile_level(name) for name in levels or ()))
+        self.steps = frozenset(steps or ())
 
     def keys(self):
         return sorted(self._locations)
@@ -68,11 +81,15 @@ class FixtureSource:
             name=meta.get("name"),
         )
 
-    def load(self, key, variables=None):
-        """The fixture called `key` ("braunschweig") as a SourceResult."""
+    def load(self, key, variables=None, step_hours=None):
+        """The fixture called `key` ("braunschweig") as a SourceResult, in
+        `step_hours` steps if recorded so (default: <key>.json, 6 hours)."""
         if key not in self._locations:
             raise FixtureNotFound(f"no fixture {key!r}; there are {', '.join(self.keys())}")
-        with open(self.directory / f"{key}.json") as fp:
+        path = self.directory / f"{key}.json" if step_hours is None else self._files.get((key, step_hours))
+        if path is None:
+            raise FixtureNotFound(f"no recording of {key!r} in {step_hours}-hour steps")
+        with open(path) as fp:
             start, step_hours, quantiles = read(json.load(fp))
         if variables is not None:
             unknown = set(variables) - self.variables
@@ -109,10 +126,10 @@ class FixtureSource:
         except FixtureNotFound:
             return self.location(self.keys()[0])
 
-    async def fetch(self, location, variables):
+    async def fetch(self, location, variables, step_hours=None):
         if self.area is not None and not self.area.contains(location.lat, location.lon):
             raise NotCovered(f"{self.id} does not cover {location.lat}, {location.lon}")
-        return self.load(self.nearest(location), variables)
+        return self.load(self.nearest(location), variables, step_hours)
 
 
 def is_forecast(data):

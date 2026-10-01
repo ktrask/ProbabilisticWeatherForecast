@@ -81,7 +81,7 @@ class TestShippedConfig:
         config = load()
         assert set(config.schemes) == {
             "cloud-legacy", "precipitation-legacy", "wind-legacy",
-            "cloud-vsup", "precipitation-vsup", "wind-vsup",
+            "cloud-vsup", "precipitation-vsup", "precipitation-1h-vsup", "wind-vsup",
         }
 
     def test_json_schema_is_up_to_date(self):
@@ -93,7 +93,9 @@ class TestShippedConfig:
     def test_cli_check_passes_and_reports_coverage(self, capsys):
         assert cli.main(["check"]) == 0
         out = capsys.readouterr().out
-        assert "OK, 6 scheme(s)" in out
+        assert "OK, 7 scheme(s)" in out
+        # The recordings are in 6-hour steps; the hourly scheme says so instead of failing.
+        assert "no recordings in 1-hour steps here" in out
         assert "wind/Stufe3_leichterWind.png" in out
 
     def test_cli_check_fails_with_file_and_line(self, tmp_path, capsys):

@@ -43,18 +43,18 @@ class Recorded:
         self.delay = delay
         self.raises = raises
         self.calls = 0
-        for name in ("id", "kind", "variables", "quantile_levels", "native_step", "max_lead", "area"):
+        for name in ("id", "kind", "variables", "quantile_levels", "native_step", "max_lead", "area", "steps"):
             setattr(self, name, getattr(self.inner, name))
 
     def probe(self, location):
         return self.inner.probe(location)
 
-    async def fetch(self, location, variables):
+    async def fetch(self, location, variables, step_hours=None):
         self.calls += 1
         await asyncio.sleep(self.delay)
         if self.raises is not None:
             raise self.raises
-        return await self.inner.fetch(location, variables)
+        return await self.inner.fetch(location, variables, step_hours)
 
 
 def catalog_with(source):
@@ -146,6 +146,33 @@ class TestProducts:
         body = get(app, f"/api/forecast?{place}&days={days}").json()
         assert (body["product"], body["automatic"]) == (product, True)
 
+    def test_an_hourly_product_draws_hours_by_default(self, app):
+        body = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=icon-d2").json()
+        assert body["step_hours"] == 1
+        assert body["pictograms"]["precipitation"]["scheme"] == "precipitation-1h-vsup"
+        assert body["variables"]["precipitation"]["window_hours"] == 1
+
+    def test_and_six_hours_when_asked(self, app):
+        body = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=icon-d2&step_hours=6").json()
+        assert body["step_hours"] == 6
+        assert body["pictograms"]["precipitation"]["scheme"] == "precipitation-vsup"
+
+    def test_a_step_the_product_does_not_offer_is_422(self, app):
+        response = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=ecmwf&step_hours=1")
+        assert response.status_code == 422
+        (error,) = response.json()["detail"]
+        assert error["loc"] == ["query", "step_hours"]
+        assert "offers 6-hour steps" in error["msg"]
+
+    @pytest.mark.parametrize("query, product, step", [
+        ("days=2", "icon-d2", 1),  # the finest, hourly by its default
+        ("days=2&step_hours=6", "icon-d2", 6),
+        ("days=5&step_hours=1", "icon-eu", 6),  # ICON-EU offers no hours: its default
+    ])
+    def test_the_automatic_choice_and_the_step(self, app, query, product, step):
+        body = get(app, f"/api/forecast?{BRAUNSCHWEIG}&{query}").json()
+        assert (body["product"], body["step_hours"]) == (product, step)
+
     def test_a_chosen_product_is_not_automatic(self, app):
         body = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=icon&days=2").json()
         assert (body["product"], body["automatic"]) == ("icon", False)
@@ -157,7 +184,7 @@ class TestProducts:
         app = app_with()  # its own cache: the shared app may hold Zermatt already
         meteoswiss = app.state.catalog.products["meteoswiss"].source
 
-        async def not_here(location, variables):
+        async def not_here(location, variables, step_hours=None):
             raise NotCovered("no grid point")
 
         monkeypatch.setattr(meteoswiss, "fetch", not_here)

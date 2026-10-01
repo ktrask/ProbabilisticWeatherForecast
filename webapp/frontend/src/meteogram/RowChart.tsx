@@ -157,7 +157,16 @@ export function RowChart(props: ChartProps) {
                   base={pictogramBase}
                 />
               ))}
-              <TimeAxis bands={bands} steps={steps} indices={indices} x={x} top={axisTop} timeZone={timeZone} cell={cell} />
+              <TimeAxis
+                bands={bands}
+                steps={steps}
+                indices={indices}
+                x={x}
+                top={axisTop}
+                timeZone={timeZone}
+                cell={cell}
+                stepHours={forecast.step_hours}
+              />
               {active !== null && (
                 <Crosshair
                   x={x}
@@ -376,16 +385,23 @@ interface AxisProps {
   top: number;
   timeZone: string;
   cell: number; // pixels per step
+  stepHours: number;
 }
 
-function TimeAxis({ bands, steps, indices, x, top, timeZone, cell }: AxisProps) {
+function TimeAxis({ bands, steps, indices, x, top, timeZone, cell, stepHours }: AxisProps) {
   const i18n = useI18n();
+  // Hourly steps: a tick every hour, a label every third.
+  const every = stepHours < 3 ? 3 / stepHours : 1;
   return (
     <g className="axis">
       {indices.map((i) => {
         const t = steps[i] as Date;
         const hour = i18n.time(t, timeZone).slice(0, 2);
-        const labelled = cell >= HOUR_LABEL_PX || (cell * 2 >= HOUR_LABEL_PX && hour === "12");
+        // Six-hour steps are all labelled (on the day the clocks change they
+        // land on 01, 07 ...); hourly ones on 00, 03, 06 ...
+        const onGrid = every === 1 || Number(hour) % 3 === 0;
+        const labelled =
+          onGrid && (cell * every >= HOUR_LABEL_PX || (cell * every * 2 >= HOUR_LABEL_PX && hour === "12"));
         return (
           <g key={i} transform={`translate(${x(t)},${top})`}>
             <line y1={0} y2={5} />

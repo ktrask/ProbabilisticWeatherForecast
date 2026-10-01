@@ -7,9 +7,10 @@ import { useI18n } from "../i18n";
 import type { DayBand } from "./layout";
 
 type Scale = (t: Date) => number;
-// A day shorter than this on the map - the evening before the first step - is
-// shaded but not named.
-const NAMED_DAY_MS = 12 * 3_600_000;
+// A day taking less of the map than this - the evening before the first step
+// of a long forecast - is shaded but not named. A share rather than hours: in
+// two days of hourly steps, ten hours left of today deserve their name.
+const NAMED_SHARE = 0.05;
 
 export interface ScrollIndicatorProps {
   scroller: RefObject<HTMLDivElement | null>;
@@ -70,7 +71,7 @@ export function ScrollIndicator({ scroller, left, visible, total, bands, x, time
               className={band.shaded ? "map-day shaded" : "map-day"}
               style={{ left: share(from), width: share(span) }}
             >
-              {band.end.getTime() - band.start.getTime() >= NAMED_DAY_MS
+              {span / Math.max(1, total) >= NAMED_SHARE
                 ? i18n.weekday(middle, timeZone, "short").replace(/\.$/, "")
                 : ""}
             </span>

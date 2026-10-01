@@ -317,6 +317,11 @@ export interface components {
              * @description The VSUP schemes its pictograms are drawn with.
              */
             schemes: string[];
+            /**
+             * Steps
+             * @description The step widths in hours it can be drawn in, the first the default.
+             */
+            steps: number[];
             /** Variables */
             variables: string[];
             /**
@@ -448,6 +453,8 @@ export interface operations {
                 product?: string | null;
                 /** @description Only for the automatic choice: how many days the reader wants. Default: as far as the default product reaches. */
                 days?: number | null;
+                /** @description Step width, one of the product's `steps`; default: its first. Under the automatic choice a product that does not offer it is drawn in its default (the answer's `step_hours` says). */
+                step_hours?: number | null;
                 variant?: "ensemble" | "hres";
                 /** @description Put into location.name as given. */
                 name?: string | null;

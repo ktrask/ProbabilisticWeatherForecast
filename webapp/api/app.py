@@ -146,6 +146,7 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
                 id=p.id, label=p.label, default=p is catalog.default, variants=list(p.variants),
                 variables=sorted(p.variables), schemes=list(p.schemes),
                 members=p.members, grid_km=p.grid_km, horizon_days=p.horizon_days, automatic=p.automatic,
+                steps=list(p.steps),
                 area=AreaOut(**dataclasses.asdict(p.area)) if p.area else None,
             )
             for p in catalog.products.values()
@@ -175,6 +176,10 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
         days: int | None = Query(
             None, ge=1, le=16, description="Only for the automatic choice: how many days the reader wants. "
                                            "Default: as far as the default product reaches."),
+        step_hours: int | None = Query(
+            None, ge=1, le=24, description="Step width, one of the product's `steps`; default: its first. "
+                                           "Under the automatic choice a product that does not offer it is "
+                                           "drawn in its default (the answer's `step_hours` says)."),
         variant: Literal["ensemble", "hres"] = "ensemble",
         name: str | None = Query(None, max_length=200, description="Put into location.name as given."),
     ):
@@ -184,6 +189,11 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
         lat, lon = round(lat, COORDINATE_DECIMALS), round(lon, COORDINATE_DECIMALS)
         automatic = product is None
         candidates = choice.ranked(catalog, lat, lon, days) if automatic else [product_or_422(product)]
+        if not automatic and step_hours is not None and step_hours not in candidates[0].steps:
+            raise RequestValidationError([{
+                "type": "value_error", "loc": ("query", "step_hours"), "input": step_hours,
+                "msg": f"{candidates[0].label} offers {', '.join(map(str, candidates[0].steps))}-hour steps",
+            }])
         for i, chosen in enumerate(candidates):
             if variant not in chosen.variants:
                 if automatic and i + 1 < len(candidates):
@@ -193,19 +203,21 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
                     status_code=409,
                 )
 
-            async def fetch(chosen=chosen):
-                result = await chosen.source.fetch(Location(lat=lat, lon=lon), set(chosen.variables))
-                return build_forecast(result, quantile_levels=schemes.quantiles)
+            step = step_hours if step_hours in chosen.steps else chosen.steps[0]
+
+            async def fetch(chosen=chosen, step=step):
+                result = await chosen.source.fetch(Location(lat=lat, lon=lon), set(chosen.variables), step)
+                return build_forecast(result, step_hours=step, quantile_levels=schemes.quantiles)
 
             try:
-                base = await forecasts.get((chosen.source_key, chosen.variables, lat, lon), fetch)
+                base = await forecasts.get((chosen.source_key, chosen.variables, step, lat, lon), fetch)
             except NotCovered:
                 # The edge of a rotated regional grid: the next candidate, if any.
                 if automatic and i + 1 < len(candidates):
                     continue
                 raise
             break
-        out = classify(base, schemes, chosen.schemes)
+        out = classify(base, schemes, chosen.schemes_for(step))
         if name:
             out = out.model_copy(update={"location": out.location.model_copy(update={"name": name})})
         response.headers["Cache-Control"] = API_CACHE
