@@ -94,7 +94,7 @@ def offline_products():
     return load(DEFAULT_SOURCES.parent / "sources.fixtures.yaml", load_vsup()).products
 
 
-@pytest.mark.parametrize("product", ["ecmwf", "icon", "icon-eu", "icon-d2", "meteoswiss"])
+@pytest.mark.parametrize("product", ["ecmwf", "icon", "aifs", "gfs", "aigefs", "gem", "icon-eu", "icon-d2", "meteoswiss"])
 def test_each_products_recordings_are_what_it_claims(product):
     """Every product's recordings: valid, from as many members as the product
     states, reaching about as far as it says - and for a regional model, of

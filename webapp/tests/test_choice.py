@@ -58,3 +58,10 @@ def test_a_product_not_marked_automatic_is_never_chosen(catalog):
 def test_at_the_edge_of_a_rotated_grid_there_is_a_next_one(catalog):
     """The box holds the point, the grid may not: the API tries the next."""
     assert [p.id for p in choice.ranked(catalog, *ADRIATIC, 3)] == ["meteoswiss", "icon-eu", "ecmwf"]
+
+
+def test_the_models_chosen_by_hand_never_come_automatically(catalog):
+    """GFS, AI-GEFS and GEM reach 16 days, one more than ECMWF: they would take long views over."""
+    for place in (BRAUNSCHWEIG, SINGAPORE, ZERMATT):
+        for days in (1, 5, 15, 16):
+            assert not {"aifs", "gfs", "aigefs", "gem"} & {p.id for p in choice.ranked(catalog, *place, days)}

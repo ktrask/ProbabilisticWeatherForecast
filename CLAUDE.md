@@ -86,7 +86,9 @@ Everything lives under `webapp/`:
   forecasts), `geocode.OpenMeteoGeocoder`. `config.py` + **`config/sources.yaml`** define sources
   and the *products* the UI offers (a source plus the schemes drawn from it; the first is the
   default) - today the global `ecmwf` (`ecmwf_ifs025`) and `icon` (DWD's `icon_global_eps`,
-  40 members, about 7 days), and the regional `icon-eu` (13 km, 5 days), `icon-d2` (2 km, 2 days)
+  40 members, about 7 days), by hand only (`automatic: false`) the further global `aifs` (ECMWF's
+  AI model, 51 members), `gfs`, `aigefs` (NOAA's AI model) and `gem` - three of them reach 16
+  days, one more than ECMWF, and would otherwise take long views over -, and the regional `icon-eu` (13 km, 5 days), `icon-d2` (2 km, 2 days)
   and `meteoswiss` (ICON-CH2, 2 km, Alps). Each product states `members` (at least 10, or "two
   thirds agree" means nothing), `grid_km` and `horizon_days` for the reader; `test_live_api`
   holds members and range to a live run. A regional *source* has an `area` - the box from
@@ -115,7 +117,10 @@ Everything lives under `webapp/`:
   check refuses a step without one. Under the automatic choice a product that lacks the asked
   step is drawn in its default; asked for by name it is a 422. Recordings in other steps sit
   beside the 6-hour ones as `<key>.<n>h.json`. Hourly axes tick every hour, label every third.
-  The plan for further models and hourly steps is `docs/modelle-plan.md` (stages 1-4 of 5 done).
+  The plan for further models and hourly steps is `docs/modelle-plan.md` (all 5 stages done; open: hourly ICON-EU for its first 48 hours, ECMWF's 9 km `ecmwf_ifs` once
+  Open-Meteo serves it). A 6-hour window from local midnight that does not start on a model's own
+  grid (00/06/12/18 UTC for the 6-hourly AI models, every 3 hours for ECMWF, GFS and GEM) blends
+  two of its steps: Open-Meteo spreads each step's total evenly over its hours.
 - **`vsup/`** + **`config/vsup.yaml`** — the pictogram rules. `rules` mode is an ordered list of
   `when:` expressions (own parser in `expr.py`, never `eval`); `tree` mode is intensity classes
   merging into groups as certainty drops. `config.load()` collects *every* problem with its line

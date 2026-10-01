@@ -47,6 +47,10 @@ DEFAULT_MODEL = "ecmwf_ifs025"
 MODELS = {
     DEFAULT_MODEL: (FIXTURE_DIR, 15),
     "icon_global_eps": (FIXTURE_DIR / "icon_eps", 8),
+    "ecmwf_aifs025": (FIXTURE_DIR / "aifs", 16),
+    "gfs_seamless": (FIXTURE_DIR / "gfs", 16),
+    "ncep_aigefs025": (FIXTURE_DIR / "aigefs", 16),
+    "gem_global": (FIXTURE_DIR / "gem", 16),
     "icon_eu_eps": (FIXTURE_DIR / "icon_eu_eps", 6),
     "icon_d2_eps": (FIXTURE_DIR / "icon_d2_eps", 3),
     "meteoswiss_icon_ch2": (FIXTURE_DIR / "meteoswiss_ch2", 6),

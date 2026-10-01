@@ -64,7 +64,9 @@ def one(issues, fragment):
 class TestShippedConfigs:
     def test_sources_yaml(self, schemes):
         catalog = load(DEFAULT_SOURCES, schemes)
-        assert list(catalog.products) == ["ecmwf", "icon", "icon-eu", "icon-d2", "meteoswiss"]
+        assert list(catalog.products) == ["ecmwf", "icon", "aifs", "gfs", "aigefs", "gem", "icon-eu", "icon-d2", "meteoswiss"]
+        # The further global models are chosen by hand only.
+        assert [p.id for p in catalog.products.values() if not p.automatic] == ["aifs", "gfs", "aigefs", "gem"]
         assert catalog.products["ecmwf"].area is None
         assert catalog.products["icon-d2"].area.contains(52.26, 10.52)
         assert not catalog.products["meteoswiss"].area.contains(52.26, 10.52)
@@ -177,7 +179,8 @@ class TestSteps:
     def test_the_shipped_hourly_products(self, schemes):
         catalog = load(DEFAULT_SOURCES, schemes)
         assert {p.id: p.steps for p in catalog.products.values()} == {
-            "ecmwf": (6,), "icon": (6,), "icon-eu": (6,), "icon-d2": (1, 6), "meteoswiss": (6, 1),
+            "ecmwf": (6,), "icon": (6,), "aifs": (6,), "gfs": (6,), "aigefs": (6,), "gem": (6,),
+            "icon-eu": (6,), "icon-d2": (1, 6), "meteoswiss": (6, 1),
         }
 
 
