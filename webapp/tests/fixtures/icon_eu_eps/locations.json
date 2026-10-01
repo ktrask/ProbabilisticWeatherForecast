@@ -1,0 +1,26 @@
+{
+ "braunschweig": {
+  "altitude": 79,
+  "latitude": 52.2646577,
+  "longitude": 10.5236066,
+  "name": "Braunschweig, Germany",
+  "note": "project default location, temperate maritime",
+  "timezone": "Europe/Berlin"
+ },
+ "reykjavik": {
+  "altitude": 61,
+  "latitude": 64.1466,
+  "longitude": -21.9426,
+  "name": "Reykjavik, Iceland",
+  "note": "high latitude, windy and wet - exercises storm/rain pictograms",
+  "timezone": "Atlantic/Reykjavik"
+ },
+ "zermatt": {
+  "altitude": 1608,
+  "latitude": 46.0207,
+  "longitude": 7.7491,
+  "name": "Zermatt, Switzerland",
+  "note": "alpine, high altitude, large temperature spread",
+  "timezone": "Europe/Zurich"
+ }
+}

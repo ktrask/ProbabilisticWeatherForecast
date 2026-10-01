@@ -1,7 +1,7 @@
 """One GET with a timeout, and upstream failures turned into SourceErrors."""
 import httpx
 
-from sources.base import SourceError, SourceTimeout
+from sources.base import SourceError, SourceTimeout, UpstreamStatus
 
 
 async def get(url, params, *, timeout, what, client=None):
@@ -21,7 +21,8 @@ async def get(url, params, *, timeout, what, client=None):
     except httpx.HTTPError as exc:
         raise SourceError(f"{what} could not be reached: {type(exc).__name__}: {exc}") from exc
     if response.status_code != 200:
-        raise SourceError(f"{what} answered {response.status_code}: {_reason(response)}")
+        reason = _reason(response)
+        raise UpstreamStatus(f"{what} answered {response.status_code}: {reason}", response.status_code, reason)
     return response
 
 

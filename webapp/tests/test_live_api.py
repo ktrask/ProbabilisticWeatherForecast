@@ -104,15 +104,27 @@ def test_each_product_is_what_it_claims(product):
     from vsup.classify import classify
     from vsup.config import load
 
-    result = fetch(product.source, PARIS, product.variables)
+    # Paris, or for a regional model the middle of its area.
+    place = PARIS if product.area is None else Location(lat=product.area.center[0], lon=product.area.center[1])
+    result = fetch(product.source, place, product.variables)
     assert result.member_count == product.members
     forecast = build_forecast(result)
     span_days = (forecast.steps[-1] - forecast.steps[0]).total_seconds() / 86400
-    # The newest run is not always the longest: ECMWF's 06 and 18 UTC runs
-    # stop at 6 days, and then the end comes from an older run (13.2 days
-    # from local midnight on 2026-10-01, 09 UTC; 14.5 right after a 00 UTC run).
-    assert product.horizon_days - 2 <= span_days <= product.horizon_days, f"{span_days:.1f} days"
+    # Counted from local midnight, so a run started later that day can reach a
+    # little past its nominal range. And the newest run is not always the
+    # longest: ECMWF's 06 and 18 UTC runs stop at 6 days, and then the end
+    # comes from an older run (13.2 days on 2026-10-01, 09 UTC; 14.5 right
+    # after a 00 UTC run).
+    assert product.horizon_days - 2 <= span_days <= product.horizon_days + 1, f"{span_days:.1f} days"
     classify(forecast, load(), list(product.schemes))
+
+
+def test_a_regional_model_says_where_it_has_no_grid():
+    """The reason Open-Meteo gives - the adapter turns exactly that into NotCovered."""
+    from sources.base import NotCovered
+
+    with pytest.raises(NotCovered):
+        fetch(OpenMeteoEnsemble("icon_d2_eps", forecast_days=2), Location(lat=1.35, lon=103.82), {"temperature_2m"})
 
 
 def test_live_forecast_matches_the_fixtures():
@@ -182,4 +194,4 @@ def test_api_end_to_end():
     assert forecast.location.name == "Paris"
     assert forecast.location.timezone == "Europe/Paris"
     assert set(forecast.pictograms) == {"cloud_cover", "precipitation", "wind_speed_10m"}
-    assert ok("/api/health?deep=true")["upstream"] == {"ecmwf-ens": "ok", "icon-eps": "ok"}
+    assert set(ok("/api/health?deep=true")["upstream"].values()) == {"ok"}

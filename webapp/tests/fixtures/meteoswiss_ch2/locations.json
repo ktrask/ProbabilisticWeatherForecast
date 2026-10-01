@@ -1,0 +1,10 @@
+{
+ "zermatt": {
+  "altitude": 1608,
+  "latitude": 46.0207,
+  "longitude": 7.7491,
+  "name": "Zermatt, Switzerland",
+  "note": "alpine, high altitude, large temperature spread",
+  "timezone": "Europe/Zurich"
+ }
+}

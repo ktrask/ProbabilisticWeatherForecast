@@ -108,6 +108,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AreaOut */
+        AreaOut: {
+            /** East */
+            east: number;
+            /** North */
+            north: number;
+            /** South */
+            south: number;
+            /** West */
+            west: number;
+        };
         /** CacheStats */
         CacheStats: {
             /** Entries */
@@ -262,6 +273,8 @@ export interface components {
         };
         /** ProductOut */
         ProductOut: {
+            /** @description For a regional model, the box around its domain: outside it there is no forecast, inside it there usually is (rotated grids fill it only partly). null: the whole globe. */
+            area: components["schemas"]["AreaOut"] | null;
             /** Default */
             default: boolean;
             /**

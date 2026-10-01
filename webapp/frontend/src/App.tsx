@@ -7,6 +7,7 @@ import { Legend } from "./legend/Legend";
 import { daysAvailable, visibleWindow } from "./meteogram/layout";
 import { Meteogram } from "./meteogram/Meteogram";
 import { SearchBox } from "./search/SearchBox";
+import { covers, offered } from "./state/products";
 import { type Layout, type Navigate, type ViewState, useUrlState } from "./state/urlState";
 
 export function App() {
@@ -30,7 +31,13 @@ export function App() {
           <h1>{i18n.t.title}</h1>
           <p>{i18n.t.tagline}</p>
         </div>
-        <SearchBox onSelect={(place) => navigate(place)} />
+        <SearchBox
+          onSelect={(place) => {
+            // A regional model chosen for the last place may not reach the new one.
+            const chosen = products.data?.products.find((p) => p.id === state.product);
+            navigate(chosen && !covers(chosen, place.lat, place.lon) ? { ...place, product: null } : place);
+          }}
+        />
       </header>
       <main>
         {query === null ? (
@@ -46,6 +53,10 @@ export function App() {
               void forecast.refetch();
               void schemes.refetch();
             }}
+            // At the edge of a rotated regional grid there may be no forecast after all.
+            useDefault={state.product !== null && !products.data?.products.find((p) => p.id === state.product)?.default
+              ? () => navigate({ product: null })
+              : null}
           />
         ) : (
           <ForecastView
@@ -61,17 +72,29 @@ export function App() {
   );
 }
 
-function ErrorBox({ error, retry }: { error: Error | null; retry: () => void }) {
+interface ErrorBoxProps {
+  error: Error | null;
+  retry: () => void;
+  useDefault: (() => void) | null; // set while a model other than the default is chosen
+}
+
+function ErrorBox({ error, retry, useDefault }: ErrorBoxProps) {
   const i18n = useI18n();
   // A 4xx will fail the same way again; only offer a retry for the rest.
   const status = error instanceof ApiError ? error.status : null;
   const permanent = status !== null && status < 500;
+  const otherModel = status === 404 && useDefault !== null;
   return (
     <div className="error" role="alert">
       <p>
-        <strong>{status === 404 ? i18n.t.noData : i18n.t.errorTitle}</strong>
+        <strong>{otherModel ? i18n.t.modelNoData : status === 404 ? i18n.t.noData : i18n.t.errorTitle}</strong>
       </p>
       {error && <p className="detail">{error.message}</p>}
+      {otherModel && (
+        <button type="button" onClick={useDefault}>
+          {i18n.t.useDefault}
+        </button>
+      )}
       {!permanent && (
         <button type="button" onClick={retry}>
           {i18n.t.retry}
@@ -103,6 +126,7 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
   const drawn = new Set(Object.values(forecast.pictograms).map((p) => p.scheme));
   const legendSchemes = schemes.schemes.filter((s) => drawn.has(s.name));
   const product = products.find((p) => p.id === state.product) ?? products.find((p) => p.default);
+  const choices = offered(products, state.lat, state.lon, state.product);
   const location = forecast.location;
   const title = location.name ?? `${location.lat}, ${location.lon}`;
 
@@ -120,11 +144,11 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
           </p>
         </div>
         <div className="controls">
-          {products.length > 1 && (
+          {choices.length > 1 && (
             <label className="product">
               {i18n.t.product}{" "}
               <select value={product?.id ?? ""} onChange={(e) => navigate({ product: e.target.value })}>
-                {products.map((p) => (
+                {choices.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label} ({i18n.t.productDetails(p.members, i18n.number(p.grid_km), i18n.number(p.horizon_days, p.horizon_days % 1 ? 1 : 0))})
                   </option>

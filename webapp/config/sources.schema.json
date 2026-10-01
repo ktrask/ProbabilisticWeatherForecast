@@ -1,5 +1,43 @@
 {
   "$defs": {
+    "AreaSpec": {
+      "additionalProperties": false,
+      "description": "A box around a regional model's domain, in degrees. Inside it the model's\nown answer decides; outside it the source is not asked.",
+      "properties": {
+        "south": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "South",
+          "type": "number"
+        },
+        "north": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "North",
+          "type": "number"
+        },
+        "west": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "West",
+          "type": "number"
+        },
+        "east": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "East",
+          "type": "number"
+        }
+      },
+      "required": [
+        "south",
+        "north",
+        "west",
+        "east"
+      ],
+      "title": "AreaSpec",
+      "type": "object"
+    },
     "FixtureSpec": {
       "additionalProperties": false,
       "properties": {
@@ -20,6 +58,18 @@
           "default": null,
           "description": "Recorded forecasts, relative to this file. Default: tests/fixtures.",
           "title": "Directory"
+        },
+        "area": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AreaSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "As the live source it stands in for."
         }
       },
       "required": [
@@ -56,6 +106,18 @@
           "maximum": 120,
           "title": "Timeout S",
           "type": "number"
+        },
+        "area": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AreaSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a regional model: the box around its domain. Default: the whole globe."
         }
       },
       "required": [
@@ -110,7 +172,7 @@
         },
         "members": {
           "description": "Ensemble members the model runs.",
-          "minimum": 1,
+          "minimum": 10,
           "title": "Members",
           "type": "integer"
         },
