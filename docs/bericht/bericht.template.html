@@ -106,7 +106,7 @@ Vorhersagen für fünf Klimazonen wird gezeigt, wie das funktioniert – in der 
 </ol>
 
 <p class="source">Grundlage: Quellcode im Repository <code>ProbabilisticWeatherForecast</code> (Branch <code>main</code>,
-Commit <code>801474f</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
+Commit <code>8a600b5</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
 neu entwickelt. Die Meteogramme sind Bildschirmfotos der neuen App, gespeist aus den Test-Fixtures (ECMWF-IFS-Ensemble
 über Open-Meteo, aufgezeichnet am 29.09.2026); die Piktogramme der Beispiele in Abschnitt 6 hat der Klassifikator der
 App bestimmt. Abschnitt 10.1 beruht auf einem Live-Abruf vom 29.09.2026. Stand: 01.10.2026. Die frühere Fassung dieses
@@ -243,7 +243,7 @@ mehr.</p>
 <p>Welches der sieben Symbole gezeichnet wird, steht nicht mehr im Programmcode, sondern in der Konfigurationsdatei
 <code>config/vsup.yaml</code>. Für die Bewölkung lautet der Eintrag:</p>
 <pre>$yaml</pre>
-<p>Jede Größe hat vier <b>Wertklassen</b> mit festen Grenzen (Bewölkung 10 / 50 / 90 %, Niederschlag 0,1 / 1 / 2 mm in
+<p>Jede Größe hat vier <b>Wertklassen</b> mit festen Grenzen (Bewölkung 10 / 50 / 90 %, Niederschlag 0,1 / 2 / 5 mm in
 6 Stunden, Wind 3 / 10 / 17,2 m/s). Die Stufen werden von oben nach unten geprüft; die erste, die zutrifft, gewinnt:</p>
 <ul>
   <li><b>Stufe 3 (sicher):</b> Das 17. und das 83. Perzentil liegen in derselben Klasse – mindestens zwei Drittel der
@@ -255,6 +255,10 @@ mehr.</p>
 <p>Die Schwelle „zwei Drittel“ wurde am 29.09.2026 an Live-Daten der fünf Beispielorte festgelegt. Mit 80 % (10.–90.
 Perzentil, wie im alten Code) waren fast nur die Randklassen je „sicher“ – bei Wolken 9 %, bei Regen 18 % der
 Schritte; 50 % war als Aussage „sicher“ zu schwach. Mit zwei Dritteln sind es 13 % bzw. 26 %, beim Wind 60 %.</p>
+<p>Die Regengrenzen 2 und 5 mm gelten seit dem 01.10.2026; vorher waren es 1 und 2 mm, übernommen aus dem Code von
+2018 ohne erkennbare Begründung. 2 mm in sechs Stunden sind im Mittel 0,33 mm pro Stunde – nach der üblichen
+Einteilung (leicht bis 2,5 mm pro Stunde) leichter Regen und kein starker. 0,1 mm als Grenze zu „kein Regen“ ist die
+übliche Messschwelle von Regenmessern.</p>
 <p>Die Datei wird beim Start vollständig geprüft; jedes Problem wird mit Zeilennummer gemeldet, und eine fehlerhafte
 Konfiguration verhindert den Start, statt falsche Symbole zu liefern. Jedes Schema nennt seine Einheit; Schwellen in
 einer anderen Einheit werden beim Laden einmal umgerechnet. Die alten Regeln – eine Prüfkette mit 10./90. Perzentil,
@@ -270,10 +274,10 @@ Strich den Median. Gestrichelte Linien markieren die Klassengrenzen.</p>
   <h3>6.1&nbsp;&nbsp;Niederschlag (mm in 6 Stunden)</h3>
   $fig_rain
   <figcaption><b>Abb. 4 – Sieben Niederschlagsszenarien.</b> Für „sicher mäßiger Regen“ (C) müssen die mittleren zwei
-  Drittel in das schmale Fenster von 1 bis 2 mm passen; in den fünf aufgezeichneten Vorhersagen kam das kein einziges
-  Mal vor. In E sind sich die Member einig, dass es nass wird, nicht aber, ob mäßig oder stark – Stufe 2. In G ist der
-  Median klein (0,3 mm), doch das obere Viertel liefert mehr als 1,8 mm: Die mittlere Hälfte reicht von „kein Regen“
-  bis „mäßig“, und die Software weigert sich, eine Intensität zu nennen.</figcaption>
+  Drittel in das Fenster von 2 bis 5 mm passen; in den fünf aufgezeichneten Vorhersagen kam das kein einziges Mal vor.
+  In E sind sich die Member einig, dass es nass wird, nicht aber, ob mäßig oder stark – Stufe 2. In G ist der Median
+  klein (0,6 mm), doch das obere Viertel liefert mehr als 3 mm: Die mittlere Hälfte reicht von „kein Regen“ bis
+  „mäßig“, und die Software weigert sich, eine Intensität zu nennen.</figcaption>
 </figure>
 
 <figure>
@@ -320,18 +324,18 @@ bereits gezeigt, die übrigen Meteogramme zeigen je zehn Tage.</p>
   <img src="img/singapore.png" alt="Meteogramm Singapur">
   <figcaption><b>Abb. 8 – Singapur.</b> Die Temperatur schwankt Tag für Tag nahezu gleich zwischen 24 und 30 °C; das
   Band bleibt über zwei Wochen bei 1–3 K. Der Niederschlag folgt dem Tagesgang tropischer Schauer: Für den Nachmittag
-  (12–18 Uhr) meldet das Ensemble an den ersten beiden Tagen sicher starken Regen, nachts eher trockenes Wetter; danach
-  wechselt es zwischen „wahrscheinlich“ und „alles möglich“ – Schauer sind sicher zu erwarten, aber nicht Zeitpunkt und
-  Menge. Wind ist in 97 % der Schritte sicher windstill.</figcaption>
+  (12–18 Uhr) meldet das Ensemble an den ersten drei Tagen „wahrscheinlich mäßiger oder starker Regen“ (Mediane von 4
+  bis 7 mm), für den Morgen oft sicher leichten Regen; danach wechselt es zwischen „wahrscheinlich“ und „alles
+  möglich“ – Schauer sind sicher zu erwarten, aber nicht Zeitpunkt und Menge. Wind ist in 97 % der Schritte sicher windstill.</figcaption>
 </figure>
 
 <figure>
   <h3>7.3&nbsp;&nbsp;Reykjavík – nass, mit uneinigen Regenmengen</h3>
   <img src="img/reykjavik.png" alt="Meteogramm Reykjavík">
-  <figcaption><b>Abb. 9 – Reykjavík, Island.</b> Die ersten Tage bringen bei bedecktem Himmel mehrfach sicher starken
-  Regen (mehr als 2 mm in 6 Stunden, Mediane bis 9 mm). Danach ist sich das Ensemble über die Menge fast nie einig: In
-  drei Vierteln aller Schritte zeigt das Regensymbol „alles möglich“, weil manche Member kaum etwas, andere über 10 mm
-  liefern. Der Wind ist meist leicht; die Temperatur bleibt lange eng, erst in der zweiten Woche öffnet sich das Band
+  <figcaption><b>Abb. 9 – Reykjavík, Island.</b> Die ersten Tage bringen bei bedecktem Himmel kräftigen Regen: am
+  Morgen des 29.09. sicher starken (Median 9 mm in 6 Stunden), danach mehrfach „wahrscheinlich mäßig oder stark“.
+  Später ist sich das Ensemble über die Menge oft nicht einig: In 44 % aller Schritte zeigt das Regensymbol „alles
+  möglich“, weil manche Member kaum etwas, andere über 10 mm liefern. Der Wind ist meist leicht; die Temperatur bleibt lange eng, erst in der zweiten Woche öffnet sich das Band
   auf 6–9 K.</figcaption>
 </figure>
 
@@ -412,7 +416,7 @@ der Member bei 37–72 % – eigentlich eine recht bestimmte Aussage („teils b
 zwischen „klar oder leicht bewölkt“ und „bewölkt oder bedeckt“, und so bleibt nur Stufe 1 (Abb. 5, G). Umgekehrt am
 Dienstagmittag: Die Member sind sich einig, dass es stark bewölkt ist (76–95 %), doch die Klassengrenze bei 90 % teilt
 sie, und es reicht nur für „wahrscheinlich“ (Abb. 5, E). Die mittleren Klassen sind zudem schmal – „leicht bewölkt“
-umfasst 40 Prozentpunkte, „mäßiger Regen“ 1 mm –, deshalb werden sie fast nie „sicher“. Das liegt an den Klassen, nicht
+umfasst 40 Prozentpunkte, „mäßiger Regen“ 3 mm –, deshalb werden sie fast nie „sicher“. Das liegt an den Klassen, nicht
 an der Schwelle von zwei Dritteln; ändern ließe es sich etwa durch eine überlappende Gruppe „wechselnd bewölkt“ für die
 Mitte oder durch eine Unschärfezone an den Grenzen.</p>
 
