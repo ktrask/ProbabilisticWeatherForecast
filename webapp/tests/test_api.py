@@ -18,7 +18,7 @@ from api import __main__ as cli
 from api.app import create_app
 from api.cache import TTLCache
 from api.settings import Settings
-from core.model import Forecast
+from api.models import ForecastOut
 from core.pipeline import build_forecast
 from core.reduce import DataGap
 from sources import config as sources_config
@@ -136,6 +136,36 @@ class TestProducts:
         if status == 404:
             assert "does not cover" in response.json()["detail"]
 
+    @pytest.mark.parametrize("place, days, product", [
+        (BRAUNSCHWEIG, 5, "icon-eu"),
+        (BRAUNSCHWEIG, 6, "ecmwf"),
+        ("lat=46.02&lon=7.75", 3, "meteoswiss"),  # Zermatt
+        ("lat=1.35&lon=103.82", 3, "ecmwf"),  # Singapore
+    ])
+    def test_without_a_product_the_finest_for_place_and_days(self, app, place, days, product):
+        body = get(app, f"/api/forecast?{place}&days={days}").json()
+        assert (body["product"], body["automatic"]) == (product, True)
+
+    def test_a_chosen_product_is_not_automatic(self, app):
+        body = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=icon&days=2").json()
+        assert (body["product"], body["automatic"]) == ("icon", False)
+
+    def test_at_the_edge_of_a_rotated_grid_the_next_model_draws(self, monkeypatch):
+        """MeteoSwiss's box holds the place, its grid does not."""
+        from sources.base import NotCovered
+
+        app = app_with()  # its own cache: the shared app may hold Zermatt already
+        meteoswiss = app.state.catalog.products["meteoswiss"].source
+
+        async def not_here(location, variables):
+            raise NotCovered("no grid point")
+
+        monkeypatch.setattr(meteoswiss, "fetch", not_here)
+        body = get(app, "/api/forecast?lat=46.02&lon=7.75&days=3").json()
+        assert body["product"] == "icon-eu"
+        # Asked for by name, the same place is a 404.
+        assert get(app, "/api/forecast?lat=46.02&lon=7.75&product=meteoswiss").status_code == 404
+
     def test_another_product_is_another_forecast(self, app):
         ecmwf = get(app, f"/api/forecast?{BRAUNSCHWEIG}").json()
         icon = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=icon").json()
@@ -190,7 +220,9 @@ class TestForecast:
     def test_a_valid_forecast_with_the_products_pictograms(self, app):
         response = get(app, f"/api/forecast?{BRAUNSCHWEIG}")
         assert response.status_code == 200
-        forecast = Forecast.model_validate(response.json())
+        forecast = ForecastOut.model_validate(response.json())
+        # No days given: it has to reach as far as the default, which only the default does.
+        assert (forecast.product, forecast.automatic) == ("ecmwf", True)
         assert len(forecast.steps) == len(build_forecast(FixtureSource().load("braunschweig")).steps)
         assert {name: s.scheme for name, s in forecast.pictograms.items()} == {
             "cloud_cover": "cloud-vsup", "precipitation": "precipitation-vsup", "wind_speed_10m": "wind-vsup",

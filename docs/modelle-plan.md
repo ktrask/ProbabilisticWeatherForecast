@@ -1,13 +1,13 @@
 # Plan: weitere Ensemble-Modelle und stündliche Vorhersage
 
-Stand: 01.10.2026 · Stufen 1 und 2 umgesetzt, Stufen 3–5 offen. Baut auf dem Stand von `main` auf (Commit
+Stand: 01.10.2026 · Stufen 1 bis 3 umgesetzt, Stufen 4 und 5 offen. Baut auf dem Stand von `main` auf (Commit
 `83bd6bd`) und ergänzt Phase 5 aus `neuentwicklung-plan.md` („Zweites Produkt nur über `sources.yaml`“).
 
 | Stufe | Stand |
 |---|---|
 | 1 Zweites globales Modell | erledigt (01.10.2026) |
 | 2 Regionale Modelle | erledigt (01.10.2026) |
-| 3 Automatische Vorauswahl | offen |
+| 3 Automatische Vorauswahl | erledigt (01.10.2026) |
 | 4 Stündliche Schritte | offen |
 | 5 Weitere globale Modelle | offen |
 
@@ -164,7 +164,25 @@ kleineren Ensembles, zeigt erst ein Vergleich mit dem, was dann tatsächlich ein
 **Zum Testen:** Braunschweig mit ICON-D2-EPS (2 Tage, 2 km), Zermatt mit MeteoSwiss, Singapur bietet
 nur die globalen Modelle an.
 
-### Stufe 3 – Automatische Vorauswahl
+### Stufe 3 – Automatische Vorauswahl · erledigt
+
+**Umgesetzt (01.10.2026), nach zwei Entscheidungen:** Das Modell wechselt mit dem Tage-Regler (mit
+Hinweis), und ICON-D2 wird erst mit stündlichen Schritten automatisch gewählt (`automatic: false`
+in `sources.yaml`, von Hand weiter wählbar).
+
+- Die Regel steht in `sources/choice.py` und liefert eine Rangliste, nicht nur ein Produkt. Hat das
+  beste am Rand eines gedrehten Gitters doch keine Daten (`NotCovered`), nimmt die API das nächste.
+- `/api/forecast` ohne `product` nimmt `days` und sagt in der Antwort `product` und `automatic`.
+  Ohne `days` muss ein Produkt so weit reichen wie der Standard, das bleibt also ECMWF, wie bisher.
+- Das Frontend wendet dieselbe Regel an (gleiche Testfälle), nur um den Abruf zu schlüsseln: Ein
+  Verschieben der Tage lädt nur neu, wenn sich das Modell ändert. Bis dahin bleibt das alte Bild,
+  abgeblendet, stehen.
+- Auswahlfeld: erster Eintrag „Automatisch (DWD ICON-EU ensemble)“, unter dem Meteogramm
+  „…, automatisch gewählt“. Im Automatikmodus bietet der Tage-Regler so viele Tage wie der Standard.
+- Ergebnis: Braunschweig bis 5 Tage ICON-EU, danach ECMWF. Zermatt bis 5 Tage MeteoSwiss.
+  Reykjavík bis 5 Tage ICON-EU. Singapur ECMWF.
+
+**Ursprünglicher Plan:**
 
 - Ohne `product` in der URL wählt die App selbst: unter den Produkten, die den **Ort abdecken** und den
   **gewählten Zeitraum** schaffen, das mit dem **feinsten Gitter**. Bei Gleichstand gewinnt die

@@ -15,3 +15,17 @@ export function offered(products: Product[], lat: number | null, lon: number | n
   if (lat === null || lon === null) return products;
   return products.filter((p) => p.id === chosen || covers(p, lat, lon));
 }
+
+/** The product the automatic choice takes: the finest automatic one that covers
+ * the place and reaches `days` (without: as far as the default), file order on a
+ * tie, else the default - the rule of the API's sources/choice.py. The API also
+ * steps past a model that turns out not to cover the place at the edge of a
+ * rotated grid, which only it can see; this is for knowing when a change of days
+ * or place changes the model and so needs a new request. */
+export function automaticChoice(products: Product[], lat: number, lon: number, days?: number): Product | undefined {
+  const fallback = products.find((p) => p.default);
+  const reach = days ?? fallback?.horizon_days ?? 0;
+  const candidates = products.filter((p) => p.automatic && p.horizon_days >= reach && covers(p, lat, lon));
+  candidates.sort((a, b) => a.grid_km - b.grid_km || products.indexOf(a) - products.indexOf(b));
+  return candidates[0] ?? fallback;
+}

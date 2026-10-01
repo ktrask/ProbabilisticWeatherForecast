@@ -187,6 +187,12 @@
           "exclusiveMinimum": 0,
           "title": "Horizon Days",
           "type": "number"
+        },
+        "automatic": {
+          "default": true,
+          "description": "Whether the automatic choice may take it (sources/choice.py); it stays selectable by hand.",
+          "title": "Automatic",
+          "type": "boolean"
         }
       },
       "required": [

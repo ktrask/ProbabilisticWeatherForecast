@@ -11,7 +11,8 @@ export interface paths {
         /**
          * Forecast
          * @description The whole forecast the source has - the client picks the days it shows -
-         *     as quantiles per step plus the product's pictograms.
+         *     as quantiles per step plus the product's pictograms, and which product
+         *     drew it.
          */
         get: operations["forecast_api_forecast_get"];
         put?: never;
@@ -143,8 +144,13 @@ export interface components {
             /** Detail */
             detail: string;
         };
-        /** Forecast */
-        Forecast: {
+        /** ForecastOut */
+        ForecastOut: {
+            /**
+             * Automatic
+             * @description Whether the product was chosen automatically.
+             */
+            automatic: boolean;
             deterministic_run?: components["schemas"]["Run"] | null;
             location: components["schemas"]["Location"];
             /**
@@ -154,6 +160,11 @@ export interface components {
             pictograms: {
                 [key: string]: components["schemas"]["PictogramSeries"];
             };
+            /**
+             * Product
+             * @description The product drawn: the one asked for, or the automatic choice.
+             */
+            product: string;
             run: components["schemas"]["Run"];
             /** Step Hours */
             step_hours: number;
@@ -275,6 +286,11 @@ export interface components {
         ProductOut: {
             /** @description For a regional model, the box around its domain: outside it there is no forecast, inside it there usually is (rotated grids fill it only partly). null: the whole globe. */
             area: components["schemas"]["AreaOut"] | null;
+            /**
+             * Automatic
+             * @description Whether the automatic choice may take it.
+             */
+            automatic: boolean;
             /** Default */
             default: boolean;
             /**
@@ -428,8 +444,10 @@ export interface operations {
                 lat: number;
                 /** @description Rounded to 2 decimals. */
                 lon: number;
-                /** @description A product id from /api/products; default: the first. */
+                /** @description A product id from /api/products. Without one, the finest product that covers the place and reaches `days` is chosen (`automatic` in the answer). */
                 product?: string | null;
+                /** @description Only for the automatic choice: how many days the reader wants. Default: as far as the default product reaches. */
+                days?: number | null;
                 variant?: "ensemble" | "hres";
                 /** @description Put into location.name as given. */
                 name?: string | null;
@@ -446,7 +464,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Forecast"];
+                    "application/json": components["schemas"]["ForecastOut"];
                 };
             };
             /** @description The source has no data for this place. */

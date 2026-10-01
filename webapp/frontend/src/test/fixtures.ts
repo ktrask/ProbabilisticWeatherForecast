@@ -19,6 +19,8 @@ export function forecast(n = 12): Forecast {
   return {
     location: { lat: 52.25, lon: 10.5, elevation_m: 80, timezone: "Europe/Berlin", name: "Braunschweig" },
     run: { source: "test", init_time: null, members: 51 },
+    product: "ecmwf",
+    automatic: false,
     deterministic_run: null,
     steps,
     step_hours: 6,

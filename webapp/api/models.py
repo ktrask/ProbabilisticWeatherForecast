@@ -1,8 +1,10 @@
-"""Response models of the API, apart from the Forecast itself (core.model)."""
+"""Response models of the API. The forecast is core.model's Forecast, plus which
+product drew it."""
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.model import Forecast
 from sources.geocode import Place
 
 
@@ -23,11 +25,17 @@ class ProductOut(BaseModel):
     members: int = Field(description="Ensemble members the model runs.")
     grid_km: float = Field(description="Grid spacing of the model, in km.")
     horizon_days: float = Field(description="About how far ahead a run reaches, in days.")
+    automatic: bool = Field(description="Whether the automatic choice may take it.")
     area: AreaOut | None = Field(
         description="For a regional model, the box around its domain: outside it there is no "
                     "forecast, inside it there usually is (rotated grids fill it only partly). "
                     "null: the whole globe."
     )
+
+
+class ForecastOut(Forecast):
+    product: str = Field(description="The product drawn: the one asked for, or the automatic choice.")
+    automatic: bool = Field(description="Whether the product was chosen automatically.")
 
 
 class ProductsOut(BaseModel):

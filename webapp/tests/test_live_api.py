@@ -13,6 +13,7 @@ import asyncio
 import httpx
 import pytest
 
+from api.models import ForecastOut
 from core.model import Forecast, Location
 from core.pipeline import build_forecast
 from sources.base import SourceError
@@ -190,7 +191,7 @@ def test_api_end_to_end():
     places = ok("/api/geocode?q=Paris&lang=en")["results"]
     paris = next(p for p in places if p["country_code"] == "FR")
     body = ok(f"/api/forecast?lat={paris['lat']}&lon={paris['lon']}&name=Paris")
-    forecast = Forecast.model_validate(body)
+    forecast = ForecastOut.model_validate(body)
     assert forecast.location.name == "Paris"
     assert forecast.location.timezone == "Europe/Paris"
     assert set(forecast.pictograms) == {"cloud_cover", "precipitation", "wind_speed_10m"}

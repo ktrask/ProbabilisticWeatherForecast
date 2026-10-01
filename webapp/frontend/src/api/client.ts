@@ -4,7 +4,7 @@
 import type { components, operations } from "./schema";
 
 type Schemas = components["schemas"];
-export type Forecast = Schemas["Forecast"];
+export type Forecast = Schemas["ForecastOut"];
 export type VariableSeries = Schemas["VariableSeries"];
 export type PictogramItem = Schemas["PictogramItem"];
 export type PictogramSeries = Schemas["PictogramSeries"];
