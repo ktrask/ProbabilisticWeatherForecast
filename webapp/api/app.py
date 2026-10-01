@@ -24,6 +24,7 @@ from api.models import (
     AreaOut,
     ClassOut,
     ErrorOut,
+    ForecastOut,
     GeocodeOut,
     HealthOut,
     LevelOut,
@@ -39,7 +40,8 @@ from core.pipeline import build_forecast
 from core.reduce import DataGap
 from core.variables import variable
 from sources import config as sources_config
-from sources.base import NoData, SourceError, SourceTimeout
+from sources import choice
+from sources.base import NoData, NotCovered, SourceError, SourceTimeout
 from sources.geocode import OpenMeteoGeocoder
 from vsup import config as vsup_config
 from vsup.classify import classify
@@ -110,6 +112,7 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
         redoc_url=None,
     )
     app.state.forecast_cache = forecasts
+    app.state.catalog = catalog
 
     def error(status):
         async def handler(request: Request, exc: Exception):
@@ -142,7 +145,7 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
             ProductOut(
                 id=p.id, label=p.label, default=p is catalog.default, variants=list(p.variants),
                 variables=sorted(p.variables), schemes=list(p.schemes),
-                members=p.members, grid_km=p.grid_km, horizon_days=p.horizon_days,
+                members=p.members, grid_km=p.grid_km, horizon_days=p.horizon_days, automatic=p.automatic,
                 area=AreaOut(**dataclasses.asdict(p.area)) if p.area else None,
             )
             for p in catalog.products.values()
@@ -160,36 +163,53 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
             schemes=[_scheme_out(scheme) for scheme in schemes.schemes.values()],
         )
 
-    @app.get("/api/forecast", response_model=Forecast, tags=["forecast"],
+    @app.get("/api/forecast", response_model=ForecastOut, tags=["forecast"],
              responses={**ERRORS, 409: {"model": ErrorOut, "description": "The product lacks this variant."}})
     async def forecast(
         response: Response,
         lat: float = Query(ge=-90, le=90, description=f"Rounded to {COORDINATE_DECIMALS} decimals."),
         lon: float = Query(ge=-180, le=180, description=f"Rounded to {COORDINATE_DECIMALS} decimals."),
-        product: str | None = Query(None, description="A product id from /api/products; default: the first."),
+        product: str | None = Query(
+            None, description="A product id from /api/products. Without one, the finest product that "
+                              "covers the place and reaches `days` is chosen (`automatic` in the answer)."),
+        days: int | None = Query(
+            None, ge=1, le=16, description="Only for the automatic choice: how many days the reader wants. "
+                                           "Default: as far as the default product reaches."),
         variant: Literal["ensemble", "hres"] = "ensemble",
         name: str | None = Query(None, max_length=200, description="Put into location.name as given."),
     ):
         """The whole forecast the source has - the client picks the days it shows -
-        as quantiles per step plus the product's pictograms."""
-        chosen = product_or_422(product)
-        if variant not in chosen.variants:
-            return JSONResponse(
-                {"detail": f"{chosen.label} has no {variant!r} variant; it offers {', '.join(chosen.variants)}"},
-                status_code=409,
-            )
+        as quantiles per step plus the product's pictograms, and which product
+        drew it."""
         lat, lon = round(lat, COORDINATE_DECIMALS), round(lon, COORDINATE_DECIMALS)
+        automatic = product is None
+        candidates = choice.ranked(catalog, lat, lon, days) if automatic else [product_or_422(product)]
+        for i, chosen in enumerate(candidates):
+            if variant not in chosen.variants:
+                if automatic and i + 1 < len(candidates):
+                    continue
+                return JSONResponse(
+                    {"detail": f"{chosen.label} has no {variant!r} variant; it offers {', '.join(chosen.variants)}"},
+                    status_code=409,
+                )
 
-        async def fetch():
-            result = await chosen.source.fetch(Location(lat=lat, lon=lon), set(chosen.variables))
-            return build_forecast(result, quantile_levels=schemes.quantiles)
+            async def fetch(chosen=chosen):
+                result = await chosen.source.fetch(Location(lat=lat, lon=lon), set(chosen.variables))
+                return build_forecast(result, quantile_levels=schemes.quantiles)
 
-        base = await forecasts.get((chosen.source_key, chosen.variables, lat, lon), fetch)
+            try:
+                base = await forecasts.get((chosen.source_key, chosen.variables, lat, lon), fetch)
+            except NotCovered:
+                # The edge of a rotated regional grid: the next candidate, if any.
+                if automatic and i + 1 < len(candidates):
+                    continue
+                raise
+            break
         out = classify(base, schemes, chosen.schemes)
         if name:
             out = out.model_copy(update={"location": out.location.model_copy(update={"name": name})})
         response.headers["Cache-Control"] = API_CACHE
-        return out
+        return ForecastOut(**dict(out), product=chosen.id, automatic=automatic)
 
     @app.get("/api/geocode", response_model=GeocodeOut, tags=["forecast"], responses=ERRORS)
     async def geocode(

@@ -105,7 +105,7 @@ test("the vertical layout runs time down the page @phone", async ({ page }) => {
 
 test("starts at the step nearest to now, in the place's own time", async ({ page }) => {
   await freezeClock(page);
-  const chart = await showMeteogram(page, url("braunschweig"));
+  const chart = await showMeteogram(page, url("braunschweig", "&product=ecmwf"));
   // Recorded from local midnight; twelve hours later is noon in Braunschweig,
   // whatever the browser's own zone (New York here).
   await expect(chart.locator(".axis .hour").first()).toHaveText("12");
@@ -125,18 +125,35 @@ test("hovering lists the step's values", async ({ page }) => {
   await expect(tooltip).toBeHidden();
 });
 
-test("changing the days needs no new request", async ({ page }) => {
+test("changing the days fetches again only when the model changes", async ({ page }) => {
   await freezeClock(page);
+  // Two days in Braunschweig: chosen automatically, ICON-EU.
   const chart = await showMeteogram(page, url("braunschweig", "&days=2"));
   let requests = 0;
   page.on("request", (request) => {
     if (request.url().includes("/api/forecast")) requests++;
   });
   await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(8);
+  await page.getByRole("slider").fill("4");
+  await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(16);
+  await expect(page).toHaveURL(/days=4/);
+  expect(requests).toBe(0); // still ICON-EU
+  // Six days are more than ICON-EU reaches: ECMWF takes over.
   await page.getByRole("slider").fill("6");
+  await expect(page.locator(".source")).toContainText("ECMWF ensemble (recorded), automatisch gewählt");
   await expect(chart.locator('g[data-variable="cloud_cover"] image')).toHaveCount(24);
-  await expect(page).toHaveURL(/days=6/);
-  expect(requests).toBe(0);
+  expect(requests).toBe(1);
+});
+
+test("without a chosen model the finest one for place and days draws, and says so", async ({ page }) => {
+  await freezeClock(page);
+  await showMeteogram(page, url("braunschweig"));
+  const picker = page.getByLabel("Modell");
+  await expect(picker).toHaveValue("");
+  await expect(picker.locator("option").first()).toHaveText("Automatisch (DWD ICON-EU ensemble (recorded))");
+  await expect(page.locator(".source")).toContainText("DWD ICON-EU ensemble (recorded), automatisch gewählt");
+  // More days than any model but ECMWF reaches are on offer.
+  await expect(page.getByRole("slider")).toHaveAttribute("max", "15");
 });
 
 test("search, choose, and come back", async ({ page }) => {
@@ -169,6 +186,7 @@ test("another model can be chosen, and the link keeps it", async ({ page }) => {
   const picker = page.getByLabel("Modell");
   // Braunschweig: the global models and the two DWD regional ones - not MeteoSwiss.
   await expect(picker.locator("option")).toHaveText([
+    "Automatisch (ECMWF ensemble (recorded))", // ten days: only ECMWF reaches that far
     "ECMWF ensemble (recorded) (51 Mitglieder, 25 km, bis 15 Tage)",
     "DWD ICON ensemble (recorded) (40 Mitglieder, 26 km, bis 7,5 Tage)",
     "DWD ICON-EU ensemble (recorded) (40 Mitglieder, 13 km, bis 5 Tage)",
@@ -182,20 +200,22 @@ test("another model can be chosen, and the link keeps it", async ({ page }) => {
   await expect(page.getByRole("slider")).toHaveAttribute("max", "8");
   await expect(chart.locator("image").first()).toBeAttached();
   await page.goBack();
-  await expect(page.locator(".source")).toContainText("ECMWF ensemble (recorded), 51 Ensemble-Mitglieder");
+  await expect(page.locator(".source")).toContainText("ECMWF ensemble (recorded), automatisch gewählt, 51 Ensemble-Mitglieder");
 });
 
 test("a regional model is offered where it covers the place", async ({ page }) => {
   await freezeClock(page, "zermatt");
   await showMeteogram(page, url("zermatt"));
   const picker = page.getByLabel("Modell");
-  await expect(picker.locator("option")).toHaveCount(5);
+  await expect(picker.locator("option")).toHaveCount(6); // "Automatisch" and all five
+  // Five days in the Alps: MeteoSwiss, chosen automatically.
+  await expect(page.locator(".source")).toContainText("MeteoSwiss ICON-CH2 ensemble (recorded), automatisch gewählt");
   await picker.selectOption("meteoswiss");
   await expect(page.locator(".source")).toContainText("MeteoSwiss ICON-CH2 ensemble (recorded), 21 Ensemble-Mitglieder");
   await expect(page.getByTestId("meteogram").locator("image").first()).toBeAttached();
 });
 
-test("a new place the chosen model does not reach goes back to the default", async ({ page }) => {
+test("a new place the chosen model does not reach goes back to the automatic choice", async ({ page }) => {
   await freezeClock(page);
   await page.route("**/api/geocode?**", async (route) => {
     const q = new URL(route.request().url()).searchParams.get("q") ?? "";
@@ -211,15 +231,15 @@ test("a new place the chosen model does not reach goes back to the default", asy
   await search.press("Enter");
   await expect(page.getByTestId("place")).toHaveText("Reykjavík, Island");
   await expect(page).not.toHaveURL(/product=/);
-  await expect(page.locator(".source")).toContainText("ECMWF");
+  await expect(page.locator(".source")).toContainText("DWD ICON-EU ensemble (recorded), automatisch gewählt");
 });
 
-test("a model without a forecast for the place offers the default one", async ({ page }) => {
+test("a model without a forecast for the place offers the automatic choice", async ({ page }) => {
   await freezeClock(page);
   // A link to MeteoSwiss for Braunschweig - outside its area.
   await page.goto(url("braunschweig", "&product=meteoswiss"));
   await expect(page.getByRole("alert")).toContainText("Das gewählte Modell hat für diesen Ort keine Vorhersage.");
-  await page.getByRole("button", { name: "Standardmodell verwenden" }).click();
+  await page.getByRole("button", { name: "Automatisch wählen" }).click();
   await expect(page).not.toHaveURL(/product=/);
   await expect(page.getByTestId("meteogram").locator("image").first()).toBeAttached();
 });

@@ -91,9 +91,14 @@
         "title": "ErrorOut",
         "type": "object"
       },
-      "Forecast": {
+      "ForecastOut": {
         "additionalProperties": false,
         "properties": {
+          "automatic": {
+            "description": "Whether the product was chosen automatically.",
+            "title": "Automatic",
+            "type": "boolean"
+          },
           "deterministic_run": {
             "anyOf": [
               {
@@ -114,6 +119,11 @@
             "default": {},
             "title": "Pictograms",
             "type": "object"
+          },
+          "product": {
+            "description": "The product drawn: the one asked for, or the automatic choice.",
+            "title": "Product",
+            "type": "string"
           },
           "run": {
             "$ref": "#/components/schemas/Run"
@@ -144,9 +154,11 @@
           "run",
           "steps",
           "step_hours",
-          "variables"
+          "variables",
+          "product",
+          "automatic"
         ],
-        "title": "Forecast",
+        "title": "ForecastOut",
         "type": "object"
       },
       "GeocodeOut": {
@@ -485,6 +497,11 @@
             ],
             "description": "For a regional model, the box around its domain: outside it there is no forecast, inside it there usually is (rotated grids fill it only partly). null: the whole globe."
           },
+          "automatic": {
+            "description": "Whether the automatic choice may take it.",
+            "title": "Automatic",
+            "type": "boolean"
+          },
           "default": {
             "title": "Default",
             "type": "boolean"
@@ -546,6 +563,7 @@
           "members",
           "grid_km",
           "horizon_days",
+          "automatic",
           "area"
         ],
         "title": "ProductOut",
@@ -855,7 +873,7 @@
   "paths": {
     "/api/forecast": {
       "get": {
-        "description": "The whole forecast the source has - the client picks the days it shows -\nas quantiles per step plus the product's pictograms.",
+        "description": "The whole forecast the source has - the client picks the days it shows -\nas quantiles per step plus the product's pictograms, and which product\ndrew it.",
         "operationId": "forecast_api_forecast_get",
         "parameters": [
           {
@@ -885,7 +903,7 @@
             }
           },
           {
-            "description": "A product id from /api/products; default: the first.",
+            "description": "A product id from /api/products. Without one, the finest product that covers the place and reaches `days` is chosen (`automatic` in the answer).",
             "in": "query",
             "name": "product",
             "required": false,
@@ -898,8 +916,28 @@
                   "type": "null"
                 }
               ],
-              "description": "A product id from /api/products; default: the first.",
+              "description": "A product id from /api/products. Without one, the finest product that covers the place and reaches `days` is chosen (`automatic` in the answer).",
               "title": "Product"
+            }
+          },
+          {
+            "description": "Only for the automatic choice: how many days the reader wants. Default: as far as the default product reaches.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 16,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only for the automatic choice: how many days the reader wants. Default: as far as the default product reaches.",
+              "title": "Days"
             }
           },
           {
@@ -941,7 +979,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Forecast"
+                  "$ref": "#/components/schemas/ForecastOut"
                 }
               }
             },

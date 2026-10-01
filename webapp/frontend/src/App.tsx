@@ -7,7 +7,7 @@ import { Legend } from "./legend/Legend";
 import { daysAvailable, visibleWindow } from "./meteogram/layout";
 import { Meteogram } from "./meteogram/Meteogram";
 import { SearchBox } from "./search/SearchBox";
-import { covers, offered } from "./state/products";
+import { automaticChoice, covers, offered } from "./state/products";
 import { type Layout, type Navigate, type ViewState, useUrlState } from "./state/urlState";
 
 export function App() {
@@ -15,14 +15,32 @@ export function App() {
   const [state, navigate] = useUrlState();
   const products = useProducts();
   const schemes = useSchemes();
+  const list = products.data?.products;
+  // No product in the URL: the API chooses the finest model for place and days.
+  // The same rule here tells which model that will be, so that moving the days
+  // fetches again only when the model changes.
+  const auto = state.product === null;
+  const expected =
+    auto && list && state.lat !== null && state.lon !== null
+      ? automaticChoice(list, state.lat, state.lon, state.days)?.id ?? null
+      : null;
   const query = useMemo(
     () =>
-      state.lat !== null && state.lon !== null
-        ? { lat: state.lat, lon: state.lon, product: state.product, variant: state.variant, name: state.name }
+      state.lat !== null && state.lon !== null && (!auto || list)
+        ? {
+            lat: state.lat,
+            lon: state.lon,
+            product: state.product,
+            days: auto ? state.days : null,
+            variant: state.variant,
+            name: state.name,
+          }
         : null,
-    [state.lat, state.lon, state.product, state.variant, state.name],
+    // The days matter only through the expected model; see the key below.
+    [state.lat, state.lon, state.product, auto ? expected : null, state.variant, state.name, list !== undefined],
   );
-  const forecast = useForecast(query);
+  const key = query && auto ? { ...query, days: null, expected } : query;
+  const forecast = useForecast(query, key);
 
   return (
     <div className="app">
@@ -61,6 +79,7 @@ export function App() {
         ) : (
           <ForecastView
             forecast={forecast.data}
+            updating={forecast.isPlaceholderData}
             schemes={schemes.data}
             products={products.data?.products ?? []}
             state={state}
@@ -106,18 +125,23 @@ function ErrorBox({ error, retry, useDefault }: ErrorBoxProps) {
 
 interface ViewProps {
   forecast: Forecast;
+  updating: boolean; // another model is loading; this is the previous one
   schemes: Schemes;
   products: Product[];
   state: ViewState;
   navigate: Navigate;
 }
 
-function ForecastView({ forecast, schemes, products, state, navigate }: ViewProps) {
+function ForecastView({ forecast, updating, schemes, products, state, navigate }: ViewProps) {
   const i18n = useI18n();
   const [now] = useState(() => new Date());
   const steps = useMemo(() => forecast.steps.map((s) => new Date(s)), [forecast.steps]);
   const probe = visibleWindow(steps, forecast.step_hours, now, 1);
-  const maxDays = daysAvailable(steps.length, probe.from, forecast.step_hours);
+  const dataDays = daysAvailable(steps.length, probe.from, forecast.step_hours);
+  const fallback = products.find((p) => p.default);
+  // Chosen automatically, more days may bring another model: offer as many as the default reaches.
+  const maxDays =
+    state.product === null && fallback ? Math.max(dataDays, Math.ceil(fallback.horizon_days)) : dataDays;
   const days = Math.min(state.days, maxDays);
   const view = visibleWindow(steps, forecast.step_hours, now, days);
   const box = useRef<HTMLDivElement>(null);
@@ -125,8 +149,11 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
 
   const drawn = new Set(Object.values(forecast.pictograms).map((p) => p.scheme));
   const legendSchemes = schemes.schemes.filter((s) => drawn.has(s.name));
-  const product = products.find((p) => p.id === state.product) ?? products.find((p) => p.default);
+  const product = products.find((p) => p.id === forecast.product) ?? fallback;
   const choices = offered(products, state.lat, state.lon, state.product);
+  const wouldChoose =
+    state.lat !== null && state.lon !== null ? automaticChoice(products, state.lat, state.lon, state.days) : undefined;
+  const autoLabel = (forecast.automatic ? product : wouldChoose)?.label ?? "";
   const location = forecast.location;
   const title = location.name ?? `${location.lat}, ${location.lon}`;
 
@@ -147,7 +174,8 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
           {choices.length > 1 && (
             <label className="product">
               {i18n.t.product}{" "}
-              <select value={product?.id ?? ""} onChange={(e) => navigate({ product: e.target.value })}>
+              <select value={state.product ?? ""} onChange={(e) => navigate({ product: e.target.value || null })}>
+                <option value="">{i18n.t.automatic(autoLabel)}</option>
                 {choices.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label} ({i18n.t.productDetails(p.members, i18n.number(p.grid_km), i18n.number(p.horizon_days, p.horizon_days % 1 ? 1 : 0))})
@@ -175,7 +203,7 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
           {i18n.t.stale}
         </p>
       )}
-      <div className="chart" ref={box}>
+      <div className={updating ? "chart updating" : "chart"} ref={box} aria-busy={updating}>
         {width > 0 && (
           <Meteogram
             forecast={forecast}
@@ -188,7 +216,10 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
       </div>
       <p className="source">
         {/* Recorded quantiles do not know their members; the product says how many it runs. */}
-        {i18n.t.source(product?.label ?? forecast.run.source, forecast.run.members ?? product?.members ?? null)}
+        {i18n.t.source(
+          forecast.automatic && product ? i18n.t.chosenAutomatically(product.label) : product?.label ?? forecast.run.source,
+          forecast.run.members ?? product?.members ?? null,
+        )}
       </p>
       <Legend schemes={legendSchemes} pictogramBase={schemes.pictogram_base} />
     </article>

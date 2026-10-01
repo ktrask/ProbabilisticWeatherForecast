@@ -11,16 +11,28 @@ function retry(failures: number, error: Error) {
   return failures < 2;
 }
 
-export function useForecast(query: ForecastQuery | null) {
+/** The forecast for `query`. `key` identifies the answer when the query itself
+ * would over-identify it: an automatic choice sends the days, but only a change
+ * of the chosen model makes it a different forecast. */
+export function useForecast(query: ForecastQuery | null, key: unknown = query) {
   return useQuery({
-    queryKey: ["forecast", query],
+    queryKey: ["forecast", key],
     queryFn: ({ signal }) => api.forecast(query as ForecastQuery, signal),
     enabled: query !== null,
     // The backend caches upstream answers for an hour; five minutes here keeps
     // switching back and forth between places instant.
     staleTime: 5 * 60_000,
+    // Another model for the same place: keep the old chart until the new one is
+    // there. Another place: show that it is loading.
+    placeholderData: (previous, previousQuery) =>
+      samePlace(previousQuery?.queryKey[1], key) ? previous : undefined,
     retry,
   });
+}
+
+function samePlace(a: unknown, b: unknown): boolean {
+  const place = (k: unknown) => (k && typeof k === "object" ? `${(k as ForecastQuery).lat},${(k as ForecastQuery).lon}` : null);
+  return place(a) !== null && place(a) === place(b);
 }
 
 export function useProducts() {

@@ -71,6 +71,9 @@ products:
     horizon_days: 5
   icon-d2:
     label: DWD ICON-D2 ensemble
+    # Not chosen automatically before it is shown in hourly steps (stage 4 of
+    # docs/modelle-plan.md): two days in 6-hour steps are too few to read.
+    automatic: false
     ensemble: icon-d2-eps
     schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
     members: 20

@@ -245,6 +245,12 @@ main {
 .chart {
   width: 100%;
   min-height: 200px;
+  transition: opacity 0.15s;
+}
+
+/* Another model is on its way; this is still the previous one. */
+.chart.updating {
+  opacity: 0.55;
 }
 
 .source {

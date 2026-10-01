@@ -80,6 +80,9 @@ class ProductSpec(_Strict):
     members: int = Field(ge=MIN_MEMBERS, description="Ensemble members the model runs.")
     grid_km: float = Field(gt=0, description="Grid spacing of the model, in km.")
     horizon_days: float = Field(gt=0, description="About how far ahead a run reaches, in days.")
+    automatic: bool = Field(
+        True, description="Whether the automatic choice may take it (sources/choice.py); it stays selectable by hand."
+    )
 
 
 class SourcesFile(_Strict):
@@ -108,6 +111,7 @@ class Product:
     members: int
     grid_km: float
     horizon_days: float
+    automatic: bool
 
     @property
     def area(self):
@@ -202,4 +206,4 @@ def _product(file, key, spec, sources, vsup_config):
         if DETERMINISTIC in scheme.reads:
             file.report(loc, f"{name} reads the deterministic run, which an ensemble product does not have")
     return Product(key, spec.label, spec.ensemble, source, tuple(spec.schemes), variables,
-                   spec.members, spec.grid_km, spec.horizon_days)
+                   spec.members, spec.grid_km, spec.horizon_days, spec.automatic)

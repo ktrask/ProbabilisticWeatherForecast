@@ -96,7 +96,16 @@ Everything lives under `webapp/`:
   frontend offers only covering models; a new place outside the chosen one's area drops back to
   the default. `config/sources.fixtures.yaml` is its offline twin with the same product names and
   areas, one fixture directory per product, a regional one holding only the places it covers.
-  The plan for further models and hourly steps is `docs/modelle-plan.md` (stages 1-2 of 5 done).
+  **Without a `product`, the API chooses** (`sources/choice.py`, the user's decision of
+  2026-10-01): the finest grid among products marked `automatic` that cover the place and reach
+  the `days` asked for (without `days`: as far as the default), file order on a tie, the default
+  last; at the edge of a rotated grid it steps on to the next. The answer (`ForecastOut`) says
+  `product` and `automatic`. So Braunschweig gets ICON-EU up to 5 days and ECMWF beyond, Zermatt
+  MeteoSwiss, Singapore ECMWF. `icon-d2` has `automatic: false` until it is drawn in hourly steps.
+  `frontend/src/state/products.automaticChoice` applies the same rule (same test cases as
+  `tests/test_choice.py`) only to key the request: moving the days fetches again only when the
+  model changes, and the previous chart stays, dimmed, until the next one is there.
+  The plan for further models and hourly steps is `docs/modelle-plan.md` (stages 1-3 of 5 done).
 - **`vsup/`** + **`config/vsup.yaml`** — the pictogram rules. `rules` mode is an ordered list of
   `when:` expressions (own parser in `expr.py`, never `eval`); `tree` mode is intensity classes
   merging into groups as certainty drops. `config.load()` collects *every* problem with its line
