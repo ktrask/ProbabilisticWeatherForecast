@@ -56,7 +56,8 @@ ein Rechteck in der Konfiguration ist deshalb nur ein Vorfilter, die Antwort ent
 - `core/pipeline.py`: `STEP_HOURS = 6`. `build_forecast(step_hours=…)` kann schon andere Schritte.
 - `sources/config.py`: Die Startprüfung lehnt Schemata für andere Fenster als 6 h ab und Quellen
   mit anderem nativen Schritt.
-- `config/vsup.yaml`: Das Niederschlagsschema ist für 6-h-Summen geschrieben (0,1 / 1 / 2 mm).
+- `config/vsup.yaml`: Das Niederschlagsschema ist für 6-h-Summen geschrieben (0,1 / 2 / 5 mm seit dem
+  01.10.2026, vorher 0,1 / 1 / 2 mm aus dem Code von 2018).
   Bewölkung, Wind und Temperatur sind Momentanwerte und hängen nicht am Schritt.
 - API: `product` wählt ein Produkt, ohne Angabe gilt das erste. Fehler einer Quelle werden zu 502.
   „Kein Modell für diesen Ort“ gibt es noch nicht.
@@ -240,7 +241,7 @@ vom Modellwechsel kommt. Wenn überhaupt, dann mit deutlich markierter Naht. Ent
 
 | Frage | Vorschlag | Wann |
 |---|---|---|
-| Grenzen für stündlichen Niederschlag | 0,1 / 0,5 / 2 mm pro Stunde; die gängige internationale Einteilung (leicht bis 2,5 mm/h, mäßig bis 10 mm/h) ergäbe bei Ensemble-Werten kaum je „stark“ | vor Stufe 4 |
+| Grenzen für stündlichen Niederschlag | **entschieden (01.10.2026): 0,1 / 1 / 3 mm pro Stunde.** Zugleich die 6-h-Grenzen auf 0,1 / 2 / 5 mm angehoben: Die alten 1 / 2 mm machten im Mittel 0,33 mm pro Stunde zu „starkem Regen“; nach der üblichen Einteilung ist leichter Regen bis 2,5 mm pro Stunde | – |
 | Mindestzahl Member | 10; das UK-Modell (3) entfällt | Stufe 2 |
 | „Besser passend“ | feinstes Gitter, das Ort und Zeitraum abdeckt; keine Bewertung nach Vorhersagegüte | Stufe 3 |
 | Modellwechsel mit dem Tage-Regler | ja, mit Hinweis; Alternative: fester Standard pro Ort | nach Test von Stufe 3 |

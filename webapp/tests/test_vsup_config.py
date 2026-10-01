@@ -300,10 +300,10 @@ class TestTreeClassification:
         return {"p17": p17, "p25": p25, "p75": p75, "p83": p83}
 
     def test_class_bounds_are_lower_inclusive(self, rain):
-        assert [rain.class_of(v) for v in (0.0, 0.0999, 0.1, 0.99, 1.0, 2.0, 50.0)] == [0, 0, 1, 1, 2, 3, 3]
+        assert [rain.class_of(v) for v in (0.0, 0.0999, 0.1, 1.99, 2.0, 4.99, 5.0, 50.0)] == [0, 0, 1, 1, 2, 2, 3, 3]
 
     def test_two_thirds_in_one_class_is_certain(self, rain):
-        choice = rain.classify(self.q(1.2, 1.4, 1.6, 1.8))
+        choice = rain.classify(self.q(2.4, 2.8, 4.2, 4.6))
         assert (choice.level, choice.class_, choice.pictogram) == (3, "medium", "rain/step3_medium_rain.svg")
 
     def test_spread_over_a_group_drops_a_level(self, rain):
