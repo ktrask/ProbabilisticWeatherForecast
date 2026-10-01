@@ -106,10 +106,10 @@ Vorhersagen für fünf Klimazonen wird gezeigt, wie das funktioniert – in der 
 </ol>
 
 <p class="source">Grundlage: Quellcode im Repository <code>ProbabilisticWeatherForecast</code> (Branch <code>main</code>,
-Commit <code>084d7ee</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
+Commit <code>801474f</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
 neu entwickelt. Die Meteogramme sind Bildschirmfotos der neuen App, gespeist aus den Test-Fixtures (ECMWF-IFS-Ensemble
 über Open-Meteo, aufgezeichnet am 29.09.2026); die Piktogramme der Beispiele in Abschnitt 6 hat der Klassifikator der
-App bestimmt. Abschnitt 10.1 beruht auf einem Live-Abruf vom 29.09.2026. Stand: 30.09.2026. Die frühere Fassung dieses
+App bestimmt. Abschnitt 10.1 beruht auf einem Live-Abruf vom 29.09.2026. Stand: 01.10.2026. Die frühere Fassung dieses
 Berichts (28.09.2026) beschrieb die alte Flask-/matplotlib-Anwendung, die heute auf dem Branch <code>old-webapp</code> liegt.</p>
 
 <h2 class="page-break">1&nbsp;&nbsp;Das Problem: eine Linie ist zu sicher</h2>
@@ -126,13 +126,13 @@ auseinander, ist sie es nicht. Die Streuung des Ensembles ist damit ein direktes
 für die Temperatur und einer <b>Value-Suppressing Uncertainty Palette (VSUP)</b> für Wolken, Niederschlag und Wind.</p>
 
 <h2>2&nbsp;&nbsp;Vom Ensemble zu neun Zahlen</h2>
-<p>Der Adapter <code>sources/open_meteo.py</code> lädt von der Open-Meteo-Ensemble-API die stündlichen Werte aller 51
-Member des Modells <code>ecmwf_ifs025</code> (0,25°-Gitter, rund 25 km; der Lauf reicht knapp 15 Tage) für vier
-Größen: 2-m-Temperatur, Niederschlag, Gesamtbewölkung und 10-m-Windgeschwindigkeit. Er fordert Temperatur,
+<p>Der Adapter <code>sources/open_meteo.py</code> lädt von der Open-Meteo-Ensemble-API die stündlichen Werte aller
+Member eines Ensembles. Standard ist das ECMWF-Modell <code>ecmwf_ifs025</code> mit 51 Membern (0,25°-Gitter, rund 25 km;
+der Lauf reicht knapp 15 Tage); weitere Modelle stehen zur Wahl (Abschnitt 3). Geladen werden vier Größen: 2-m-Temperatur, Niederschlag, Gesamtbewölkung und 10-m-Windgeschwindigkeit. Er fordert Temperatur,
 Niederschlag und Wind ausdrücklich in °C, mm und m/s an und liest trotzdem bei jeder Größe die Einheit, die Open-Meteo
 zurückmeldet: Bekannte Einheiten werden umgerechnet, unbekannte abgelehnt – eine Zahl in der falschen Einheit wird nie
 stillschweigend weiterverrechnet (warum, zeigt Abschnitt 10.2). Für jeden
-6-Stunden-Schritt wird die Verteilung der 51 Werte auf neun Quantile reduziert (<code>core/reduce.py</code>):</p>
+6-Stunden-Schritt wird die Verteilung der Member-Werte auf neun Quantile reduziert (<code>core/reduce.py</code>):</p>
 <figure class="table">
 <figcaption class="above"><b>Tabelle 1 – Die neun Quantile je Schritt.</b></figcaption>
 <table>
@@ -163,21 +163,28 @@ die 51 Einzelläufe also nie, sondern nur diese neun Zahlen pro Schritt – alle
 gemeinsamer Zeitachse, ein Symbol bzw. Stützpunkt pro 6-Stunden-Schritt:</p>
 <ol>
   <li><b>Bewölkung</b> – eine Reihe VSUP-Piktogramme.</li>
-  <li><b>Niederschlag</b> – VSUP-Piktogramme; jedes steht für die Summe der sechs Stunden ab einem Schritt und sitzt
-  deshalb in der Mitte seines Fensters, zwischen zwei Zeitpunkten. Ein Fenster, das über das Ende hinausragt, wird
-  nicht gezeichnet.</li>
+  <li><b>Niederschlag</b> – VSUP-Piktogramme; jedes steht für die Summe der sechs Stunden ab seinem Schritt und steht
+  über diesem Schritt, in einer Spalte mit Wolken und Wind. Beim letzten Schritt fehlt es, weil sein Fenster über das
+  Ende der Vorhersage hinausragt.</li>
   <li><b>Temperatur</b> – Perzentil-Bänder mit Medianlinie; Tageshöchst- und -tiefstwerte des Medians als orange bzw.
   petrolfarbene Kreise mit gerundetem Wert.</li>
   <li><b>Wind</b> – eine weitere Reihe VSUP-Piktogramme.</li>
 </ol>
 <p>Die Zeitachse zeigt die Ortszeit des <em>Vorhersageorts</em>, nicht die des Browsers, einschließlich Sommerzeit; jeder
 zweite Tag ist grau hinterlegt. Die Ansicht beginnt beim Schritt, der jetzt am nächsten liegt; ein Schieberegler wählt,
-wie viele Tage zu sehen sind. Für schmale Bildschirme gibt es zwei Darstellungen zur Wahl. <b>Waagerecht</b> bleibt alles
+wie viele Tage zu sehen sind, ein angebrochener letzter Tag eingeschlossen. Für schmale Bildschirme gibt es zwei Darstellungen zur Wahl. <b>Waagerecht</b> bleibt alles
 in einer Zeile: Würde ein Schritt schmaler als 24 Pixel, scrollt die Zeile seitlich, per Wischgeste oder über eine
 Tageskarte darunter, die mit einem Rahmen anzeigt, welcher Teil gerade zu sehen ist. <b>Senkrecht</b> läuft die Zeit nach
 unten, und die vier Größen stehen als Spalten nebeneinander. Beim Überfahren mit der Maus nennt ein Tooltip
 für den Schritt Median und 10.–90.-Perzentil jeder Größe samt Klasse und Stufe des Symbols. Unter dem Meteogramm steht
-die Legende aus Abb. 1. Ort und Tageszahl stehen in der Adresse, jede Ansicht ist also ein Link.</p>
+die Legende aus Abb. 1.</p>
+<p>Ein Auswahlfeld wählt das <b>Modell</b>. Neben ECMWF gibt es das globale ICON-Ensemble des DWD (40 Member, 26 km,
+gut 7 Tage) und, wo sie den Ort abdecken, drei feinere Regionalmodelle: ICON-EU (13 km, 5 Tage), ICON-D2 (2 km,
+2 Tage) für Mitteleuropa und ICON-CH2 von MeteoSwiss (2 km) für den Alpenraum. Angeboten werden nur Modelle, die den
+Ort abdecken, und jedes mit mindestens zehn Membern; bei weniger sagte „zwei Drittel sind sich einig“ nichts mehr. Alle
+Modelle werden heute auf 6-Stunden-Schritte gebracht. Stündliche Schritte für die Regionalmodelle und die automatische
+Wahl des feinsten passenden Modells sind geplant (<code>docs/modelle-plan.md</code>). Ort, Modell, Tageszahl und
+Darstellung stehen in der Adresse, jede Ansicht ist also ein Link.</p>
 
 <figure class="split">
   <img src="img/braunschweig.png" alt="Meteogramm Braunschweig, eine Woche">
@@ -435,8 +442,8 @@ zeichneten nur falsche Symbole. Tests halten deshalb heute genau das fest, etwa 
   Laufs, sondern beim Schritt, der jetzt am nächsten liegt; eine veraltete Vorhersage wird mit einem Hinweis ab ihrem
   Anfang gezeigt. Die ganzen knapp 15 Tage des Laufs sind erreichbar. Die Legende steht neben dem Meteogramm und
   benennt das schraffierte Symbol ausdrücklich als „alles möglich“, damit es niemand für Nebel hält.</li>
-  <li><b>Noch offen:</b> die HRES-Variante (Abschnitt 9), ein zweites Produkt wie das DWD-Ensemble ICON-EPS, eine
-  12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
+  <li><b>Noch offen:</b> die HRES-Variante (Abschnitt 9), stündliche Schritte für die Regionalmodelle, die automatische
+  Wahl des feinsten Modells für Ort und Zeitraum, eine 12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
   Nutzer.</li>
 </ul>
 
@@ -454,7 +461,8 @@ eine Zahl in einer Datei.</p>
 <div class="box keep">
   <div class="box-title">Wo im Code?</div>
   <dl class="code">
-    <dt>webapp/sources/open_meteo.py</dt><dd>Abruf der 51 Member in festen Einheiten</dd>
+    <dt>webapp/config/sources.yaml</dt><dd>die Modelle zur Wahl, mit Membern, Gitter, Reichweite und Gebiet</dd>
+    <dt>webapp/sources/open_meteo.py</dt><dd>Abruf der Ensemble-Member in festen Einheiten</dd>
     <dt>webapp/core/reduce.py, core/pipeline.py</dt><dd>Quantile, 6-Stunden-Summen pro Member</dd>
     <dt>webapp/core/model.py</dt><dd>das Datenmodell <code>Forecast</code> und seine Prüfungen</dd>
     <dt>webapp/config/vsup.yaml, webapp/vsup/</dt><dd>die Piktogrammregeln und ihr Klassifikator</dd>
