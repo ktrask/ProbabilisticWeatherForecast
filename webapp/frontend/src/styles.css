@@ -199,9 +199,26 @@ main {
 .controls {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: 8px 16px;
   align-items: center;
   font-size: 0.92rem;
+}
+
+/* A model's details are long; on a phone the picker shrinks, not the page. */
+.controls .product {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.controls .product select {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
 }
 
 .controls .days input {

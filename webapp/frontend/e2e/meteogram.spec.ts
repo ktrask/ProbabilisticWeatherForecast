@@ -150,9 +150,9 @@ test("search, choose, and come back", async ({ page }) => {
     await route.fulfill({ json: { query: q, results } });
   });
   await showMeteogram(page, url("braunschweig"));
-  const search = page.getByRole("combobox");
+  const search = page.getByRole("combobox", { name: "Ort suchen" });
   await search.fill("Reykj");
-  await expect(page.getByRole("option")).toHaveText(/Reykjavík.*Island/);
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveText(/Reykjavík.*Island/);
   await search.press("Enter");
   await expect(page.getByTestId("place")).toHaveText("Reykjavík, Island");
   await expect(page).toHaveURL(/lat=64\.1355&lon=-21\.8954&name=Reykjav%C3%ADk%2C\+Island&lang=de/);
@@ -161,6 +161,25 @@ test("search, choose, and come back", async ({ page }) => {
   await expect(page.getByTestId("place")).toHaveText("Braunschweig, Germany");
   await page.goForward();
   await expect(page.getByTestId("place")).toHaveText("Reykjavík, Island");
+});
+
+test("another model can be chosen, and the link keeps it", async ({ page }) => {
+  await freezeClock(page);
+  const chart = await showMeteogram(page, url("braunschweig", "&days=10"));
+  const picker = page.getByLabel("Modell");
+  await expect(picker.locator("option")).toHaveText([
+    "ECMWF ensemble (recorded) (51 Mitglieder, 25 km, bis 15 Tage)",
+    "DWD ICON ensemble (recorded) (40 Mitglieder, 26 km, bis 7,5 Tage)",
+  ]);
+  await picker.selectOption("icon");
+  await expect(page).toHaveURL(/product=icon/);
+  await expect(page.locator(".source")).toContainText("DWD ICON ensemble (recorded), 40 Ensemble-Mitglieder");
+  await expect(page.locator(".source")).not.toContainText("ECMWF");
+  // ICON reaches about a week: the days follow what the model has.
+  await expect(page.getByRole("slider")).toHaveAttribute("max", "7");
+  await expect(chart.locator("image").first()).toBeAttached();
+  await page.goBack();
+  await expect(page.locator(".source")).toContainText("ECMWF ensemble (recorded), 51 Ensemble-Mitglieder");
 });
 
 test("a place without data says so", async ({ page }) => {

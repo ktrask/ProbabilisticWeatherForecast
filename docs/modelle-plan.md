@@ -1,7 +1,15 @@
 # Plan: weitere Ensemble-Modelle und stündliche Vorhersage
 
-Stand: 01.10.2026 · Entwurf, noch nichts umgesetzt. Baut auf dem Stand von `main` auf (Commit `83bd6bd`)
-und ergänzt Phase 5 aus `neuentwicklung-plan.md` („Zweites Produkt nur über `sources.yaml`“).
+Stand: 01.10.2026 · Stufe 1 umgesetzt, Stufen 2–5 offen. Baut auf dem Stand von `main` auf (Commit
+`83bd6bd`) und ergänzt Phase 5 aus `neuentwicklung-plan.md` („Zweites Produkt nur über `sources.yaml`“).
+
+| Stufe | Stand |
+|---|---|
+| 1 Zweites globales Modell | erledigt (01.10.2026) |
+| 2 Regionale Modelle | offen |
+| 3 Automatische Vorauswahl | offen |
+| 4 Stündliche Schritte | offen |
+| 5 Weitere globale Modelle | offen |
 
 ## 1. Ziel
 
@@ -33,8 +41,10 @@ Abgefragt für Döteberg bei Hannover, die MeteoSwiss-Modelle für Zermatt.
 | `ukmo_uk_ensemble_2km` | UK Met Office | 3 | 2 km | 5 Tage | stündlich | UK und Umgebung |
 
 Ungeklärt: Die Doku nennt außerdem **ECMWF IFS Europe 9 km** (51 Member, die ersten 90 h stündlich),
-AIFS Europe und Google WeatherNext 2. Deren API-Namen habe ich nicht gefunden. Das IFS 9 km wäre für
-Europa der natürliche Nachfolger des heutigen Standards. Den Namen zu klären, gehört zu Stufe 1.
+AIFS Europe und Google WeatherNext 2. Für das IFS 9 km ist `ecmwf_ifs` wahrscheinlich der Name: Die API
+nimmt ihn an und antwortet mit einem Punkt des feinen Gitters (52,408° / 9,518° für Döteberg), am
+01.10.2026 aber ohne Werte und mit nur einem „Member“. Später erneut prüfen. Es wäre für Europa der
+natürliche Nachfolger des heutigen Standards.
 
 **Abdeckung:** Außerhalb seines Gebiets antwortet ein Regionalmodell mit „No data is available for
 this location“ (ICON-D2-EPS für Rom oder Singapur, MeteoSwiss für Braunschweig). Ob ein Modell einen
@@ -57,9 +67,37 @@ ein Rechteck in der Konfiguration ist deshalb nur ein Vorfilter, die Antwort ent
 
 ## 4. Stufen
 
-### Stufe 1 – Ein zweites globales Modell, von Hand wählbar
+### Stufe 1 – Ein zweites globales Modell, von Hand wählbar · erledigt
 
 Kleinster Schritt, der die Auswahl sichtbar macht.
+
+**Umgesetzt (01.10.2026):**
+- Modell ist `icon_global_eps` (26 km überall), **nicht** `icon_seamless_eps`. Letzteres wechselt in
+  Europa unbemerkt auf das feinere EU-Gitter, und das verwischte die Regel „feinstes Gitter“ aus
+  Stufe 3. ICON-EU kommt in Stufe 2 als eigenes Produkt.
+- Jedes Produkt nennt `members`, `grid_km` und `horizon_days`, Pflicht beim Laden. Ein Live-Test
+  prüft Member und Reichweite gegen einen echten Lauf. Fehlt ein Feld, nennt die Fehlermeldung jetzt
+  den Feldnamen.
+- Fixtures für ICON in `tests/fixtures/icon_eps/` (`generate_fixtures.py --model icon_global_eps`).
+- Die Auswahl im Frontend zeigt „DWD ICON ensemble (40 Mitglieder, 26 km, bis 7,5 Tage)“. Der
+  Tage-Regler folgt der Reichweite des Modells, ohne eigenen Code.
+- Nebenbefund: ECMWF reicht je nach neuestem Lauf nur 13 bis 14,5 Tage (die 06/18-UTC-Läufe gehen
+  6 Tage weit). Der alte Live-Test (mehr als 14 Tage) war deshalb tageszeitabhängig und ist angepasst.
+
+**Erster Vergleich** (Live-Läufe vom 01.10.2026, je 7 Tage, fünf Orte, Anteil der Schritte
+sicher / wahrscheinlich / unsicher):
+
+| | ECMWF (51) | ICON (40) |
+|---|---|---|
+| Bewölkung | 14 / 48 / 39 % | 21 / 36 / 43 % |
+| Niederschlag | 39 / 41 / 21 % | 68 / 21 / 11 % |
+| Wind | 71 / 29 / 0 % | 71 / 29 / 0 % |
+
+Der Unterschied beim Niederschlag kommt nicht von der Member-Zahl. ICON ist an diesem Tag viel
+trockener: Singapur 3,5 mm Median über die Woche gegenüber 14 mm bei ECMWF, das 90. Perzentil 10
+gegenüber 45 mm. Sein „sicher“ ist also fast immer „sicher kein Regen“. Das ist eine Eigenschaft
+des Modells (grobes Gitter, parametrisierte Konvektion) und genau das, was die Auswahl sichtbar
+machen soll. Sie liest sich aber nicht wie ein Fehler der App, sondern wie ein Modellunterschied.
 
 - `sources.yaml`: Quelle `icon-eps` (`icon_seamless_eps`) und Produkt `icon` mit denselben Schemata.
   Der Adapter bleibt unverändert, `model` ist schon ein Parameter.

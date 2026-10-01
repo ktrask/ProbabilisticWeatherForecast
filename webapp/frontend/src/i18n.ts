@@ -29,6 +29,8 @@ const de = {
   noData: "Für diesen Ort gibt es keine Vorhersage.",
   days: "Tage",
   product: "Modell",
+  productDetails: (members: number, gridKm: string, days: string) =>
+    `${members} Mitglieder, ${gridKm} km, bis ${days} Tage`,
   layout: "Darstellung",
   horizontal: "Waagerecht",
   vertical: "Senkrecht",
@@ -90,6 +92,7 @@ const en: Strings = {
   noData: "There is no forecast for this place.",
   days: "Days",
   product: "Model",
+  productDetails: (members, gridKm, days) => `${members} members, ${gridKm} km, up to ${days} days`,
   layout: "Layout",
   horizontal: "Horizontal",
   vertical: "Vertical",

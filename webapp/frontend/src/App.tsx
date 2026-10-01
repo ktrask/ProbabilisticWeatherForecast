@@ -121,12 +121,12 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
         </div>
         <div className="controls">
           {products.length > 1 && (
-            <label>
+            <label className="product">
               {i18n.t.product}{" "}
               <select value={product?.id ?? ""} onChange={(e) => navigate({ product: e.target.value })}>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.label}
+                    {p.label} ({i18n.t.productDetails(p.members, i18n.number(p.grid_km), i18n.number(p.horizon_days, p.horizon_days % 1 ? 1 : 0))})
                   </option>
                 ))}
               </select>
@@ -162,7 +162,10 @@ function ForecastView({ forecast, schemes, products, state, navigate }: ViewProp
           />
         )}
       </div>
-      <p className="source">{i18n.t.source(product?.label ?? forecast.run.source, forecast.run.members ?? null)}</p>
+      <p className="source">
+        {/* Recorded quantiles do not know their members; the product says how many it runs. */}
+        {i18n.t.source(product?.label ?? forecast.run.source, forecast.run.members ?? product?.members ?? null)}
+      </p>
       <Legend schemes={legendSchemes} pictogramBase={schemes.pictogram_base} />
     </article>
   );

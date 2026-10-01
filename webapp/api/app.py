@@ -140,6 +140,7 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
             ProductOut(
                 id=p.id, label=p.label, default=p is catalog.default, variants=list(p.variants),
                 variables=sorted(p.variables), schemes=list(p.schemes),
+                members=p.members, grid_km=p.grid_km, horizon_days=p.horizon_days,
             )
             for p in catalog.products.values()
         ])

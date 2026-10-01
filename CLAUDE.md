@@ -61,6 +61,7 @@ pytest tests/test_vsup_golden.py   # a single file
 
 python tests/generate_fixtures.py             # re-record every fixture + the raw response
 python tests/generate_fixtures.py zermatt     # re-record just these fixtures
+python tests/generate_fixtures.py --model icon_global_eps   # another product's, into its directory
 ```
 
 `tests/conftest.py` chdirs to `webapp/` at import, so pytest works from any directory; from outside
@@ -84,7 +85,11 @@ Everything lives under `webapp/`:
   `open_meteo.OpenMeteoEnsemble` (async httpx, flatbuffers), `fixture.FixtureSource` (the recorded
   forecasts), `geocode.OpenMeteoGeocoder`. `config.py` + **`config/sources.yaml`** define sources
   and the *products* the UI offers (a source plus the schemes drawn from it; the first is the
-  default). `config/sources.fixtures.yaml` is its offline twin with the same product names.
+  default) - today `ecmwf` (`ecmwf_ifs025`) and `icon` (DWD's `icon_global_eps`, 40 members,
+  about 7 days). Each product states `members`, `grid_km` and `horizon_days` for the reader;
+  `test_live_api` holds members and range to a live run. `config/sources.fixtures.yaml` is its
+  offline twin with the same product names, one fixture directory per product. The plan for
+  further models and hourly steps is `docs/modelle-plan.md` (stage 1 of 5 done).
 - **`vsup/`** + **`config/vsup.yaml`** — the pictogram rules. `rules` mode is an ordered list of
   `when:` expressions (own parser in `expr.py`, never `eval`); `tree` mode is intensity classes
   merging into groups as certainty drops. `config.load()` collects *every* problem with its line
@@ -130,9 +135,11 @@ pictograms. Do not restate the wind thresholds in km/h.
 - **The step at `t` covers `[t, t+6h)`** = hourly rows `t+1 … t+6`, because Open-Meteo reports
   precipitation as the *preceding* hour's total. The legacy pipeline summed `t … t+5`, an hour
   early; only the legacy sample in `tests/fixtures/legacy/` still carries that.
-- The adapter asks for 15 days; the run ends around hour 350 and Open-Meteo pads the rest with NaN.
-  `reduce.complete_rows` drops trailing NaN rows and refuses holes, and all variables share the
-  steps a 6-hour *sum* can fill (58-59 for `ecmwf_ifs025`).
+- The adapter asks for 15 days (ICON: 8); the run ends earlier and Open-Meteo pads the rest with
+  NaN. `reduce.complete_rows` drops trailing NaN rows and refuses holes, and all variables share
+  the steps a 6-hour *sum* can fill. For `ecmwf_ifs025` that is 13 to 14.5 days from local
+  midnight (53-59 steps), depending on the newest run: the 06 and 18 UTC runs stop at 6 days and
+  Open-Meteo continues them with an older one.
 - Steps are UTC everywhere in the backend. The frontend works in the **forecast location's time
   zone, never the browser's** (`meteogram/time.ts` via `Intl`, DST included - the day the clocks go
   back is 25 hours wide). Playwright runs the browser in America/New_York to keep it so.
@@ -210,7 +217,10 @@ otherwise fail on some request fails at start-up, with file and line.
 - **Fixtures** (`tests/fixtures/*.json`) cover five deliberately different climates (temperate,
   subarctic, equatorial, alpine, arid) so every pictogram branch is reachable offline;
   `locations.json` holds their metadata. They are `Forecast` JSON written by `generate_fixtures.py`
-  (re-recorded 2026-09-29 with nine quantiles, when "certain" moved to p17..p83).
+  (re-recorded 2026-09-29 with nine quantiles, when "certain" moved to p17..p83). Other products'
+  recordings sit in their own directory - ICON's in `tests/fixtures/icon_eps/` (2026-10-01), so
+  the two products show different days offline. Recorded quantiles carry no member count; the
+  page falls back to the product's `members`.
   `FixtureSource` also reads the legacy `allMeteogramData` format, told apart by content; one file
   in it is kept in `tests/fixtures/legacy/` so that reader and `tests/schema.py` stay tested. A
   source's `quantile_levels` are what every recording offers, and the start-up check refuses a

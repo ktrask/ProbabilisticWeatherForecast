@@ -5,6 +5,7 @@ model:
 
     python tests/generate_fixtures.py                 # every location
     python tests/generate_fixtures.py reykjavik zermatt
+    python tests/generate_fixtures.py --model icon_global_eps   # another product's
 
 Each fixture is a Forecast in the new format - exactly what the pipeline
 builds from sources.open_meteo, with the quantile levels vsup.yaml computes and
@@ -17,7 +18,12 @@ Location metadata lives in fixtures/locations.json. Without arguments it also
 records one raw Open-Meteo response, exactly as the adapter requests it, to
 fixtures/open_meteo/ for the adapter tests to replay; with location keys only
 those fixtures are re-recorded.
+
+Every product of config/sources.yaml has its recordings in its own directory
+(MODELS below), which config/sources.fixtures.yaml serves under the same
+product name. ECMWF's, the default, are the ones directly in fixtures/.
 """
+import argparse
 import asyncio
 import json
 import sys
@@ -33,6 +39,13 @@ from sources.open_meteo import OpenMeteoEnsemble
 from vsup.config import load as load_vsup
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
+
+# Open-Meteo model -> (where its recordings go, how many days to ask for).
+DEFAULT_MODEL = "ecmwf_ifs025"
+MODELS = {
+    DEFAULT_MODEL: (FIXTURE_DIR, 15),
+    "icon_global_eps": (FIXTURE_DIR / "icon_eps", 8),
+}
 
 # Deliberately diverse regimes so the pictogram thresholds (calm/storm, dry/wet,
 # clear/overcast) are all reachable from offline data.
@@ -91,8 +104,8 @@ def location(key):
     return Location(lat=loc["latitude"], lon=loc["longitude"], name=loc["name"])
 
 
-async def record(key, directory=FIXTURE_DIR):
-    source = OpenMeteoEnsemble()
+async def record(key, directory=FIXTURE_DIR, model=DEFAULT_MODEL):
+    source = OpenMeteoEnsemble(model, forecast_days=MODELS[model][1])
     result = await source.fetch(location(key), source.variables)
     forecast = build_forecast(result, quantile_levels=load_vsup().quantiles)
     target = Path(directory) / f"{key}.json"
@@ -110,20 +123,24 @@ def record_raw_response(directory=FIXTURE_DIR):
     print(f"wrote {target} ({len(response.content) / 1024:.0f} KiB)")
 
 
-def main(keys, directory=FIXTURE_DIR):
-    directory = Path(directory)
+def main(keys, directory=None, model=DEFAULT_MODEL):
+    directory = Path(directory) if directory else MODELS[model][0]
     directory.mkdir(parents=True, exist_ok=True)
     unknown = set(keys) - set(LOCATIONS)
     if unknown:
         sys.exit(f"unknown location(s): {', '.join(sorted(unknown))}; there are {', '.join(LOCATIONS)}")
     for key in keys or LOCATIONS:
-        asyncio.run(record(key, directory))
+        asyncio.run(record(key, directory, model))
     with open(directory / "locations.json", "w") as fp:
         json.dump(LOCATIONS, fp, indent=1, sort_keys=True)
     print(f"wrote {directory / 'locations.json'}")
-    if not keys:
+    if not keys and model == DEFAULT_MODEL:
         record_raw_response(directory)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("keys", nargs="*", help=f"locations; default: all of {', '.join(LOCATIONS)}")
+    parser.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
+    args = parser.parse_args()
+    main(args.keys, model=args.model)
