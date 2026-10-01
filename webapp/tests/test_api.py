@@ -106,8 +106,8 @@ class TestProducts:
         response = get(app, "/api/products")
         assert response.status_code == 200
         products = response.json()["products"]
-        assert [p["id"] for p in products] == ["ecmwf", "icon", "icon-eu", "icon-d2", "meteoswiss"]
-        assert [p["default"] for p in products] == [True, False, False, False, False]
+        assert [p["id"] for p in products] == ["ecmwf", "icon", "aifs", "gfs", "aigefs", "gem", "icon-eu", "icon-d2", "meteoswiss"]
+        assert [p["default"] for p in products] == [True] + [False] * 8
         ecmwf = products[0]
         assert ecmwf["variants"] == ["ensemble"]
         assert ecmwf["schemes"] == ["cloud-vsup", "precipitation-vsup", "wind-vsup"]
@@ -279,11 +279,11 @@ class TestForecast:
         assert [e["loc"] for e in response.json()["detail"]] == [["query", field]]
 
     def test_unknown_product_is_422(self, app):
-        response = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=gfs")
+        response = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=ukmo")  # 3 members: not offered
         assert response.status_code == 422
         (error,) = response.json()["detail"]
         assert error["loc"] == ["query", "product"]
-        assert "no product 'gfs'; there are ecmwf, icon" in error["msg"]
+        assert "no product 'ukmo'; there are ecmwf, icon, aifs, gfs" in error["msg"]
 
     def test_missing_variant_is_409(self, app):
         response = get(app, f"/api/forecast?{BRAUNSCHWEIG}&variant=hres")

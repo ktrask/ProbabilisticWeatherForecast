@@ -18,6 +18,18 @@ sources:
   recorded-icon:
     adapter: fixture
     directory: ../tests/fixtures/icon_eps
+  recorded-aifs:
+    adapter: fixture
+    directory: ../tests/fixtures/aifs
+  recorded-gfs:
+    adapter: fixture
+    directory: ../tests/fixtures/gfs
+  recorded-aigefs:
+    adapter: fixture
+    directory: ../tests/fixtures/aigefs
+  recorded-gem:
+    adapter: fixture
+    directory: ../tests/fixtures/gem
   recorded-icon-eu:
     adapter: fixture
     directory: ../tests/fixtures/icon_eu_eps
@@ -46,6 +58,38 @@ products:
     members: 40
     grid_km: 26
     horizon_days: 7.5
+  aifs:
+    label: ECMWF AIFS ensemble (AI) (recorded)
+    ensemble: recorded-aifs
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 51
+    grid_km: 25
+    horizon_days: 15
+    automatic: false
+  gfs:
+    label: NOAA GFS ensemble (recorded)
+    ensemble: recorded-gfs
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 31
+    grid_km: 25  # 0.25 degrees for 10 days, then 0.5
+    horizon_days: 16
+    automatic: false
+  aigefs:
+    label: NOAA AI-GEFS ensemble (AI) (recorded)
+    ensemble: recorded-aigefs
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 31
+    grid_km: 25
+    horizon_days: 16
+    automatic: false
+  gem:
+    label: CMC GEM ensemble (recorded)
+    ensemble: recorded-gem
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 21
+    grid_km: 25
+    horizon_days: 16
+    automatic: false
   icon-eu:
     label: DWD ICON-EU ensemble (recorded)
     ensemble: recorded-icon-eu

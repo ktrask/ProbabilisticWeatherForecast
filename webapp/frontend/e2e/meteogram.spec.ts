@@ -189,6 +189,10 @@ test("another model can be chosen, and the link keeps it", async ({ page }) => {
     "Automatisch (ECMWF ensemble (recorded))", // ten days: only ECMWF reaches that far
     "ECMWF ensemble (recorded) (51 Mitglieder, 25 km, bis 15 Tage)",
     "DWD ICON ensemble (recorded) (40 Mitglieder, 26 km, bis 7,5 Tage)",
+    "ECMWF AIFS ensemble (AI) (recorded) (51 Mitglieder, 25 km, bis 15 Tage)",
+    "NOAA GFS ensemble (recorded) (31 Mitglieder, 25 km, bis 16 Tage)",
+    "NOAA AI-GEFS ensemble (AI) (recorded) (31 Mitglieder, 25 km, bis 16 Tage)",
+    "CMC GEM ensemble (recorded) (21 Mitglieder, 25 km, bis 16 Tage)",
     "DWD ICON-EU ensemble (recorded) (40 Mitglieder, 13 km, bis 5 Tage)",
     "DWD ICON-D2 ensemble (recorded) (20 Mitglieder, 2 km, bis 2 Tage)",
   ]);
@@ -207,7 +211,7 @@ test("a regional model is offered where it covers the place", async ({ page }) =
   await freezeClock(page, "zermatt");
   await showMeteogram(page, url("zermatt"));
   const picker = page.getByLabel("Modell");
-  await expect(picker.locator("option")).toHaveCount(6); // "Automatisch" and all five
+  await expect(picker.locator("option")).toHaveCount(10); // "Automatisch" and all nine
   // Five days in the Alps: MeteoSwiss, chosen automatically.
   await expect(page.locator(".source")).toContainText("MeteoSwiss ICON-CH2 ensemble (recorded), automatisch gewählt");
   await picker.selectOption("meteoswiss");

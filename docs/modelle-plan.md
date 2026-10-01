@@ -1,6 +1,6 @@
 # Plan: weitere Ensemble-Modelle und stündliche Vorhersage
 
-Stand: 01.10.2026 · Stufen 1 bis 4 umgesetzt, Stufe 5 offen. Baut auf dem Stand von `main` auf (Commit
+Stand: 01.10.2026 · Alle fünf Stufen umgesetzt. Baut auf dem Stand von `main` auf (Commit
 `83bd6bd`) und ergänzt Phase 5 aus `neuentwicklung-plan.md` („Zweites Produkt nur über `sources.yaml`“).
 
 | Stufe | Stand |
@@ -9,7 +9,7 @@ Stand: 01.10.2026 · Stufen 1 bis 4 umgesetzt, Stufe 5 offen. Baut auf dem Stand
 | 2 Regionale Modelle | erledigt (01.10.2026) |
 | 3 Automatische Vorauswahl | erledigt (01.10.2026) |
 | 4 Stündliche Schritte | erledigt (01.10.2026) |
-| 5 Weitere globale Modelle | offen |
+| 5 Weitere globale Modelle | erledigt (01.10.2026) |
 
 ## 1. Ziel
 
@@ -250,7 +250,32 @@ Meteogramm täuschte dort eine Auflösung vor, die es nicht gibt.
 
 **Zum Testen:** Ist die Stunde auf dem Handy lesbar? Sind die Regengrenzen pro Stunde sinnvoll?
 
-### Stufe 5 – Weitere globale Modelle (optional)
+### Stufe 5 – Weitere globale Modelle · erledigt
+
+**Umgesetzt (01.10.2026):** `aifs` (ECMWF AIFS, KI, 51 Member, 15 Tage), `gfs` (NOAA GFS, 31 Member,
+16 Tage), `aigefs` (NOAA AI-GEFS, KI, 31 Member, 16 Tage) und `gem` (CMC GEM, 21 Member, 16 Tage). Alle
+sind nur von Hand wählbar (`automatic: false`). Drei reichen 16 Tage, einen mehr als ECMWF, und
+würden sonst lange Zeiträume übernehmen.
+
+Vorab geprüft (Reykjavík, Live-Läufe): Ändert sich ein Stundenwert des Regens nur am Anfang eines
+Blocks, verteilt Open-Meteo eine Blocksumme gleichmäßig auf die Stunden.
+
+| Modell | Block | 6-Tage-Summe im Mittel der Member |
+|---|---|---|
+| ECMWF AIFS | 6 h, auf 00/06/12/18 UTC | 53 mm |
+| NOAA AI-GEFS | 6 h, auf 00/06/12/18 UTC | 51 mm |
+| NOAA GFS | 3 h | 36 mm |
+| CMC GEM | 3 h | 63 mm |
+| ECMWF IFS (zum Vergleich) | 3 h | 46 mm |
+
+Ein 6-Stunden-Fenster ab Mitternacht Ortszeit ist bei den KI-Modellen nur dort exakt, wo
+Mitternacht auf ihr Raster fällt (UTC+0, also Reykjavík oder Großbritannien im Winter). In
+Deutschland mischt es zwei Modellschritte (2 + 4 Stunden). Die Summen bleiben erhalten, nur der
+Zeitpunkt des Regens innerhalb von 6 Stunden ist verschmiert. Bei ECMWF gibt es dasselbe heute
+schon mit 3-Stunden-Blöcken, nur schwächer. Die Modelle unterscheiden sich in der Regenmenge um
+fast den Faktor 2 – genau das soll die Auswahl sichtbar machen.
+
+**Ursprünglicher Plan:**
 
 - `ecmwf_aifs025` (KI, 51 Member) als Vergleich zum IFS. `gfs_seamless` und `gem_global` für 16 Tage.
 - Vorher prüfen: Bei 6-stündlichen Modellen liegen die Modellzeiten auf 00/06/12/18 UTC, unsere

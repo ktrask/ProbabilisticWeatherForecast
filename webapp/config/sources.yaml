@@ -25,6 +25,31 @@ sources:
     model: icon_global_eps
     forecast_days: 8
     timeout_s: 30
+  # Further global ensembles, chosen by hand only (automatic: false below): two
+  # of them reach 16 days, one more than ECMWF, and would take long views over.
+  # The AI models (AIFS, AI-GEFS) compute every 6 hours on 00/06/12/18 UTC, the
+  # others every 3; a 6-hour window from local midnight that does not start on
+  # their grid blends two of their steps (checked 2026-10-01, modelle-plan.md).
+  aifs-ens:
+    adapter: open_meteo_ensemble
+    model: ecmwf_aifs025
+    forecast_days: 16
+    timeout_s: 30
+  gfs-ens:
+    adapter: open_meteo_ensemble
+    model: gfs_seamless
+    forecast_days: 16
+    timeout_s: 30
+  aigefs-ens:
+    adapter: open_meteo_ensemble
+    model: ncep_aigefs025
+    forecast_days: 16
+    timeout_s: 30
+  gem-ens:
+    adapter: open_meteo_ensemble
+    model: gem_global
+    forecast_days: 16
+    timeout_s: 30
   # Regional models: each covers only its area. The boxes are Open-Meteo's
   # own (its domain metadata); ICON-EU and -D2 fill them, MeteoSwiss's rotated
   # grid does not, and there the model's answer decides.
@@ -62,6 +87,38 @@ products:
     members: 40
     grid_km: 26
     horizon_days: 7.5
+  aifs:
+    label: ECMWF AIFS ensemble (AI)
+    ensemble: aifs-ens
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 51
+    grid_km: 25
+    horizon_days: 15
+    automatic: false
+  gfs:
+    label: NOAA GFS ensemble
+    ensemble: gfs-ens
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 31
+    grid_km: 25  # 0.25 degrees for 10 days, then 0.5
+    horizon_days: 16
+    automatic: false
+  aigefs:
+    label: NOAA AI-GEFS ensemble (AI)
+    ensemble: aigefs-ens
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 31
+    grid_km: 25
+    horizon_days: 16
+    automatic: false
+  gem:
+    label: CMC GEM ensemble
+    ensemble: gem-ens
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 21
+    grid_km: 25
+    horizon_days: 16
+    automatic: false
   icon-eu:
     label: DWD ICON-EU ensemble
     ensemble: icon-eu-eps
