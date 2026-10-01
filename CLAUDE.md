@@ -196,9 +196,11 @@ otherwise fail on some request fails at start-up, with file and line.
 
 ### Frontend behaviour
 
-- **Instants sit at their step, totals in the middle of their window**: cloud, wind and temperature
-  at `t`, precipitation at `t + 3h`, between two instants. A total is drawn only if its whole window
-  fits, so there is one precipitation pictogram fewer than steps.
+- **Every pictogram stands at its step** (`shared.pictogramTime`): cloud, wind and temperature at
+  `t`, and the precipitation total over `[t, t+6h)` at `t` too, the start of its window, in one
+  column with the rest - the user's call of 2026-10-01; in the middle of the window, between two
+  instants, the rain row looked misaligned. The crosshair still shades the window. A total is drawn
+  only if its whole window fits, so there is one precipitation pictogram fewer than steps.
 - **Two layouts, switched by the user and kept in the URL** (`layout=vertical`; the row is the
   default and leaves the parameter out). The user's call of 2026-09-30, after trying it on a phone:
   splitting a long meteogram into sections one below the other (the earlier `layout.sections`)
@@ -214,6 +216,9 @@ otherwise fail on some request fails at start-up, with file and line.
     are time, clouds, precipitation, the temperature band and wind - the row's top-to-bottom order.
     The column heads with the temperature ticks are sticky. Arrow up/down walk the steps.
   Both share `meteogram/shared.ts` (lanes, pictogram times, temperature domain).
+- **The days slider counts a begun day** (`layout.daysAvailable`, from the step nearest now to the
+  last one, rounded up - the user's call: a model that reaches 1.5 more days offers 2), and a window
+  never leaves the forecast's very last step out alone, so the last day ends at its closing time.
 - **The view starts at the step nearest to now.** A forecast that ended before now is shown from its
   start with a "stale" note - which is what the offline fixtures look like once they age.
 - **Coordinates in the URL are never rounded on the way back out** (`formatState`): rounding moved

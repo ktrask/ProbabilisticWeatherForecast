@@ -442,8 +442,10 @@ webapp/frontend/src/
 - **Zeitraum ohne neuen Server-Aufruf:** Die API liefert den vollen Horizont; der Tage-Regler
   schneidet nur zu. Die Ansicht beginnt beim Schritt, der „jetzt“ am nächsten liegt; eine
   veraltete Vorhersage wird ab ihrem Anfang mit Hinweis gezeigt.
-- **Momentanwerte am Zeitpunkt, Summen in der Mitte ihres Fensters:** Wolken, Wind und Temperatur
-  stehen bei `t`, Niederschlag bei `t + 3 h`, zwischen zwei Momentanwerten.
+- **Alle Piktogramme am Zeitpunkt ihres Schritts:** Wolken, Wind und Temperatur bei `t`, die
+  Niederschlagssumme über `[t, t+6 h)` ebenfalls bei `t`, in einer Spalte mit den übrigen. Bis
+  01.10.2026 stand sie in der Mitte ihres Fensters (`t + 3 h`); zwischen den Zeitpunkten wirkte die
+  Regenreihe aber verrutscht. Das Fenster zeigt weiter das Fadenkreuz.
 - **Schmale Bildschirme: zwei umschaltbare Darstellungen** statt 12-h-Zusammenfassung (Abweichung
   vom Plan, nach Test auf dem Handy; Wahl in der URL als `layout=vertical`).
   **Waagerecht:** alles in einer Zeile. Würde ein Zeitschritt schmaler als 24 px, scrollt die Zeile

@@ -36,12 +36,11 @@ describe("Meteogram", () => {
     expect(images(container, "precipitation")).toHaveLength(11);
   });
 
-  it("places a total between the two instants that bound its window", () => {
+  it("places a total at the start of its window, in line with the step's instants", () => {
     const { container } = draw();
     const cloud = images(container, "cloud_cover").map((i) => Number(i.getAttribute("x")));
     const rain = images(container, "precipitation").map((i) => Number(i.getAttribute("x")));
-    const half = ((cloud[1] as number) - (cloud[0] as number)) / 2;
-    expect(rain[0]).toBeCloseTo((cloud[0] as number) + half, 5);
+    expect(rain).toEqual(cloud.slice(0, rain.length));
   });
 
   it("shows only the visible window", () => {
@@ -151,11 +150,11 @@ describe("Meteogram", () => {
       expect(images(container, "precipitation")).toHaveLength(11);
     });
 
-    it("puts a total between the instants that bound its window", () => {
+    it("puts a total in the row of the step its window starts at", () => {
       const { container } = column();
       const cloud = ys(container, "cloud_cover");
       const rain = ys(container, "precipitation");
-      expect(rain[0]).toBeCloseTo(((cloud[0] as number) + (cloud[1] as number)) / 2, 5);
+      expect(rain).toEqual(cloud.slice(0, rain.length));
     });
 
     it("orders the columns as the row stacks them, under named heads", () => {
