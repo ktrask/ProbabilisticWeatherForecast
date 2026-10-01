@@ -255,6 +255,6 @@ test("the legend comes from the configuration", async ({ page }) => {
   await showMeteogram(page, url("braunschweig"));
   const legend = page.getByRole("region", { name: "Legende" });
   await expect(legend.locator("figure")).toHaveCount(3);
-  await expect(legend).toContainText("0,1–1 mm");
+  await expect(legend).toContainText("0,1–2 mm");
   await expect(legend).toContainText("≥ 17,2 m/s");
 });

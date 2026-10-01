@@ -176,6 +176,10 @@ pictograms. Do not restate the wind thresholds in km/h.
   from the threshold - changing it would mean changing the classes. The legend explains each
   level from `/api/schemes` (`levels`), so it stays true if the config changes. p17/p83 are why
   `quantiles` has nine levels and why the legacy-format fixtures could not serve it.
+- **Rain classes are 0.1 / 2 / 5 mm per 6 hours** (the user's call of 2026-10-01; the 1 / 2 mm
+  inherited from 2018 had no stated reason and made 2 mm in six hours - 0.33 mm/h on average -
+  "heavy rain"). 0.1 mm is the usual gauge threshold. An hourly scheme (stage 4 of
+  `docs/modelle-plan.md`) is to use 0.1 / 1 / 3 mm per hour.
 - The legacy rules reference the old PNGs, whose rain glyphs have a white, non-transparent
   background that shows on shaded days. Only the legacy schemes use them.
 

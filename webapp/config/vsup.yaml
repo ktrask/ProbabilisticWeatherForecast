@@ -114,10 +114,13 @@ schemes:
     unit: mm
     window_hours: 6
     mode: tree
+    # 0.1 mm is the usual measuring threshold. 2 and 5 mm in six hours are the
+    # user's call of 2026-10-01; the 1 and 2 mm inherited from 2018 made 2 mm in
+    # six hours - 0.33 mm an hour on average - "heavy rain".
     classes:
       - { id: none, below: 0.1 }
-      - { id: light, below: 1.0 }
-      - { id: medium, below: 2.0 }
+      - { id: light, below: 2.0 }
+      - { id: medium, below: 5.0 }
       - { id: heavy }
     levels:
       - { level: 3, interval: [p17, p83], groups: [[none], [light], [medium], [heavy]] }
