@@ -7,7 +7,7 @@ import { Legend } from "./legend/Legend";
 import { daysAvailable, visibleWindow } from "./meteogram/layout";
 import { Meteogram } from "./meteogram/Meteogram";
 import { SearchBox } from "./search/SearchBox";
-import { automaticChoice, covers, offered } from "./state/products";
+import { automaticChoice, covers, offered, stepFor } from "./state/products";
 import { type Layout, type Navigate, type ViewState, useUrlState } from "./state/urlState";
 
 export function App() {
@@ -32,7 +32,9 @@ export function App() {
             lon: state.lon,
             product: state.product,
             days: auto ? state.days : null,
-            step_hours: state.step,
+            // Under the automatic choice the API settles the step; a model chosen by
+            // hand is only asked for one it offers.
+            step_hours: auto ? state.step : stepFor(list?.find((p) => p.id === state.product), state.step),
             variant: state.variant,
             name: state.name,
           }
@@ -175,7 +177,15 @@ function ForecastView({ forecast, updating, schemes, products, state, navigate }
           {choices.length > 1 && (
             <label className="product">
               {i18n.t.product}{" "}
-              <select value={state.product ?? ""} onChange={(e) => navigate({ product: e.target.value || null })}>
+              <select
+                value={state.product ?? ""}
+                onChange={(e) => {
+                  const next = e.target.value || null;
+                  // A step the next model lacks is dropped; it shows its own.
+                  const step = next === null ? state.step : stepFor(products.find((p) => p.id === next), state.step);
+                  navigate({ product: next, step });
+                }}
+              >
                 <option value="">{i18n.t.automatic(autoLabel)}</option>
                 {choices.map((p) => (
                   <option key={p.id} value={p.id}>

@@ -269,6 +269,19 @@ test("a model that computes every hour is drawn hourly, and 6-hourly on request"
   await expect(page.getByRole("region", { name: "Legende" })).toContainText("(mm / 6 h)");
 });
 
+test("a model without the chosen step shows its own instead of an error", async ({ page }) => {
+  await freezeClock(page);
+  await showMeteogram(page, url("braunschweig", "&product=icon-d2&step=1"));
+  await page.getByLabel("Modell").selectOption("gem");
+  await expect(page.locator(".source")).toContainText("CMC GEM ensemble (recorded)");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/step=1/);
+  // And a link that asks for it anyway.
+  await page.goto(url("braunschweig", "&product=gem&step=1"));
+  await expect(page.locator(".source")).toContainText("CMC GEM ensemble (recorded)");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
 test("a model with only 6-hour steps offers no choice of steps", async ({ page }) => {
   await freezeClock(page);
   await showMeteogram(page, url("braunschweig", "&product=ecmwf"));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Product } from "../api/client";
-import { automaticChoice, covers, offered } from "./products";
+import { automaticChoice, covers, offered, stepFor } from "./products";
 
 const product = (id: string, area: Product["area"], grid_km = 2, horizon_days = 2, automatic = true): Product => ({
   id, label: id, default: id === "ecmwf", variants: ["ensemble"], variables: [], schemes: [],
@@ -48,5 +48,18 @@ describe("the automatic choice", () => {
     [1.35, 103.82, 1, "ecmwf"],
   ])("at %s, %s for %s days: %s", (lat, lon, days, id) => {
     expect(automaticChoice(shipped, lat, lon, days)?.id).toBe(id);
+  });
+});
+
+describe("the step to ask for", () => {
+  const hourly = { ...d2, steps: [1, 6] };
+  it("keeps a step the model offers", () => {
+    expect(stepFor(hourly, 1)).toBe(1);
+    expect(stepFor(hourly, null)).toBeNull();
+  });
+
+  it("drops one it does not: the model shows its own", () => {
+    expect(stepFor(ecmwf, 1)).toBeNull();
+    expect(stepFor(ecmwf, 6)).toBe(6);
   });
 });
