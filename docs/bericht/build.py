@@ -98,12 +98,12 @@ def svg(width, height, body, label):
 SCENARIOS = {
     "precipitation": [
         ("Alle Member trocken", [0, 0, 0, 0, 0, 0, 0, 0, 0.05], 3),
-        ("Leichter Regen, einig", [0.05, 0.15, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 1.4], 3),
-        ("Mäßiger Regen, sehr einig", [0.9, 1.1, 1.2, 1.3, 1.5, 1.7, 1.8, 1.9, 2.3], 3),
-        ("Starker Regen, einig", [1.2, 2.2, 2.6, 3, 4, 5.5, 6.2, 7, 11], 3),
-        ("Nass, aber uneinig über die Menge", [0.6, 1.0, 1.2, 1.4, 2.2, 3.0, 3.5, 4.2, 6.5], 2),
-        ("Meist trocken, einzelne Schauer", [0, 0, 0, 0, 0.05, 0.4, 0.9, 1.6, 4.0], 2),
-        ("Kleiner Median, nasses oberes Viertel", [0, 0, 0, 0.02, 0.3, 1.8, 2.5, 3.2, 7], 1),
+        ("Leichter Regen, einig", [0.1, 0.3, 0.4, 0.5, 0.9, 1.3, 1.5, 1.7, 2.6], 3),
+        ("Mäßiger Regen, einig", [1.5, 2.2, 2.5, 2.8, 3.4, 4.0, 4.4, 4.8, 6.0], 3),
+        ("Starker Regen, einig", [3, 5.5, 6.2, 7, 9, 11.5, 12.5, 14, 18], 3),
+        ("Nass, aber uneinig über die Menge", [1, 1.8, 2.4, 3, 4.5, 6.5, 7.5, 9, 13], 2),
+        ("Meist trocken, einzelne Schauer", [0, 0, 0, 0, 0.1, 0.8, 1.8, 3, 8], 2),
+        ("Kleiner Median, nasses oberes Viertel", [0, 0, 0, 0.02, 0.6, 3.2, 4.5, 6, 12], 1),
     ],
     "cloud_cover": [
         ("Wolkenlos, einig", [0, 0, 1, 2, 4, 6, 7, 9, 25], 3),
@@ -126,7 +126,7 @@ SCENARIOS = {
 }
 AXES = {
     # domain max, sqrt scale?, ticks, unit
-    "precipitation": (12, True, [0, 0.1, 0.5, 1, 2, 5, 10], "mm in 6 h"),
+    "precipitation": (20, True, [0, 0.1, 0.5, 2, 5, 10, 20], "mm in 6 h"),
     "cloud_cover": (100, False, [0, 25, 50, 75, 100], "% Himmelsbedeckung"),
     "wind_speed_10m": (30, False, [0, 5, 10, 15, 20, 25, 30], "m/s"),
 }
