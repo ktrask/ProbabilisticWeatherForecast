@@ -13,7 +13,8 @@ The app was rebuilt in 2026 (plan, in German: `docs/neuentwicklung-plan.md`): a 
 returns only JSON, a browser-drawn meteogram, and VSUP rules as validated configuration. The old
 Flask + matplotlib app was removed in phase 4; its pictogram rules survive as a frozen test
 reference, and its last complete state - with its own Flask Dockerfile - is the branch
-`old-webapp` (`dc7984f`). Phases 0-4 are on `main`; phase 5 (HRES, a second product) is open.
+`old-webapp` (`dc7984f`). Phases 0-4 are on `main`. Of phase 5, the further sources are done (nine
+ensemble products, `docs/modelle-plan.md`); HRES is open.
 
 ## Commands
 
@@ -233,8 +234,8 @@ otherwise fail on some request fails at start-up, with file and line.
   default and leaves the parameter out). The user's call of 2026-09-30, after trying it on a phone:
   splitting a long meteogram into sections one below the other (the earlier `layout.sections`)
   read as chopped up, so it is gone.
-  - **Row** (`RowChart`): one row, time to the right. Where a step would get under 24 px
-    (`MIN_CELL` - three days still fit on a phone) the row scrolls sideways instead of shrinking:
+  - **Row** (`RowChart`): one row, time to the right. Where a step would get under 23 px
+    (`MIN_CELL` - three days still fit on a phone, two days of hours the widest page) the row scrolls sideways instead of shrinking:
     swipe, trackpad, or the indicator below it - a map of the days with a frame over the part in
     view, draggable, with ‹ › buttons for mice. The temperature labels sit outside the scroller and
     stay put; edge shadows show there is more. The native scrollbar is hidden. On touch, a tap

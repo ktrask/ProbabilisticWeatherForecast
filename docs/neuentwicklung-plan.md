@@ -1,6 +1,6 @@
 # Plan: Neuentwicklung als reaktive Webanwendung
 
-Stand: 29.09.2026 · Ursprünglicher Plan vom 28.09.2026, seitdem mit dem Umsetzungsstand
+Stand: 01.10.2026 · Ursprünglicher Plan vom 28.09.2026, seitdem mit dem Umsetzungsstand
 fortgeschrieben. Die Phasen 0–4 sind in `main` (Fast-Forward am 29.09.2026). Der letzte Stand der
 alten Flask-App liegt auf dem Branch `old-webapp` (`dc7984f`, nach Phase 0 mit allen Tests und
 Korrekturen, Dockerfile startet noch Flask).
@@ -14,7 +14,7 @@ Korrekturen, Dockerfile startet noch Flask).
 | 2 API | erledigt | `cb10270`, `6f15f5f` |
 | 3 Frontend-MVP | erledigt | `765b45a`, `d0503b4` |
 | 4 Umstellung | erledigt | `862f4c7`, `e1bf118`, `497e098`, `af90976` |
-| 5 HRES und weitere Quellen | offen | – |
+| 5 HRES und weitere Quellen | teilweise: weitere Quellen erledigt (`docs/modelle-plan.md`), HRES offen | `eb96d91` … `51ab7ed` |
 | 6 Ausbau | offen, optional | – |
 
 Die alte Flask-/matplotlib-Anwendung ist entfernt. Der Container liefert nur noch die neue App aus
@@ -448,7 +448,7 @@ webapp/frontend/src/
   Regenreihe aber verrutscht. Das Fenster zeigt weiter das Fadenkreuz.
 - **Schmale Bildschirme: zwei umschaltbare Darstellungen** statt 12-h-Zusammenfassung (Abweichung
   vom Plan, nach Test auf dem Handy; Wahl in der URL als `layout=vertical`).
-  **Waagerecht:** alles in einer Zeile. Würde ein Zeitschritt schmaler als 24 px, scrollt die Zeile
+  **Waagerecht:** alles in einer Zeile. Würde ein Zeitschritt schmaler als 23 px, scrollt die Zeile
   seitlich (Wischen, Trackpad), darunter eine Tageskarte mit Rahmen um den sichtbaren Teil, zum
   Ziehen und mit ‹ ›-Knöpfen; die Temperaturbeschriftung bleibt stehen. **Senkrecht:** die Zeit
   läuft nach unten, die Größen stehen als Spalten nebeneinander, die Spaltenköpfe bleiben oben.
@@ -506,7 +506,14 @@ Jede Phase endete mit etwas Lauffähigem.
   `startup.sh` und die Piktogramme waren für den unprivilegierten Benutzer nicht lesbar. Seit
   `497e098` normalisiert das Dockerfile die Rechte.
 
-### Phase 5 – HRES und weitere Quellen · offen
+### Phase 5 – HRES und weitere Quellen · teilweise
+
+Der zweite Punkt ist erledigt und weit darüber hinaus: `docs/modelle-plan.md` hat am 01.10.2026 acht
+weitere Ensembles eingebaut (ICON global, ICON-EU, ICON-D2, MeteoSwiss ICON-CH2, AIFS, GFS, AI-GEFS,
+GEM), eine automatische Wahl des feinsten passenden Modells und stündliche Schritte für ICON-D2 und
+ICON-CH2. Jede neue Quelle brauchte nur `sources.yaml`; Codeänderungen betrafen Gebiete, Schrittweiten
+und die Auswahl, nicht die Adapter. Offen ist HRES:
+
 - Adapter `open_meteo_forecast`, Angleichung der Zeitachsen Ensemble/HRES, HRES-Schemata im Modus
   `anchored`, `deterministic`/`hres_schemes` pro Produkt, 48 HRES-Piktogramme als SVG.
 - Zweites Produkt (z. B. DWD ICON-EPS) nur über `sources.yaml`, als Beleg, dass eine neue Quelle

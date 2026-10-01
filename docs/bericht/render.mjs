@@ -48,8 +48,9 @@ async function shots(browser) {
   await shot("braunschweig", 7, 1000, "braunschweig.png");
   await shot("braunschweig", 7, "phone", "braunschweig-phone-row.png");
   await shot("braunschweig", 3, "phone", "braunschweig-phone-column.png", undefined, "&layout=vertical");
-  // Two days: the automatic choice takes ICON-D2, in hourly steps.
-  await shot("braunschweig", 2, 1000, "braunschweig-hourly.png");
+  // Two days: the automatic choice takes ICON-D2, in hourly steps. 48 hours need
+  // the wider window to fit in one row without scrolling.
+  await shot("braunschweig", 2, 1320, "braunschweig-hourly.png");
   for (const key of ["alice_springs", "singapore", "reykjavik", "zermatt"]) await shot(key, 10, 1240, `${key}.png`);
   await shot("braunschweig", 5, 1000, "legende.png", (page) => page.locator(".legend-schemes"));
 }

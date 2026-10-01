@@ -32,7 +32,7 @@
   figure.split { break-inside: auto; }
   figure.split img { break-inside: avoid; }
   figure.split img + img, figure.split .phones + img { margin-top: 3mm; }
-  figure.split figcaption { break-before: avoid; }
+  figure.split figcaption { break-before: avoid; break-inside: avoid; }
   figure .phones { display: flex; gap: 6mm; justify-content: center; align-items: flex-start; margin-top: 4mm; break-inside: avoid; }
   figure .phones img { width: 62mm; border: 1px solid var(--line); border-radius: 3pt; }
   figure .frame { border: 1px solid var(--line); border-radius: 3pt; padding: 2mm; }
@@ -106,7 +106,7 @@ Vorhersagen für fünf Klimazonen wird gezeigt, wie das funktioniert – in der 
 </ol>
 
 <p class="source">Grundlage: Quellcode im Repository <code>ProbabilisticWeatherForecast</code> (Branch <code>main</code>,
-Commit <code>a6fcbd8</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
+Commit <code>2915cfb</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
 neu entwickelt. Die Meteogramme sind Bildschirmfotos der neuen App, gespeist aus den Test-Fixtures (ECMWF-IFS-Ensemble
 über Open-Meteo, aufgezeichnet am 29.09.2026); die Piktogramme der Beispiele in Abschnitt 6 hat der Klassifikator der
 App bestimmt. Abschnitt 10.1 beruht auf einem Live-Abruf vom 29.09.2026. Stand: 01.10.2026. Die frühere Fassung dieses
@@ -174,19 +174,23 @@ gemeinsamer Zeitachse, ein Symbol bzw. Stützpunkt pro 6-Stunden-Schritt:</p>
 <p>Die Zeitachse zeigt die Ortszeit des <em>Vorhersageorts</em>, nicht die des Browsers, einschließlich Sommerzeit; jeder
 zweite Tag ist grau hinterlegt. Die Ansicht beginnt beim Schritt, der jetzt am nächsten liegt; ein Schieberegler wählt,
 wie viele Tage zu sehen sind, ein angebrochener letzter Tag eingeschlossen. Für schmale Bildschirme gibt es zwei Darstellungen zur Wahl. <b>Waagerecht</b> bleibt alles
-in einer Zeile: Würde ein Schritt schmaler als 24 Pixel, scrollt die Zeile seitlich, per Wischgeste oder über eine
+in einer Zeile: Würde ein Schritt schmaler als 23 Pixel, scrollt die Zeile seitlich, per Wischgeste oder über eine
 Tageskarte darunter, die mit einem Rahmen anzeigt, welcher Teil gerade zu sehen ist. <b>Senkrecht</b> läuft die Zeit nach
 unten, und die vier Größen stehen als Spalten nebeneinander. Beim Überfahren mit der Maus nennt ein Tooltip
 für den Schritt Median und 10.–90.-Perzentil jeder Größe samt Klasse und Stufe des Symbols. Unter dem Meteogramm steht
 die Legende aus Abb. 1.</p>
 <p>Ein Auswahlfeld wählt das <b>Modell</b>. Zur Wahl stehen ECMWF, das globale ICON-Ensemble des DWD (40 Member,
 26 km, gut 7 Tage) und, wo sie den Ort abdecken, drei feinere Regionalmodelle: ICON-EU (13 km, 5 Tage), ICON-D2
-(2 km, 2 Tage) für Mitteleuropa und ICON-CH2 von MeteoSwiss (2 km, 5 Tage) für den Alpenraum. Angeboten werden nur
-Modelle, die den Ort abdecken, und jedes mit mindestens zehn Membern; bei weniger sagte „zwei Drittel sind sich einig“
-nichts mehr.</p>
+(2 km, 2 Tage) für Mitteleuropa und ICON-CH2 von MeteoSwiss (2 km, 5 Tage) für den Alpenraum. Dazu kommen, nur von
+Hand wählbar, vier weitere globale Ensembles: das KI-Modell AIFS des ECMWF (51 Member, 15 Tage), GFS und das KI-Modell
+AI-GEFS der NOAA (je 31 Member, 16 Tage) und GEM aus Kanada (21 Member, 16 Tage). Sie unterscheiden sich deutlich –
+über sechs Tage in Reykjavík lagen die mittleren Regensummen zwischen 36 mm (GFS) und 63 mm (GEM), ECMWF bei 46 mm.
+Angeboten werden nur Modelle, die den Ort abdecken, und jedes mit mindestens zehn Membern; bei weniger sagte „zwei
+Drittel sind sich einig“ nichts mehr.</p>
 <p>Der Standard ist <b>„Automatisch“</b>: Die App nimmt das Modell mit dem feinsten Gitter, das den Ort abdeckt und die
 gewählten Tage schafft. In Braunschweig ist das für ein bis zwei Tage ICON-D2, bis fünf Tage ICON-EU, darüber ECMWF;
-in Singapur immer ECMWF. Unter dem Meteogramm steht dann „automatisch gewählt“, und wer die Tage verschiebt, kann
+in Singapur immer ECMWF. Die vier zusätzlichen globalen Modelle wählt die Automatik nie: drei reichen 16 Tage, einen mehr
+als ECMWF, und würden sonst lange Zeiträume übernehmen. Unter dem Meteogramm steht dann „automatisch gewählt“, und wer die Tage verschiebt, kann
 damit das Modell wechseln – die App lädt nur dann neu und zeigt bis dahin das alte Bild abgeblendet weiter.</p>
 <p>ICON-D2 und ICON-CH2 rechnen über ihren ganzen Lauf jede Stunde und lassen sich <b>stündlich</b> zeichnen
 (ICON-D2 standardmäßig), umschaltbar mit „stündlich | 6 h“. Der Regen hat dann eigene Grenzen von 0,1 / 1 / 3 mm pro
@@ -457,7 +461,7 @@ zeichneten nur falsche Symbole. Tests halten deshalb heute genau das fest, etwa 
   Anfang gezeigt. Die ganzen knapp 15 Tage des Laufs sind erreichbar. Die Legende steht neben dem Meteogramm und
   benennt das schraffierte Symbol ausdrücklich als „alles möglich“, damit es niemand für Nebel hält.</li>
   <li><b>Noch offen:</b> die HRES-Variante (Abschnitt 9), stündliche Schritte für ICON-EU in seinen ersten zwei Tagen,
-  weitere globale Modelle (ECMWF-KI, GFS, GEM), eine 12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
+  das ECMWF-Ensemble im 9-km-Gitter, sobald Open-Meteo dafür Daten liefert, eine 12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
   Nutzer.</li>
 </ul>
 
