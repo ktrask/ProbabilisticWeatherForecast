@@ -22,12 +22,14 @@ import { TOOLTIP_WIDTH, Tooltip } from "./Tooltip";
 export const MARGIN = { left: 44, right: 14, top: 4 };
 const AXIS_HEIGHT = 44;
 // Below this many pixels per step the pictograms get too small to tell their
-// levels apart; the row then scrolls instead of shrinking further. At 24 px
-// three days still fit on a phone, and every hour keeps its label.
-export const MIN_CELL = 24;
+// levels apart; the row then scrolls instead of shrinking further. At 23 px
+// three days still fit on a phone, and two days of hourly steps fit the
+// widest page (1208 px gave each hour 23.96 px, and at 24 the row scrolled
+// by a fraction of a pixel).
+export const MIN_CELL = 23;
 // Below this many pixels per step, hour labels would collide: then only noon
 // is labelled, and on narrower cells none - the day labels carry the time.
-const HOUR_LABEL_PX = 24;
+const HOUR_LABEL_PX = 22; // "06" is about 14 px wide; keep it below MIN_CELL
 
 export interface ChartProps {
   forecast: Forecast;
