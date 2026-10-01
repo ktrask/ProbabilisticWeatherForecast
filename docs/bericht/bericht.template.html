@@ -31,7 +31,7 @@
   figure img { width: 100%; display: block; }
   figure.split { break-inside: auto; }
   figure.split img { break-inside: avoid; }
-  figure.split img + img { margin-top: 3mm; }
+  figure.split img + img, figure.split .phones + img { margin-top: 3mm; }
   figure.split figcaption { break-before: avoid; }
   figure .phones { display: flex; gap: 6mm; justify-content: center; align-items: flex-start; margin-top: 4mm; break-inside: avoid; }
   figure .phones img { width: 62mm; border: 1px solid var(--line); border-radius: 3pt; }
@@ -106,7 +106,7 @@ Vorhersagen für fünf Klimazonen wird gezeigt, wie das funktioniert – in der 
 </ol>
 
 <p class="source">Grundlage: Quellcode im Repository <code>ProbabilisticWeatherForecast</code> (Branch <code>main</code>,
-Commit <code>8a600b5</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
+Commit <code>a6fcbd8</code>), hervorgegangen aus dem ECMWF „European Summer of Weather Code“ 2018 und 2026 als Web-App
 neu entwickelt. Die Meteogramme sind Bildschirmfotos der neuen App, gespeist aus den Test-Fixtures (ECMWF-IFS-Ensemble
 über Open-Meteo, aufgezeichnet am 29.09.2026); die Piktogramme der Beispiele in Abschnitt 6 hat der Klassifikator der
 App bestimmt. Abschnitt 10.1 beruht auf einem Live-Abruf vom 29.09.2026. Stand: 01.10.2026. Die frühere Fassung dieses
@@ -132,7 +132,8 @@ der Lauf reicht knapp 15 Tage); weitere Modelle stehen zur Wahl (Abschnitt 3). G
 Niederschlag und Wind ausdrücklich in °C, mm und m/s an und liest trotzdem bei jeder Größe die Einheit, die Open-Meteo
 zurückmeldet: Bekannte Einheiten werden umgerechnet, unbekannte abgelehnt – eine Zahl in der falschen Einheit wird nie
 stillschweigend weiterverrechnet (warum, zeigt Abschnitt 10.2). Für jeden
-6-Stunden-Schritt wird die Verteilung der Member-Werte auf neun Quantile reduziert (<code>core/reduce.py</code>):</p>
+Zeitschritt – sechs Stunden, bei den stündlich rechnenden Regionalmodellen auch eine – wird die Verteilung der
+Member-Werte auf neun Quantile reduziert (<code>core/reduce.py</code>):</p>
 <figure class="table">
 <figcaption class="above"><b>Tabelle 1 – Die neun Quantile je Schritt.</b></figcaption>
 <table>
@@ -178,13 +179,20 @@ Tageskarte darunter, die mit einem Rahmen anzeigt, welcher Teil gerade zu sehen 
 unten, und die vier Größen stehen als Spalten nebeneinander. Beim Überfahren mit der Maus nennt ein Tooltip
 für den Schritt Median und 10.–90.-Perzentil jeder Größe samt Klasse und Stufe des Symbols. Unter dem Meteogramm steht
 die Legende aus Abb. 1.</p>
-<p>Ein Auswahlfeld wählt das <b>Modell</b>. Neben ECMWF gibt es das globale ICON-Ensemble des DWD (40 Member, 26 km,
-gut 7 Tage) und, wo sie den Ort abdecken, drei feinere Regionalmodelle: ICON-EU (13 km, 5 Tage), ICON-D2 (2 km,
-2 Tage) für Mitteleuropa und ICON-CH2 von MeteoSwiss (2 km) für den Alpenraum. Angeboten werden nur Modelle, die den
-Ort abdecken, und jedes mit mindestens zehn Membern; bei weniger sagte „zwei Drittel sind sich einig“ nichts mehr. Alle
-Modelle werden heute auf 6-Stunden-Schritte gebracht. Stündliche Schritte für die Regionalmodelle und die automatische
-Wahl des feinsten passenden Modells sind geplant (<code>docs/modelle-plan.md</code>). Ort, Modell, Tageszahl und
-Darstellung stehen in der Adresse, jede Ansicht ist also ein Link.</p>
+<p>Ein Auswahlfeld wählt das <b>Modell</b>. Zur Wahl stehen ECMWF, das globale ICON-Ensemble des DWD (40 Member,
+26 km, gut 7 Tage) und, wo sie den Ort abdecken, drei feinere Regionalmodelle: ICON-EU (13 km, 5 Tage), ICON-D2
+(2 km, 2 Tage) für Mitteleuropa und ICON-CH2 von MeteoSwiss (2 km, 5 Tage) für den Alpenraum. Angeboten werden nur
+Modelle, die den Ort abdecken, und jedes mit mindestens zehn Membern; bei weniger sagte „zwei Drittel sind sich einig“
+nichts mehr.</p>
+<p>Der Standard ist <b>„Automatisch“</b>: Die App nimmt das Modell mit dem feinsten Gitter, das den Ort abdeckt und die
+gewählten Tage schafft. In Braunschweig ist das für ein bis zwei Tage ICON-D2, bis fünf Tage ICON-EU, darüber ECMWF;
+in Singapur immer ECMWF. Unter dem Meteogramm steht dann „automatisch gewählt“, und wer die Tage verschiebt, kann
+damit das Modell wechseln – die App lädt nur dann neu und zeigt bis dahin das alte Bild abgeblendet weiter.</p>
+<p>ICON-D2 und ICON-CH2 rechnen über ihren ganzen Lauf jede Stunde und lassen sich <b>stündlich</b> zeichnen
+(ICON-D2 standardmäßig), umschaltbar mit „stündlich | 6 h“. Der Regen hat dann eigene Grenzen von 0,1 / 1 / 3 mm pro
+Stunde. Die übrigen Modelle bleiben bei sechs Stunden: ECMWF rechnet nur alle drei Stunden, ICON-EU und das globale
+ICON nur in den ersten zwei Tagen stündlich; danach liefert Open-Meteo gleichmäßig verteilte 3-Stunden-Summen. Ort,
+Modell, Tageszahl, Schrittweite und Darstellung stehen in der Adresse, jede Ansicht ist also ein Link.</p>
 
 <figure class="split">
   <img src="img/braunschweig.png" alt="Meteogramm Braunschweig, eine Woche">
@@ -192,13 +200,15 @@ Darstellung stehen in der Adresse, jede Ansicht ist also ein Link.</p>
     <img src="img/braunschweig-phone-row.png" alt="Dieselbe Woche auf dem Handy, waagerecht">
     <img src="img/braunschweig-phone-column.png" alt="Die ersten Tage auf dem Handy, senkrecht">
   </div>
+  <img src="img/braunschweig-hourly.png" alt="Zwei Tage Braunschweig mit ICON-D2, stündlich">
   <figcaption><b>Abb. 2 – Meteogramm Braunschweig, eine Woche ab 29.09.2026.</b> Oben am Desktop, unten auf dem
   Handy: links waagerecht – die Woche passt nicht in die Breite, die Zeile scrollt, und die Tageskarte darunter rahmt
   die sichtbaren Tage ein –, rechts senkrecht. Die ersten beiden Tage sind fast durchweg sicher: trocken, schwacher
   Wind, schmales Temperaturband. Schon am 30.09. wird die Bewölkung aber „alles möglich“ (warum, erklärt Abschnitt
   10.1). Am Nachmittag und in der Nacht zum 2.10. ist der Regen unsicher – der Median liegt bei 1,5 mm, einzelne
   Member bringen über 10 mm. Gegen Ende der Woche öffnet sich das Temperaturband, Regen und Wind sind nur noch
-  „wahrscheinlich“ (eher trocken, eher schwach).</figcaption>
+  „wahrscheinlich“ (eher trocken, eher schwach). Ganz unten zwei Tage ab dem 1.10.: Dafür wählt die App
+  automatisch ICON-D2, in stündlichen Schritten.</figcaption>
 </figure>
 
 <h2>4&nbsp;&nbsp;Temperatur als Unsicherheitsband</h2>
@@ -244,7 +254,7 @@ mehr.</p>
 <code>config/vsup.yaml</code>. Für die Bewölkung lautet der Eintrag:</p>
 <pre>$yaml</pre>
 <p>Jede Größe hat vier <b>Wertklassen</b> mit festen Grenzen (Bewölkung 10 / 50 / 90 %, Niederschlag 0,1 / 2 / 5 mm in
-6 Stunden, Wind 3 / 10 / 17,2 m/s). Die Stufen werden von oben nach unten geprüft; die erste, die zutrifft, gewinnt:</p>
+6 Stunden – bei stündlichen Schritten 0,1 / 1 / 3 mm pro Stunde, Wind 3 / 10 / 17,2 m/s). Die Stufen werden von oben nach unten geprüft; die erste, die zutrifft, gewinnt:</p>
 <ul>
   <li><b>Stufe 3 (sicher):</b> Das 17. und das 83. Perzentil liegen in derselben Klasse – mindestens zwei Drittel der
   Member sind sich über die Klasse einig. Gezeichnet wird das Symbol dieser Klasse.</li>
@@ -446,8 +456,8 @@ zeichneten nur falsche Symbole. Tests halten deshalb heute genau das fest, etwa 
   Laufs, sondern beim Schritt, der jetzt am nächsten liegt; eine veraltete Vorhersage wird mit einem Hinweis ab ihrem
   Anfang gezeigt. Die ganzen knapp 15 Tage des Laufs sind erreichbar. Die Legende steht neben dem Meteogramm und
   benennt das schraffierte Symbol ausdrücklich als „alles möglich“, damit es niemand für Nebel hält.</li>
-  <li><b>Noch offen:</b> die HRES-Variante (Abschnitt 9), stündliche Schritte für die Regionalmodelle, die automatische
-  Wahl des feinsten Modells für Ort und Zeitraum, eine 12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
+  <li><b>Noch offen:</b> die HRES-Variante (Abschnitt 9), stündliche Schritte für ICON-EU in seinen ersten zwei Tagen,
+  weitere globale Modelle (ECMWF-KI, GFS, GEM), eine 12-Stunden-Zusammenfassung, der Export als SVG/PNG, ein dunkles Farbschema und eine Begrenzung der Anfragen pro
   Nutzer.</li>
 </ul>
 
@@ -465,7 +475,8 @@ eine Zahl in einer Datei.</p>
 <div class="box keep">
   <div class="box-title">Wo im Code?</div>
   <dl class="code">
-    <dt>webapp/config/sources.yaml</dt><dd>die Modelle zur Wahl, mit Membern, Gitter, Reichweite und Gebiet</dd>
+    <dt>webapp/config/sources.yaml</dt><dd>die Modelle zur Wahl, mit Membern, Gitter, Reichweite, Gebiet und Schrittweiten</dd>
+    <dt>webapp/sources/choice.py</dt><dd>die automatische Wahl des feinsten Modells für Ort und Tage</dd>
     <dt>webapp/sources/open_meteo.py</dt><dd>Abruf der Ensemble-Member in festen Einheiten</dd>
     <dt>webapp/core/reduce.py, core/pipeline.py</dt><dd>Quantile, 6-Stunden-Summen pro Member</dd>
     <dt>webapp/core/model.py</dt><dd>das Datenmodell <code>Forecast</code> und seine Prüfungen</dd>
