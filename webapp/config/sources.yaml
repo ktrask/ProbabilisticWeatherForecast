@@ -4,7 +4,8 @@
 # vsup.yaml on load - run `python -m sources check` after editing.
 #
 # A source is an adapter plus its settings. A product ties an ensemble source
-# to the VSUP schemes drawn from it; the first product is the default.
+# to the VSUP schemes drawn from it, and says what the reader picks between:
+# members, grid spacing and range. The first product is the default.
 #
 # For offline development and tests, sources.fixtures.yaml serves the recorded
 # forecasts in tests/fixtures/ under the same product name.
@@ -17,9 +18,26 @@ sources:
     model: ecmwf_ifs025
     forecast_days: 15
     timeout_s: 30
+  # DWD's global ICON ensemble. Not icon_seamless_eps: that one switches to
+  # the finer EU grid inside Europe, which ICON-EU will be as its own product.
+  icon-eps:
+    adapter: open_meteo_ensemble
+    model: icon_global_eps
+    forecast_days: 8
+    timeout_s: 30
 
 products:
   ecmwf:
     label: ECMWF ensemble
     ensemble: ecmwf-ens
     schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 51
+    grid_km: 25
+    horizon_days: 15
+  icon:
+    label: DWD ICON ensemble
+    ensemble: icon-eps
+    schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 40
+    grid_km: 26
+    horizon_days: 7.5

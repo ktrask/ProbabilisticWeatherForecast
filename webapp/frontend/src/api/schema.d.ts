@@ -264,10 +264,25 @@ export interface components {
         ProductOut: {
             /** Default */
             default: boolean;
+            /**
+             * Grid Km
+             * @description Grid spacing of the model, in km.
+             */
+            grid_km: number;
+            /**
+             * Horizon Days
+             * @description About how far ahead a run reaches, in days.
+             */
+            horizon_days: number;
             /** Id */
             id: string;
             /** Label */
             label: string;
+            /**
+             * Members
+             * @description Ensemble members the model runs.
+             */
+            members: number;
             /**
              * Schemes
              * @description The VSUP schemes its pictograms are drawn with.

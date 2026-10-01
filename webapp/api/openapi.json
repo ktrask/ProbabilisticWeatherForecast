@@ -450,6 +450,16 @@
             "title": "Default",
             "type": "boolean"
           },
+          "grid_km": {
+            "description": "Grid spacing of the model, in km.",
+            "title": "Grid Km",
+            "type": "number"
+          },
+          "horizon_days": {
+            "description": "About how far ahead a run reaches, in days.",
+            "title": "Horizon Days",
+            "type": "number"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -457,6 +467,11 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "members": {
+            "description": "Ensemble members the model runs.",
+            "title": "Members",
+            "type": "integer"
           },
           "schemes": {
             "description": "The VSUP schemes its pictograms are drawn with.",
@@ -488,7 +503,10 @@
           "default",
           "variants",
           "variables",
-          "schemes"
+          "schemes",
+          "members",
+          "grid_km",
+          "horizon_days"
         ],
         "title": "ProductOut",
         "type": "object"

@@ -29,6 +29,9 @@ products:
     label: Main
     ensemble: recorded
     schemes: [cloud-vsup, precipitation-vsup, wind-vsup]
+    members: 51
+    grid_km: 25
+    horizon_days: 15
 """
 ENSEMBLE_LINE = 12
 SCHEMES_LINE = 13
@@ -61,8 +64,10 @@ def one(issues, fragment):
 class TestShippedConfigs:
     def test_sources_yaml(self, schemes):
         catalog = load(DEFAULT_SOURCES, schemes)
-        assert list(catalog.products) == ["ecmwf"]
+        assert list(catalog.products) == ["ecmwf", "icon"]
+        assert catalog.default.id == "ecmwf"
         assert isinstance(catalog.default.source, OpenMeteoEnsemble)
+        assert catalog.products["icon"].source.model == "icon_global_eps"
         assert catalog.default.variants == ("ensemble",)
 
     def test_offline_twin_offers_the_same_products(self, schemes):
@@ -72,6 +77,8 @@ class TestShippedConfigs:
         assert isinstance(offline.default.source, FixtureSource)
         for key in live.products:
             assert offline.products[key].schemes == live.products[key].schemes
+            for detail in ("members", "grid_km", "horizon_days"):
+                assert getattr(offline.products[key], detail) == getattr(live.products[key], detail)
 
     def test_json_schema_is_up_to_date(self):
         """Regenerate with `python -m sources schema -o config/sources.schema.json`."""
@@ -91,6 +98,12 @@ class TestProducts:
         catalog = load(write(tmp_path, BASE), schemes)
         assert catalog.default.id == "main"
         assert catalog.default.variables == FixtureSource.variables
+
+    def test_states_what_the_reader_chooses_between(self, tmp_path, schemes):
+        product = load(write(tmp_path, BASE), schemes).default
+        assert (product.members, product.grid_km, product.horizon_days) == (51, 25, 15)
+        one(broken(tmp_path, schemes, "    members: 51\n", ""), "members")
+        one(broken(tmp_path, schemes, "grid_km: 25", "grid_km: 0"), "greater than 0")
 
     def test_unknown_source(self, tmp_path, schemes):
         one(broken(tmp_path, schemes, "ensemble: recorded", "ensemble: nowhere"), "no source 'nowhere'")

@@ -90,6 +90,31 @@ def test_hourly_interval_is_still_one_hour(raw_response):
     assert times[0].endswith(":00"), f"unexpected timestamp format: {times[0]!r}"
 
 
+def shipped_products():
+    from sources.config import DEFAULT_SOURCES, load
+    from vsup.config import load as load_vsup
+
+    return list(load(DEFAULT_SOURCES, load_vsup()).products.values())
+
+
+@pytest.mark.parametrize("product", shipped_products(), ids=lambda p: p.id)
+def test_each_product_is_what_it_claims(product):
+    """What sources.yaml tells the reader - members and range - against a
+    live run, and the product's schemes apply to it."""
+    from vsup.classify import classify
+    from vsup.config import load
+
+    result = fetch(product.source, PARIS, product.variables)
+    assert result.member_count == product.members
+    forecast = build_forecast(result)
+    span_days = (forecast.steps[-1] - forecast.steps[0]).total_seconds() / 86400
+    # The newest run is not always the longest: ECMWF's 06 and 18 UTC runs
+    # stop at 6 days, and then the end comes from an older run (13.2 days
+    # from local midnight on 2026-10-01, 09 UTC; 14.5 right after a 00 UTC run).
+    assert product.horizon_days - 2 <= span_days <= product.horizon_days, f"{span_days:.1f} days"
+    classify(forecast, load(), list(product.schemes))
+
+
 def test_live_forecast_matches_the_fixtures():
     """The offline suite and the offline configuration stand in for this; they
     have to look the same."""
@@ -128,9 +153,9 @@ def test_open_meteo_adapter_delivers_a_valid_forecast():
     result = fetch(source, PARIS, source.variables)
     assert result.member_count == ENSEMBLE_MEMBERS
     forecast = build_forecast(result)
-    # 15 days are requested; the run ends a little earlier and the NaN padding
-    # after it is dropped, which still leaves more than 14 days.
-    assert len(forecast.steps) > 14 * 4, f"only {len(forecast.steps)} steps"
+    # 15 days are requested; the run ends earlier and the NaN padding after it
+    # is dropped - 13 to 14.5 days, depending on the run (see above).
+    assert len(forecast.steps) > 13 * 4, f"only {len(forecast.steps)} steps"
     assert forecast.location.timezone == "Europe/Paris"
     classify(forecast, load(), ["cloud-vsup", "precipitation-vsup", "wind-vsup"])
 
@@ -157,4 +182,4 @@ def test_api_end_to_end():
     assert forecast.location.name == "Paris"
     assert forecast.location.timezone == "Europe/Paris"
     assert set(forecast.pictograms) == {"cloud_cover", "precipitation", "wind_speed_10m"}
-    assert ok("/api/health?deep=true")["upstream"] == {"ecmwf-ens": "ok"}
+    assert ok("/api/health?deep=true")["upstream"] == {"ecmwf-ens": "ok", "icon-eps": "ok"}

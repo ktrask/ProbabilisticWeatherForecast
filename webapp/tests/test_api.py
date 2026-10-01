@@ -99,15 +99,26 @@ def app():
 
 
 class TestProducts:
-    def test_lists_the_default_product(self, app):
+    def test_lists_the_products_default_first(self, app):
         response = get(app, "/api/products")
         assert response.status_code == 200
-        (product,) = response.json()["products"]
-        assert product["id"] == "ecmwf"
-        assert product["default"] is True
-        assert product["variants"] == ["ensemble"]
-        assert product["schemes"] == ["cloud-vsup", "precipitation-vsup", "wind-vsup"]
+        ecmwf, icon = response.json()["products"]
+        assert (ecmwf["id"], ecmwf["default"], icon["id"], icon["default"]) == ("ecmwf", True, "icon", False)
+        assert ecmwf["variants"] == ["ensemble"]
+        assert ecmwf["schemes"] == ["cloud-vsup", "precipitation-vsup", "wind-vsup"]
         assert response.headers["cache-control"] == "public, max-age=300"
+
+    def test_says_what_each_product_is(self, app):
+        products = {p["id"]: p for p in get(app, "/api/products").json()["products"]}
+        assert (products["ecmwf"]["members"], products["ecmwf"]["grid_km"], products["ecmwf"]["horizon_days"]) == (51, 25, 15)
+        assert (products["icon"]["members"], products["icon"]["grid_km"], products["icon"]["horizon_days"]) == (40, 26, 7.5)
+
+    def test_another_product_is_another_forecast(self, app):
+        ecmwf = get(app, f"/api/forecast?{BRAUNSCHWEIG}").json()
+        icon = get(app, f"/api/forecast?{BRAUNSCHWEIG}&product=icon").json()
+        assert icon["steps"][0] != ecmwf["steps"][0]  # recorded on different days
+        assert len(icon["steps"]) < len(ecmwf["steps"])  # ICON reaches about a week
+        assert icon["pictograms"]["cloud_cover"]["scheme"] == "cloud-vsup"
 
 
 class TestSchemes:
@@ -190,7 +201,7 @@ class TestForecast:
         assert response.status_code == 422
         (error,) = response.json()["detail"]
         assert error["loc"] == ["query", "product"]
-        assert "no product 'gfs'; there are ecmwf" in error["msg"]
+        assert "no product 'gfs'; there are ecmwf, icon" in error["msg"]
 
     def test_missing_variant_is_409(self, app):
         response = get(app, f"/api/forecast?{BRAUNSCHWEIG}&variant=hres")

@@ -13,6 +13,9 @@ class ProductOut(BaseModel):
     variants: list[str] = Field(description="What `variant` accepts for this product.")
     variables: list[str]
     schemes: list[str] = Field(description="The VSUP schemes its pictograms are drawn with.")
+    members: int = Field(description="Ensemble members the model runs.")
+    grid_km: float = Field(description="Grid spacing of the model, in km.")
+    horizon_days: float = Field(description="About how far ahead a run reaches, in days.")
 
 
 class ProductsOut(BaseModel):

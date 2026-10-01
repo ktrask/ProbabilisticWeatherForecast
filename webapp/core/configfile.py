@@ -127,7 +127,7 @@ class ConfigFile:
             self.spec = model.model_validate(data)
         except ValidationError as exc:
             for error in exc.errors():
-                self.report(self._untagged(self._at_tag(error)), error["msg"])
+                self.report(self._untagged(self._at_tag(error)), self._message(error))
             self.check()
 
     def report(self, loc, message):
@@ -136,6 +136,14 @@ class ConfigFile:
     def check(self):
         if self.issues:
             raise ConfigError(self.path, self.issues)
+
+    @staticmethod
+    def _message(error):
+        """Pydantic's message - except for a missing field, which it calls just
+        "Field required": the line points at the entry, so name the field."""
+        if error["type"] == "missing" and error["loc"]:
+            return f"{error['loc'][-1]!r} is missing"
+        return error["msg"]
 
     @staticmethod
     def _at_tag(error):

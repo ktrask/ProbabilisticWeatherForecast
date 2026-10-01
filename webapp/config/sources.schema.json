@@ -107,12 +107,33 @@
           "default": null,
           "description": "What to fetch. Default: everything the source delivers.",
           "title": "Variables"
+        },
+        "members": {
+          "description": "Ensemble members the model runs.",
+          "minimum": 1,
+          "title": "Members",
+          "type": "integer"
+        },
+        "grid_km": {
+          "description": "Grid spacing of the model, in km.",
+          "exclusiveMinimum": 0,
+          "title": "Grid Km",
+          "type": "number"
+        },
+        "horizon_days": {
+          "description": "About how far ahead a run reaches, in days.",
+          "exclusiveMinimum": 0,
+          "title": "Horizon Days",
+          "type": "number"
         }
       },
       "required": [
         "label",
         "ensemble",
-        "schemes"
+        "schemes",
+        "members",
+        "grid_km",
+        "horizon_days"
       ],
       "title": "ProductSpec",
       "type": "object"

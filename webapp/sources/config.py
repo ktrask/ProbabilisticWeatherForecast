@@ -48,6 +48,11 @@ class ProductSpec(_Strict):
     variables: list[Literal[tuple(VARIABLES)]] | None = Field(
         None, description="What to fetch. Default: everything the source delivers."
     )
+    # What the reader is told when choosing - and, later, what an automatic
+    # choice weighs. The live tests hold members and horizon to the real thing.
+    members: int = Field(ge=1, description="Ensemble members the model runs.")
+    grid_km: float = Field(gt=0, description="Grid spacing of the model, in km.")
+    horizon_days: float = Field(gt=0, description="About how far ahead a run reaches, in days.")
 
 
 class SourcesFile(_Strict):
@@ -73,6 +78,9 @@ class Product:
     source: object
     schemes: tuple
     variables: frozenset
+    members: int
+    grid_km: float
+    horizon_days: float
 
     # "hres" joins once a product can have a deterministic source.
     variants = ("ensemble",)
@@ -161,4 +169,5 @@ def _product(file, key, spec, sources, vsup_config):
                              f"are built in {STEP_HOURS}-hour steps")
         if DETERMINISTIC in scheme.reads:
             file.report(loc, f"{name} reads the deterministic run, which an ensemble product does not have")
-    return Product(key, spec.label, spec.ensemble, source, tuple(spec.schemes), variables)
+    return Product(key, spec.label, spec.ensemble, source, tuple(spec.schemes), variables,
+                   spec.members, spec.grid_km, spec.horizon_days)
