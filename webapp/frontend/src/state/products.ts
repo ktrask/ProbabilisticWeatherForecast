@@ -16,6 +16,14 @@ export function offered(products: Product[], lat: number | null, lon: number | n
   return products.filter((p) => p.id === chosen || covers(p, lat, lon));
 }
 
+/** The step width to ask `product` for: the chosen one if it offers it, else
+ * null - its own default. A step chosen for an hourly model must not turn the
+ * next model, or a link, into an error. */
+export function stepFor(product: Product | undefined, step: number | null): number | null {
+  if (step === null || product === undefined) return step;
+  return product.steps.includes(step) ? step : null;
+}
+
 /** The product the automatic choice takes: the finest automatic one that covers
  * the place and reaches `days` (without: as far as the default), file order on a
  * tie, else the default - the rule of the API's sources/choice.py. The API also
