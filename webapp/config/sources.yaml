@@ -146,3 +146,27 @@ products:
     grid_km: 2
     horizon_days: 5
     steps: [6, 1]
+
+# The places the start page suggests, per language of the page, each with a
+# three-day overview (automatic model choice, 6-hour steps). Each card is one
+# /api/forecast request, cached like any other; the default product must
+# cover every place.
+examples:
+  de:
+    - {name: Berlin, lat: 52.52, lon: 13.41}
+    - {name: Hamburg, lat: 53.55, lon: 9.99}
+    - {name: München, lat: 48.14, lon: 11.58}
+    - {name: Köln, lat: 50.94, lon: 6.96}
+    - {name: Frankfurt am Main, lat: 50.11, lon: 8.68}
+    - {name: Braunschweig, lat: 52.26, lon: 10.52}
+    - {name: Wien, lat: 48.21, lon: 16.37}
+    - {name: Zürich, lat: 47.37, lon: 8.54}
+  en:
+    - {name: London, lat: 51.51, lon: -0.13}
+    - {name: New York, lat: 40.71, lon: -74.01}
+    - {name: Paris, lat: 48.86, lon: 2.35}
+    - {name: Tokyo, lat: 35.68, lon: 139.69}
+    - {name: Sydney, lat: -33.87, lon: 151.21}
+    - {name: Cape Town, lat: -33.92, lon: 18.42}
+    - {name: Singapore, lat: 1.35, lon: 103.82}
+    - {name: Reykjavík, lat: 64.15, lon: -21.94}

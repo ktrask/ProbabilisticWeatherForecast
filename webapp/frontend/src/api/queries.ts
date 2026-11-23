@@ -43,6 +43,16 @@ export function useSchemes() {
   return useQuery({ queryKey: ["schemes"], queryFn: ({ signal }) => api.schemes(signal), staleTime: Infinity, retry });
 }
 
+/** The places the start page suggests in `lang`. */
+export function useExamples(lang: Lang) {
+  return useQuery({
+    queryKey: ["examples", lang],
+    queryFn: ({ signal }) => api.examples(lang, signal),
+    staleTime: Infinity,
+    retry,
+  });
+}
+
 export const MIN_QUERY_LENGTH = 2;
 
 export function useGeocode(text: string, lang: Lang) {

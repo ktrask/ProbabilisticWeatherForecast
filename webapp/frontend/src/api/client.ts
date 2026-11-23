@@ -1,6 +1,7 @@
 // Typed access to the backend. Every type comes from schema.d.ts, which is
 // generated from the backend's checked-in OpenAPI contract, so a field the
 // API no longer has is a compile error here rather than `undefined` at runtime.
+import type { Lang } from "../i18n";
 import type { components, operations } from "./schema";
 
 type Schemas = components["schemas"];
@@ -12,6 +13,7 @@ export type Place = Schemas["Place"];
 export type Product = Schemas["ProductOut"];
 export type Scheme = Schemas["SchemeOut"];
 export type Schemes = Schemas["SchemesOut"];
+export type Example = Schemas["ExampleOut"];
 
 export type ForecastQuery = operations["forecast_api_forecast_get"]["parameters"]["query"];
 export type GeocodeQuery = operations["geocode_api_geocode_get"]["parameters"]["query"];
@@ -67,4 +69,5 @@ export const api = {
     getJson<Schemas["GeocodeOut"]>("/api/geocode", query, signal),
   products: (signal?: AbortSignal) => getJson<Schemas["ProductsOut"]>("/api/products", {}, signal),
   schemes: (signal?: AbortSignal) => getJson<Schemes>("/api/schemes", {}, signal),
+  examples: (lang: Lang, signal?: AbortSignal) => getJson<Schemas["ExamplesOut"]>("/api/examples", { lang }, signal),
 };

@@ -38,6 +38,38 @@
       "title": "AreaSpec",
       "type": "object"
     },
+    "ExampleSpec": {
+      "additionalProperties": false,
+      "description": "A place the start page suggests, with a short overview of its next days.",
+      "properties": {
+        "name": {
+          "description": "As the page shows it, in that language.",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lon",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "lat",
+        "lon"
+      ],
+      "title": "ExampleSpec",
+      "type": "object"
+    },
     "FixtureSpec": {
       "additionalProperties": false,
       "properties": {
@@ -255,6 +287,24 @@
       "description": "The first one is the default.",
       "minProperties": 1,
       "title": "Products",
+      "type": "object"
+    },
+    "examples": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/ExampleSpec"
+        },
+        "type": "array"
+      },
+      "default": {},
+      "description": "Places the start page suggests, per language, in this order. Each must be covered by the default product.",
+      "propertyNames": {
+        "enum": [
+          "de",
+          "en"
+        ]
+      },
+      "title": "Examples",
       "type": "object"
     }
   },

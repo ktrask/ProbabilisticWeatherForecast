@@ -164,6 +164,139 @@ main {
   text-align: center;
 }
 
+.intro.compact {
+  padding: 8px 0 20px;
+}
+
+/* Start page: example places, each a card linking to its meteogram. */
+.examples h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.example-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.example {
+  position: relative;
+  height: 100%;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.example:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgb(0 58 70 / 12%);
+}
+
+.example:has(a:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.example h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.example h3 a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.example h3 a:focus-visible {
+  outline: none;
+}
+
+/* The whole card is the link's target. */
+.example h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+}
+
+.example-stale {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+.example-days {
+  display: grid;
+  gap: 4px;
+}
+
+.example-day {
+  display: grid;
+  grid-template-columns: 3.2em auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.example-days.placeholder .example-day {
+  border-radius: 4px;
+  background: var(--day);
+}
+
+.example-weekday {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.example-glyphs {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.example-glyph {
+  display: block;
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 400px) {
+  .example-glyph {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Over already. Not paler: in VSUP a paler symbol means a less certain one. */
+.example-glyph.past {
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.example-temperature {
+  text-align: right;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.example-missing {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.examples-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .error {
   padding: 16px;
   border: 1px solid #e6b8b0;

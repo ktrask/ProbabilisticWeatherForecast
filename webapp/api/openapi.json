@@ -91,6 +91,52 @@
         "title": "ErrorOut",
         "type": "object"
       },
+      "ExampleOut": {
+        "properties": {
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          },
+          "name": {
+            "description": "As the page shows it, in the language asked for.",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "lat",
+          "lon"
+        ],
+        "title": "ExampleOut",
+        "type": "object"
+      },
+      "ExamplesOut": {
+        "properties": {
+          "lang": {
+            "title": "Lang",
+            "type": "string"
+          },
+          "places": {
+            "description": "The places the start page suggests, in order; may be empty.",
+            "items": {
+              "$ref": "#/components/schemas/ExampleOut"
+            },
+            "title": "Places",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lang",
+          "places"
+        ],
+        "title": "ExamplesOut",
+        "type": "object"
+      },
       "ForecastOut": {
         "additionalProperties": false,
         "properties": {
@@ -880,6 +926,54 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/examples": {
+      "get": {
+        "description": "The places the start page suggests in `lang`, each with a short\noverview drawn from /api/forecast.",
+        "operationId": "examples_api_examples_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "de",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamplesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Examples",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
     "/api/forecast": {
       "get": {
         "description": "The whole forecast the source has - the client picks the days it shows -\nas quantiles per step plus the product's pictograms, and which product\ndrew it.",

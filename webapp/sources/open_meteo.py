@@ -7,6 +7,8 @@ canonical form and then checked anyway, from the unit each variable reports -
 Open-Meteo silently ignores a parameter it does not know, so asking is not
 proof.
 """
+import asyncio
+import weakref
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -33,6 +35,23 @@ SDK_VARIABLES = {
     (Variable.cloud_cover, 0): "cloud_cover",
     (Variable.wind_speed, 10): "wind_speed_10m",
 }
+
+# Open-Meteo refuses too many requests at once from one address ("Too many
+# concurrent requests", 429): eight start-page cards asked at once were enough
+# for two of them to fail on 2026-11-23. So a worker asks at most this many at
+# a time, and asks a refused one once more after a pause.
+MAX_CONCURRENT = 4
+RETRY_AFTER_S = 1.0
+_limits = weakref.WeakKeyDictionary()  # event loop -> its Semaphore
+
+
+def _limit():
+    # One per event loop: an asyncio.Semaphore belongs to the loop it is first used on.
+    loop = asyncio.get_running_loop()
+    if loop not in _limits:
+        _limits[loop] = asyncio.Semaphore(MAX_CONCURRENT)
+    return _limits[loop]
+
 
 # SDK unit -> core.units spelling. Anything else is refused.
 SDK_UNITS = {
@@ -114,14 +133,23 @@ class OpenMeteoEnsemble:
         if self.area is not None and not self.area.contains(location.lat, location.lon):
             raise NotCovered(f"{self.id} does not cover {location.lat}, {location.lon}")
         try:
-            response = await http.get(self.url, self.params(location, variables), timeout=self.timeout,
-                                      what=self.id, client=self._client)
+            async with _limit():
+                response = await self._get(self.params(location, variables))
         except UpstreamStatus as exc:
             # A regional model's answer for a place outside its (rotated) grid.
             if exc.status == 400 and NOT_COVERED in exc.reason:
                 raise NotCovered(f"{self.id} does not cover {location.lat}, {location.lon}") from exc
             raise
         return decode(response.content, self.id, variables, name=location.name)
+
+    async def _get(self, params):
+        try:
+            return await http.get(self.url, params, timeout=self.timeout, what=self.id, client=self._client)
+        except UpstreamStatus as exc:
+            if exc.status != 429:
+                raise
+        await asyncio.sleep(RETRY_AFTER_S)
+        return await http.get(self.url, params, timeout=self.timeout, what=self.id, client=self._client)
 
 
 def messages(content):

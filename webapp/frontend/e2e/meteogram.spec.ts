@@ -302,3 +302,51 @@ test("the legend comes from the configuration", async ({ page }) => {
   await expect(legend).toContainText("0,1–2 mm");
   await expect(legend).toContainText("≥ 17,2 m/s");
 });
+
+test.describe("start page", () => {
+  // Half a day into ICON-EU's Braunschweig recording, which the cards in
+  // Europe are drawn from: every card then has a "today".
+  async function showStart(page: Page, lang = "de") {
+    await page.clock.setFixedTime(new Date(recordedAt("icon_eu_eps/braunschweig").getTime() + 12 * H));
+    const broken: string[] = [];
+    page.on("response", (response) => {
+      if (response.url().includes("/pictograms/") && response.status() !== 200) broken.push(response.url());
+    });
+    await page.goto(`/?lang=${lang}`);
+    const cards = page.getByTestId("example");
+    await expect(cards).toHaveCount(5);
+    for (const card of await cards.all()) await expect(card.locator(".example-day[data-day]")).toHaveCount(3);
+    await page.waitForLoadState("networkidle");
+    expect(broken, "pictograms that did not load").toEqual([]);
+    return cards;
+  }
+
+  test("suggests places with three days each", async ({ page }) => {
+    const cards = await showStart(page);
+    await expect(page.getByRole("heading", { name: "Beispielorte" })).toBeVisible();
+    await expect(cards.first().getByRole("link")).toHaveText("Braunschweig");
+    await expect(cards.first()).toContainText("Heute");
+    await expect(page.getByRole("region", { name: "Beispielorte" })).toHaveScreenshot("start.png");
+  });
+
+  test("in English, the English names", async ({ page }) => {
+    const cards = await showStart(page, "en");
+    await expect(page.getByRole("heading", { name: "Example places" })).toBeVisible();
+    await expect(cards.nth(3).getByRole("link")).toHaveText("Singapore");
+  });
+
+  test("a card opens the place, and back returns to the cards", async ({ page }) => {
+    const cards = await showStart(page);
+    await cards.nth(1).click();
+    await expect(page.getByTestId("place")).toHaveText("Zermatt");
+    await expect(page).toHaveURL(/lat=46\.02&lon=7\.75&name=Zermatt&lang=de/);
+    await expect(page.getByTestId("meteogram").locator("image").first()).toBeAttached();
+    await page.goBack();
+    await expect(page.getByTestId("example")).toHaveCount(5);
+  });
+
+  test("on a phone @phone", async ({ page }) => {
+    await showStart(page);
+    await expect(page).toHaveScreenshot("start-phone.png", { fullPage: true });
+  });
+});

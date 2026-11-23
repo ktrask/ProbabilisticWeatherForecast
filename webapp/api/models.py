@@ -39,6 +39,17 @@ class ForecastOut(Forecast):
     automatic: bool = Field(description="Whether the product was chosen automatically.")
 
 
+class ExampleOut(BaseModel):
+    name: str = Field(description="As the page shows it, in the language asked for.")
+    lat: float
+    lon: float
+
+
+class ExamplesOut(BaseModel):
+    lang: str
+    places: list[ExampleOut] = Field(description="The places the start page suggests, in order; may be empty.")
+
+
 class ProductsOut(BaseModel):
     products: list[ProductOut]
 

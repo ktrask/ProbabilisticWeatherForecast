@@ -127,7 +127,7 @@ Everything lives under `webapp/`:
   merging into groups as certainty drops. `config.load()` collects *every* problem with its line
   number before raising `ConfigError`. `config/vsup.schema.json` is generated from the models.
 - **`api/`** — FastAPI, GET only: `/api/forecast`, `/api/geocode`, `/api/products`, `/api/schemes`,
-  `/api/health`, `/pictograms/<version>/…`, and the built frontend at `/`. `create_app()` is a
+  `/api/examples`, `/api/health`, `/pictograms/<version>/…`, and the built frontend at `/`. `create_app()` is a
   factory, so importing it has no side effects; it loads and cross-checks both configs, so a broken
   one stops the start. `api/openapi.json` is the checked-in contract.
 - **`frontend/`** — React 19 + TypeScript + Vite, TanStack Query, the chart as SVG with
@@ -248,6 +248,14 @@ otherwise fail on some request fails at start-up, with file and line.
 - **The days slider counts a begun day** (`layout.daysAvailable`, from the step nearest now to the
   last one, rounded up - the user's call: a model that reaches 1.5 more days offers 2), and a window
   never leaves the forecast's very last step out alone, so the last day ends at its closing time.
+- **The start page suggests places** (`src/start/`, the user's request of 2026-11-23): without a
+  place in the URL, cards for the `examples` of `sources.yaml` in the page's language (`de`/`en`,
+  from `/api/examples`; the fixtures config lists the five recorded places). Each card is one
+  `/api/forecast?days=3&step_hours=6` - the automatic choice, so ICON-EU or ICON-CH2 in Europe -
+  and shows three local days from today, each as its 6-hour steps with the cloud and rain
+  pictograms and the range of the median temperature (`overview.ts`). Steps already over get a
+  grey background, never a paler glyph: in VSUP paler means less certain. The start-up check
+  refuses an example outside the default product's area or, offline, far from every recording.
 - **The view starts at the step nearest to now.** A forecast that ended before now is shown from its
   start with a "stale" note - which is what the offline fixtures look like once they age.
 - **Coordinates in the URL are never rounded on the way back out** (`formatState`): rounding moved
@@ -315,6 +323,9 @@ otherwise fail on some request fails at start-up, with file and line.
 
 - Every outbound call has an explicit timeout: `sources/http.get` passes the adapter's
   `httpx.Timeout` on each request, so a shared client configured without one cannot undo it.
+- At most `open_meteo.MAX_CONCURRENT` (4) ensemble requests per worker at a time, and a 429 is asked
+  once more after a second: Open-Meteo answers "Too many concurrent requests" to more, which the
+  start page's eight cold cards were enough for (2026-11-23).
 - No import side effects: configs are loaded in `create_app()`, not at import.
 - Pictograms are found through `pictogram_root` in `vsup.yaml`; never a second copy of the assets.
 - TypeScript is pinned to 5.9 because openapi-typescript 7 requires `typescript ^5`.

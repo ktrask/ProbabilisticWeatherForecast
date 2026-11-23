@@ -24,6 +24,8 @@ from api.models import (
     AreaOut,
     ClassOut,
     ErrorOut,
+    ExampleOut,
+    ExamplesOut,
     ForecastOut,
     GeocodeOut,
     HealthOut,
@@ -150,6 +152,15 @@ def create_app(settings=None, *, catalog=None, geocoder=None):
                 area=AreaOut(**dataclasses.asdict(p.area)) if p.area else None,
             )
             for p in catalog.products.values()
+        ])
+
+    @app.get("/api/examples", response_model=ExamplesOut, tags=["meta"])
+    async def examples(response: Response, lang: Literal[sources_config.LANGUAGES] = "en"):
+        """The places the start page suggests in `lang`, each with a short
+        overview drawn from /api/forecast."""
+        response.headers["Cache-Control"] = API_CACHE
+        return ExamplesOut(lang=lang, places=[
+            ExampleOut(name=e.name, lat=e.lat, lon=e.lon) for e in catalog.examples.get(lang, ())
         ])
 
     @app.get("/api/schemes", response_model=SchemesOut, tags=["meta"])

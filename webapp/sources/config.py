@@ -7,6 +7,7 @@ delivers, is written for the step the forecasts are built in, and reads only
 quantiles the source can provide. What would otherwise fail on some later
 request - the successor of the legacy HresDataUnavailable - fails at start-up.
 """
+import dataclasses
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -15,12 +16,12 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.configfile import ConfigFile
-from core.model import DETERMINISTIC, quantile_name
+from core.model import DETERMINISTIC, Location, quantile_name
 from core.pipeline import STEP_HOURS
 from core.variables import VARIABLES
 from sources.base import Area
 from sources.fixture import DEFAULT_DIRECTORY as DEFAULT_FIXTURES
-from sources.fixture import FixtureSource
+from sources.fixture import FixtureNotFound, FixtureSource
 from sources.open_meteo import DEFAULT_TIMEOUT_S, OpenMeteoEnsemble
 
 # Fewer members than this, and "two thirds agree" rests on a handful of runs.
@@ -100,12 +101,28 @@ class ProductSpec(_Strict):
         return steps
 
 
+# The languages the frontend speaks; the start page suggests places per language.
+LANGUAGES = ("de", "en")
+
+
+class ExampleSpec(_Strict):
+    """A place the start page suggests, with a short overview of its next days."""
+
+    name: str = Field(min_length=1, max_length=100, description="As the page shows it, in that language.")
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
 class SourcesFile(_Strict):
     version: Literal[1]
     sources: dict[str, Annotated[OpenMeteoEnsembleSpec | FixtureSpec, Field(discriminator="adapter")]] = Field(
         min_length=1
     )
     products: dict[str, ProductSpec] = Field(min_length=1, description="The first one is the default.")
+    examples: dict[Literal[LANGUAGES], list[ExampleSpec]] = Field(
+        {}, description="Places the start page suggests, per language, in this order. "
+                        "Each must be covered by the default product."
+    )
 
 
 def json_schema():
@@ -144,10 +161,18 @@ class Product:
 
 
 @dataclass(frozen=True)
+class Example:
+    name: str
+    lat: float
+    lon: float
+
+
+@dataclass(frozen=True)
 class Catalog:
     path: Path
     sources: dict
     products: dict  # in file order; the first is the default
+    examples: dict = dataclasses.field(default_factory=dict)  # language -> tuple of Example
 
     @property
     def default(self):
@@ -171,8 +196,29 @@ def load(path, vsup_config):
     products = {
         key: _product(file, key, spec, sources, vsup_config) for key, spec in file.spec.products.items()
     }
+    examples = {
+        lang: tuple(_example(file, lang, i, spec, next(iter(products.values()))) for i, spec in enumerate(specs))
+        for lang, specs in file.spec.examples.items()
+    }
     file.check()
-    return Catalog(file.path, sources, products)
+    return Catalog(file.path, sources, products, examples)
+
+
+def _example(file, lang, i, spec, default):
+    """A suggested place the default product must answer for: inside its area,
+    and - for recorded forecasts - near a recording, or its card is a 404."""
+    at = ("examples", lang, i)
+    source = default.source
+    if source is not None:
+        area = source.area
+        if area is not None and not area.contains(spec.lat, spec.lon):
+            file.report(at, f"{spec.name} lies outside the area of {default.id}, the default product")
+        elif isinstance(source, FixtureSource):
+            try:
+                source.nearest(Location(lat=spec.lat, lon=spec.lon))
+            except FixtureNotFound as exc:
+                file.report(at, f"{spec.name}: {exc}")
+    return Example(spec.name, spec.lat, spec.lon)
 
 
 def _adapter(file, key, spec):

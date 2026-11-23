@@ -201,6 +201,32 @@ class TestProducts:
         assert icon["pictograms"]["cloud_cover"]["scheme"] == "cloud-vsup"
 
 
+class TestExamples:
+    def test_places_per_language(self, app):
+        response = get(app, "/api/examples?lang=de")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["lang"] == "de"
+        assert [p["name"] for p in body["places"]] == ["Braunschweig", "Zermatt", "Reykjavík", "Singapur", "Alice Springs"]
+        assert response.headers["cache-control"] == "public, max-age=300"
+        english = get(app, "/api/examples").json()
+        assert english["lang"] == "en"
+        assert "Singapore" in [p["name"] for p in english["places"]]
+
+    def test_an_unknown_language_is_422(self, app):
+        assert get(app, "/api/examples?lang=fr").status_code == 422
+
+    def test_every_place_has_a_three_day_overview(self, app):
+        """What the start page asks for each card."""
+        places = get(app, "/api/examples?lang=de").json()["places"]
+        urls = [f"/api/forecast?lat={p['lat']}&lon={p['lon']}&days=3&step_hours=6" for p in places]
+        for place, response in zip(places, get_concurrently(app, urls)):
+            assert response.status_code == 200, place
+            forecast = response.json()
+            assert forecast["step_hours"] == 6
+            assert len(forecast["steps"]) >= 3 * 4, place
+
+
 class TestSchemes:
     def test_every_scheme_with_every_outcome(self, app):
         body = get(app, "/api/schemes").json()

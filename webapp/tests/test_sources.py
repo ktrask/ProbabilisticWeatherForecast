@@ -185,6 +185,50 @@ class TestOpenMeteoFailures:
         assert d2.probe(inside) == inside
         assert (d2.probe(REYKJAVIK).lat, d2.probe(REYKJAVIK).lon) == pytest.approx((50.62, 8.19))
 
+    def test_too_many_requests_is_asked_once_more(self, monkeypatch):
+        monkeypatch.setattr(open_meteo, "RETRY_AFTER_S", 0)
+        answers = [httpx.Response(429, json={"error": True, "reason": "Too many concurrent requests"}),
+                   httpx.Response(200, content=RAW)]
+        client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: answers.pop(0)))
+        result = run(OpenMeteoEnsemble(client=client).fetch(REYKJAVIK, VARIABLES))
+        assert result.members["precipitation"].shape[0] > 0
+        assert answers == []
+
+    def test_but_only_once(self, monkeypatch):
+        monkeypatch.setattr(open_meteo, "RETRY_AFTER_S", 0)
+        seen = []
+        client = serving(content=b'{"error": true, "reason": "Too many concurrent requests"}', status=429, seen=seen)
+        with pytest.raises(SourceError, match="429: Too many concurrent requests"):
+            run(OpenMeteoEnsemble(client=client).fetch(REYKJAVIK, VARIABLES))
+        assert len(seen) == 2
+
+    def test_other_refusals_are_not_repeated(self):
+        seen = []
+        client = serving(content=b'{"error": true, "reason": "Latitude must be in range"}', status=400, seen=seen)
+        with pytest.raises(SourceError):
+            run(OpenMeteoEnsemble(client=client).fetch(REYKJAVIK, VARIABLES))
+        assert len(seen) == 1
+
+    def test_at_most_a_few_requests_at_once(self):
+        """However many forecasts are asked for together - a start page's cards."""
+        flying = peak = 0
+
+        async def handler(request):
+            nonlocal flying, peak
+            flying += 1
+            peak = max(peak, flying)
+            await asyncio.sleep(0.01)
+            flying -= 1
+            return httpx.Response(200, content=RAW)
+
+        source = OpenMeteoEnsemble(client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+
+        async def many():
+            return await asyncio.gather(*(source.fetch(REYKJAVIK, VARIABLES) for _ in range(10)))
+
+        assert len(run(many())) == 10
+        assert peak == open_meteo.MAX_CONCURRENT
+
     def test_truncated_response(self):
         with pytest.raises(SourceError, match="truncated"):
             list(messages(RAW[:1000]))

@@ -1,12 +1,13 @@
 import { type RefObject, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { type Forecast, type Product, type Schemes, ApiError } from "./api/client";
-import { useForecast, useProducts, useSchemes } from "./api/queries";
+import { useExamples, useForecast, useProducts, useSchemes } from "./api/queries";
 import { useI18n } from "./i18n";
 import { Legend } from "./legend/Legend";
 import { daysAvailable, visibleWindow } from "./meteogram/layout";
 import { Meteogram } from "./meteogram/Meteogram";
 import { SearchBox } from "./search/SearchBox";
+import { Examples, type Selected } from "./start/Examples";
 import { automaticChoice, covers, offered, stepFor } from "./state/products";
 import { type Layout, type Navigate, type ViewState, useUrlState } from "./state/urlState";
 
@@ -44,6 +45,11 @@ export function App() {
   );
   const key = query && auto ? { ...query, days: null, expected } : query;
   const forecast = useForecast(query, key);
+  const select = (place: { lat: number; lon: number; name: string | null }) => {
+    // A regional model chosen for the last place may not reach the new one.
+    const chosen = products.data?.products.find((p) => p.id === state.product);
+    navigate(chosen && !covers(chosen, place.lat, place.lon) ? { ...place, product: null } : place);
+  };
 
   return (
     <div className="app">
@@ -52,17 +58,11 @@ export function App() {
           <h1>{i18n.t.title}</h1>
           <p>{i18n.t.tagline}</p>
         </div>
-        <SearchBox
-          onSelect={(place) => {
-            // A regional model chosen for the last place may not reach the new one.
-            const chosen = products.data?.products.find((p) => p.id === state.product);
-            navigate(chosen && !covers(chosen, place.lat, place.lon) ? { ...place, product: null } : place);
-          }}
-        />
+        <SearchBox onSelect={select} />
       </header>
       <main>
         {query === null ? (
-          <p className="intro">{i18n.t.intro}</p>
+          <StartPage onSelect={select} />
         ) : forecast.isPending || schemes.isPending ? (
           <p className="status" aria-busy="true">
             {i18n.t.loading}
@@ -91,6 +91,19 @@ export function App() {
         )}
       </main>
     </div>
+  );
+}
+
+/** No place yet: a hint at the search box, and places to try. */
+function StartPage({ onSelect }: { onSelect: (place: Selected) => void }) {
+  const i18n = useI18n();
+  const examples = useExamples(i18n.lang);
+  const any = (examples.data?.places.length ?? 0) > 0;
+  return (
+    <>
+      <p className={any ? "intro compact" : "intro"}>{any ? i18n.t.introExamples : i18n.t.intro}</p>
+      <Examples onSelect={onSelect} />
+    </>
   );
 }
 

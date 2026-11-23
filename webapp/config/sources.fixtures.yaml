@@ -117,3 +117,19 @@ products:
     grid_km: 2
     horizon_days: 5
     steps: [6, 1]
+
+# The start page's suggestions: the recorded places, as sources.yaml has them
+# for the live service.
+examples:
+  de:
+    - {name: Braunschweig, lat: 52.26, lon: 10.52}
+    - {name: Zermatt, lat: 46.02, lon: 7.75}
+    - {name: Reykjavík, lat: 64.15, lon: -21.94}
+    - {name: Singapur, lat: 1.35, lon: 103.82}
+    - {name: Alice Springs, lat: -23.7, lon: 133.88}
+  en:
+    - {name: Braunschweig, lat: 52.26, lon: 10.52}
+    - {name: Zermatt, lat: 46.02, lon: 7.75}
+    - {name: Reykjavík, lat: 64.15, lon: -21.94}
+    - {name: Singapore, lat: 1.35, lon: 103.82}
+    - {name: Alice Springs, lat: -23.7, lon: 133.88}

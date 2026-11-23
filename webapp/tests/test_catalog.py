@@ -98,6 +98,44 @@ class TestShippedConfigs:
         assert f"sources.yaml:{ENSEMBLE_LINE}: products.main.ensemble: no source 'nowhere'" in capsys.readouterr().err
 
 
+class TestExamples:
+    """The start page's suggested places: each must get a forecast from the
+    default product, or its card would be a 404."""
+
+    EXAMPLES = "examples:\n  de:\n    - {name: Braunschweig, lat: 52.26, lon: 10.52}\n"
+
+    def test_per_language_in_order(self, tmp_path, schemes):
+        text = BASE + self.EXAMPLES + "  en:\n    - {name: Singapore, lat: 1.35, lon: 103.82}\n"
+        catalog = load(write(tmp_path, text), schemes)
+        assert [e.name for e in catalog.examples["de"]] == ["Braunschweig"]
+        assert (catalog.examples["en"][0].lat, catalog.examples["en"][0].lon) == (1.35, 103.82)
+
+    def test_optional(self, tmp_path, schemes):
+        assert load(write(tmp_path, BASE), schemes).examples == {}
+
+    def test_only_languages_the_page_speaks(self, tmp_path, schemes):
+        one(broken(tmp_path, schemes, "  de:\n", "  fr:\n", BASE + self.EXAMPLES), "Input should be 'de' or 'en'")
+
+    def test_coordinates_on_the_globe(self, tmp_path, schemes):
+        one(broken(tmp_path, schemes, "lat: 52.26", "lat: 152.26", BASE + self.EXAMPLES), "less than or equal to 90")
+
+    def test_far_from_every_recording(self, tmp_path, schemes):
+        issue = one(broken(tmp_path, schemes, "lon: 10.52", "lon: 30.52", BASE + self.EXAMPLES), "Braunschweig: no fixture")
+        assert issue.where == "examples.de[0]"
+        assert issue.line == BASE.count("\n") + 3
+
+    def test_outside_the_default_products_area(self, tmp_path, schemes):
+        regional = BASE.replace(f"    directory: {FIXTURE_DIR}\n",
+                                f"    directory: {FIXTURE_DIR}\n    area: {{south: 40, north: 50, west: 0, east: 20}}\n")
+        one(broken(tmp_path, schemes, "", "", regional + self.EXAMPLES), "outside the area of main")
+
+    def test_shipped_configs_suggest_places_in_both_languages(self, schemes):
+        for path in (DEFAULT_SOURCES, DEFAULT_SOURCES.parent / "sources.fixtures.yaml"):
+            catalog = load(path, schemes)
+            assert set(catalog.examples) == {"de", "en"}
+            assert all(len(places) >= 4 for places in catalog.examples.values())
+
+
 class TestProducts:
     def test_base(self, tmp_path, schemes):
         catalog = load(write(tmp_path, BASE), schemes)
